@@ -26,10 +26,11 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     # Ensure missing columns are migrated in SQLite
     if DATABASE_URL.startswith("sqlite"):
-        try:
-            with engine.connect() as conn:
-                from sqlalchemy import text
-                conn.execute(text("ALTER TABLE app_profiles ADD COLUMN feature_breakdown TEXT"))
-                conn.commit()
-        except Exception:
-            pass
+        with engine.connect() as conn:
+            from sqlalchemy import text
+            for col in ["feature_breakdown", "local_path", "launch_command", "live_url"]:
+                try:
+                    conn.execute(text(f"ALTER TABLE app_profiles ADD COLUMN {col} TEXT"))
+                    conn.commit()
+                except Exception:
+                    pass

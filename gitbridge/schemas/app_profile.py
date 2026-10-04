@@ -64,6 +64,9 @@ class AppProfileBase(BaseModel):
     github_url: Optional[str] = Field(None, description="GitHub repository URL")
     github_repo_name: Optional[str] = Field(None, description="GitHub repo full name owner/repo")
     ai_studio_link: Optional[str] = Field(None, description="AI Studio prompt/app link")
+    local_path: Optional[str] = Field(None, description="Local folder path on disk")
+    launch_command: Optional[str] = Field(None, description="Startup CLI command (e.g., npm start, python main.py)")
+    live_url: Optional[str] = Field(None, description="Live web application URL")
     tech_stack: List[str] = Field(default_factory=list, description="Frameworks, languages, dependencies")
     system_instructions: Optional[str] = Field(None, description="Core AI Studio system instructions / prompt")
     feature_breakdown: Optional[str] = Field(None, description="AI-analyzed feature breakdown & architectural report")
@@ -80,6 +83,9 @@ class AppProfileUpdate(BaseModel):
     github_url: Optional[str] = None
     github_repo_name: Optional[str] = None
     ai_studio_link: Optional[str] = None
+    local_path: Optional[str] = None
+    launch_command: Optional[str] = None
+    live_url: Optional[str] = None
     tech_stack: Optional[List[str]] = None
     system_instructions: Optional[str] = None
     feature_breakdown: Optional[str] = None

@@ -365,5 +365,23 @@ def analyze_app_cmd(slug: str):
     console.print(Panel(breakdown, title=f"🔍 Feature Breakdown: {app_obj.name}", border_style="green"))
     db.close()
 
+@app.command("launch")
+def launch_app_cmd(slug: str):
+    """Launch an app in browser or start its local process."""
+    db = get_db()
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+    if not app_obj:
+        console.print(f"[bold red]App '{slug}' not found.[/bold red]")
+        db.close()
+        return
+
+    from gitbridge.services.launcher_service import AppLauncherService
+    result = AppLauncherService.launch_app(app_obj)
+    if result["launched"]:
+        console.print(f"[bold green][OK] {result['message']}[/bold green]")
+    else:
+        console.print(f"[yellow]{result['message']}[/yellow]")
+    db.close()
+
 if __name__ == "__main__":
     app()

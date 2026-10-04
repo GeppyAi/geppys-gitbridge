@@ -169,6 +169,30 @@ def analyze_app_endpoint(slug: str, db: Session = Depends(get_db)):
         "feature_breakdown": breakdown
     }
 
+@app.post("/api/apps/{slug}/launch")
+def launch_app_endpoint(slug: str, db: Session = Depends(get_db)):
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+    if not app_obj:
+        raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
+
+    from gitbridge.services.launcher_service import AppLauncherService
+    result = AppLauncherService.launch_app(app_obj)
+    return result
+
+@app.post("/api/apps/{slug}/open-folder")
+def open_app_folder_endpoint(slug: str, db: Session = Depends(get_db)):
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+    if not app_obj:
+        raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
+
+    from gitbridge.services.launcher_service import AppLauncherService
+    local_path = AppLauncherService.detect_local_path(app_obj)
+    if not local_path:
+        raise HTTPException(status_code=404, detail=f"Local path for '{slug}' not found on disk")
+
+    success = AppLauncherService.open_local_folder(local_path)
+    return {"slug": slug, "local_path": local_path, "opened": success}
+
 @app.post("/api/apps/{slug}/assets", response_model=MediaAssetResponse)
 def add_media_asset(slug: str, asset_in: MediaAssetBase, db: Session = Depends(get_db)):
     app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
