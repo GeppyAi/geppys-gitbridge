@@ -24,3 +24,12 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # Ensure missing columns are migrated in SQLite
+    if DATABASE_URL.startswith("sqlite"):
+        try:
+            with engine.connect() as conn:
+                from sqlalchemy import text
+                conn.execute(text("ALTER TABLE app_profiles ADD COLUMN feature_breakdown TEXT"))
+                conn.commit()
+        except Exception:
+            pass

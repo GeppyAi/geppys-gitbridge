@@ -18,6 +18,7 @@ class AppProfileModel(Base):
     ai_studio_link = Column(String, nullable=True)
     _tech_stack = Column("tech_stack", Text, default="[]")
     system_instructions = Column(Text, nullable=True)
+    feature_breakdown = Column(Text, nullable=True)
     _tags = Column("tags", Text, default="[]")
     version = Column(String, default="0.1.0")
     created_at = Column(DateTime, default=datetime.utcnow)

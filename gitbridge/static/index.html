@@ -243,9 +243,26 @@
           <h3 class="text-sm font-semibold text-slate-300 mb-2">Core System Instructions / Prompts</h3>
           <pre id="detail-system-instructions" class="bg-slate-950 p-4 rounded-xl text-xs text-slate-300 border border-slate-800 whitespace-pre-wrap font-mono"></pre>
         </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-sm font-semibold text-slate-300">Feature Breakdown & AI Analysis</h3>
+            <button onclick="triggerAppAnalysis()" id="btn-analyze-modal" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg transition flex items-center space-x-1.5">
+              <i class="fa-solid fa-magnifying-glass-chart"></i>
+              <span>Analyze App</span>
+            </button>
+          </div>
+          <div id="detail-feature-breakdown" class="bg-slate-950 p-4 rounded-xl text-xs text-slate-300 border border-slate-800 prose prose-invert max-w-none">
+            <span class="text-slate-500">No feature breakdown generated yet. Click "Analyze App" to perform architectural analysis.</span>
+          </div>
+        </div>
       </div>
 
       <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex justify-end space-x-3">
+        <button onclick="triggerAppAnalysis()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition flex items-center space-x-2">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Analyze App</span>
+        </button>
         <button onclick="generateDocForApp()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg border border-slate-700">Generate Manual Template</button>
         <button onclick="closeAppModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg">Close</button>
       </div>
@@ -487,7 +504,29 @@
 
       document.getElementById('detail-system-instructions').innerText = app.system_instructions || 'None stored for this application.';
 
+      const breakdownEl = document.getElementById('detail-feature-breakdown');
+      if (app.feature_breakdown) {
+        breakdownEl.innerHTML = marked.parse(app.feature_breakdown);
+      } else {
+        breakdownEl.innerHTML = '<span class="text-slate-500">No feature breakdown generated yet. Click "Analyze App" to perform architectural analysis.</span>';
+      }
+
       document.getElementById('modal-app-detail').classList.remove('hidden');
+    }
+
+    async function triggerAppAnalysis() {
+      if (!currentAppSlug) return;
+      const breakdownEl = document.getElementById('detail-feature-breakdown');
+      breakdownEl.innerHTML = '<div class="flex items-center space-x-2 text-indigo-400 py-4"><i class="fa-solid fa-spinner animate-spin text-lg"></i><span>Performing AI feature & architectural analysis...</span></div>';
+
+      try {
+        const res = await fetch(`/api/apps/${currentAppSlug}/analyze`, { method: 'POST' });
+        const result = await res.json();
+        breakdownEl.innerHTML = marked.parse(result.feature_breakdown);
+        fetchCatalog();
+      } catch (err) {
+        breakdownEl.innerHTML = `<span class="text-rose-400">Analysis failed: ${err}</span>`;
+      }
     }
 
     function closeAppModal() {

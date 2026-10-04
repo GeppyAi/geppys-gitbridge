@@ -66,6 +66,7 @@ class AppProfileBase(BaseModel):
     ai_studio_link: Optional[str] = Field(None, description="AI Studio prompt/app link")
     tech_stack: List[str] = Field(default_factory=list, description="Frameworks, languages, dependencies")
     system_instructions: Optional[str] = Field(None, description="Core AI Studio system instructions / prompt")
+    feature_breakdown: Optional[str] = Field(None, description="AI-analyzed feature breakdown & architectural report")
     tags: List[str] = Field(default_factory=list, description="Categorization tags")
     version: str = Field("0.1.0", description="App version")
 
@@ -81,6 +82,7 @@ class AppProfileUpdate(BaseModel):
     ai_studio_link: Optional[str] = None
     tech_stack: Optional[List[str]] = None
     system_instructions: Optional[str] = None
+    feature_breakdown: Optional[str] = None
     tags: Optional[List[str]] = None
     version: Optional[str] = None
 

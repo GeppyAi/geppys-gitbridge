@@ -344,5 +344,26 @@ Refer to GitBridge Media Asset Library for high-res screenshots, banners, and lo
     console.print(f"[bold green][OK] User Manual template generated and saved to: {file_path}[/bold green]")
     db.close()
 
+@app.command("analyze")
+def analyze_app_cmd(slug: str):
+    """Perform AI feature analysis & architectural breakdown for an app."""
+    db = get_db()
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+    if not app_obj:
+        console.print(f"[bold red]App '{slug}' not found.[/bold red]")
+        db.close()
+        return
+
+    console.print(f"[cyan]Analyzing application '{app_obj.name}' ({slug})...[/cyan]")
+    from gitbridge.services.analyzer_service import AppAnalyzerService
+    analyzer = AppAnalyzerService()
+    breakdown = analyzer.analyze_app(app_obj)
+
+    app_obj.feature_breakdown = breakdown
+    db.commit()
+
+    console.print(Panel(breakdown, title=f"🔍 Feature Breakdown: {app_obj.name}", border_style="green"))
+    db.close()
+
 if __name__ == "__main__":
     app()

@@ -149,6 +149,26 @@ def update_app(slug: str, app_in: AppProfileUpdate, db: Session = Depends(get_db
     db.refresh(app_obj)
     return app_obj
 
+@app.post("/api/apps/{slug}/analyze")
+def analyze_app_endpoint(slug: str, db: Session = Depends(get_db)):
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+    if not app_obj:
+        raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
+
+    from gitbridge.services.analyzer_service import AppAnalyzerService
+    analyzer = AppAnalyzerService()
+    breakdown = analyzer.analyze_app(app_obj)
+    
+    app_obj.feature_breakdown = breakdown
+    db.commit()
+    db.refresh(app_obj)
+
+    return {
+        "slug": slug,
+        "name": app_obj.name,
+        "feature_breakdown": breakdown
+    }
+
 @app.post("/api/apps/{slug}/assets", response_model=MediaAssetResponse)
 def add_media_asset(slug: str, asset_in: MediaAssetBase, db: Session = Depends(get_db)):
     app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
