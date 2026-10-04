@@ -13,13 +13,16 @@ class GitHubService:
             self.headers["Authorization"] = f"token {self.token}"
 
     def fetch_user_repos(self, username: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Fetch all public/accessible repositories across all pages for a user or authenticated user."""
+        """Fetch all public & private repositories across all pages for authenticated user or target username."""
         target_username = username or os.getenv("GITHUB_USERNAME")
         all_repos = []
         page = 1
         
         while True:
-            if target_username:
+            # If authenticated with token, use /user/repos to include private repos
+            if self.token and self.token != "your_github_personal_access_token_here":
+                url = f"https://api.github.com/user/repos?per_page=100&page={page}&sort=updated&affiliation=owner,collaborator,organization_member"
+            elif target_username:
                 url = f"https://api.github.com/users/{target_username}/repos?per_page=100&page={page}&sort=updated"
             else:
                 url = f"https://api.github.com/user/repos?per_page=100&page={page}&sort=updated"
