@@ -27,9 +27,20 @@ class GitHubService:
             response.raise_for_status()
             return []
 
+    @staticmethod
+    def parse_repo_identifier(repo_input: str) -> str:
+        """Extract 'owner/repo' from GitHub URL or 'owner/repo' string."""
+        clean = repo_input.strip().rstrip("/")
+        if "github.com/" in clean:
+            parts = clean.split("github.com/")[-1].split("/")
+            if len(parts) >= 2:
+                return f"{parts[0]}/{parts[1]}"
+        return clean
+
     def fetch_repo_details(self, repo_full_name: str) -> Dict[str, Any]:
-        """Fetch detailed info for a single repo (e.g. 'owner/repo')."""
-        url = f"https://api.github.com/repos/{repo_full_name}"
+        """Fetch detailed info for a single repo (e.g. 'owner/repo' or GitHub URL)."""
+        clean_name = self.parse_repo_identifier(repo_full_name)
+        url = f"https://api.github.com/repos/{clean_name}"
         response = requests.get(url, headers=self.headers)
         if response.status_code == 200:
             return response.json()

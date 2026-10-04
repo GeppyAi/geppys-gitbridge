@@ -140,19 +140,28 @@ def add_app(
     db.close()
 
 @app.command("sync-github")
-def sync_github(username: Optional[str] = typer.Option(None, help="GitHub username to sync repos from")):
-    """Sync repositories from GitHub into GitBridge catalog."""
-    console.print("[cyan]Fetching GitHub repositories...[/cyan]")
+def sync_github(
+    username: Optional[str] = typer.Option(None, help="GitHub username to sync repos from"),
+    repo: Optional[str] = typer.Option(None, help="Specific GitHub repository URL or owner/repo (e.g. 'octocat/Hello-World')")
+):
+    """Sync repository or repositories from GitHub into GitBridge catalog."""
     gh_service = GitHubService()
     db = get_db()
     
     try:
-        repos = gh_service.fetch_user_repos(username)
+        if repo:
+            console.print(f"[cyan]Fetching repository '{repo}'...[/cyan]")
+            repo_data = gh_service.fetch_repo_details(repo)
+            repos = [repo_data] if repo_data else []
+        else:
+            console.print("[cyan]Fetching GitHub repositories...[/cyan]")
+            repos = gh_service.fetch_user_repos(username)
+
         added_count = 0
         updated_count = 0
 
-        for repo in repos:
-            parsed = gh_service.parse_repo_to_profile_dict(repo)
+        for r in repos:
+            parsed = gh_service.parse_repo_to_profile_dict(r)
             slug = parsed["slug"]
             existing = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
 
