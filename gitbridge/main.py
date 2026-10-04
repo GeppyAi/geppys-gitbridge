@@ -49,6 +49,48 @@ def read_root():
         "docs_url": "/docs"
     }
 
+@app.get("/api/settings")
+def get_settings():
+    token = os.getenv("GITHUB_TOKEN", "")
+    username = os.getenv("GITHUB_USERNAME", "")
+    # Mask token for privacy if present
+    masked_token = f"{token[:4]}...{token[-4:]}" if len(token) > 8 else ("configured" if token else "")
+    return {
+        "github_username": username,
+        "github_token_configured": bool(token),
+        "github_token_masked": masked_token
+    }
+
+@app.post("/api/settings")
+def save_settings(settings: dict):
+    token = settings.get("github_token", "").strip()
+    username = settings.get("github_username", "").strip()
+    
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if not os.path.exists(env_path):
+        env_path = ".env"
+
+    env_data = {}
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if "=" in line and not line.startswith("#"):
+                    k, v = line.strip().split("=", 1)
+                    env_data[k] = v
+
+    if token:
+        env_data["GITHUB_TOKEN"] = token
+        os.environ["GITHUB_TOKEN"] = token
+    if username:
+        env_data["GITHUB_USERNAME"] = username
+        os.environ["GITHUB_USERNAME"] = username
+
+    with open(env_path, "w", encoding="utf-8") as f:
+        for k, v in env_data.items():
+            f.write(f"{k}={v}\n")
+
+    return {"message": "Settings updated successfully", "github_token_configured": bool(os.getenv("GITHUB_TOKEN"))}
+
 @app.get("/api/apps", response_model=List[AppProfileResponse])
 def list_apps(status: Optional[AppStatus] = None, db: Session = Depends(get_db)):
     query = db.query(AppProfileModel)
@@ -148,9 +190,13 @@ def add_doc_manual(slug: str, doc_in: DocManualBase, db: Session = Depends(get_d
     return manual_obj
 
 @app.post("/api/sync/github")
-def sync_github_api(username: Optional[str] = None, db: Session = Depends(get_db)):
+def sync_github_api(username: Optional[str] = None, repo: Optional[str] = None, db: Session = Depends(get_db)):
     gh_service = GitHubService()
-    repos = gh_service.fetch_user_repos(username)
+    if repo:
+        repo_data = gh_service.fetch_repo_details(repo)
+        repos = [repo_data] if repo_data else []
+    else:
+        repos = gh_service.fetch_user_repos(username)
     added = 0
     updated = 0
 

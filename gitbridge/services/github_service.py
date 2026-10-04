@@ -13,19 +13,31 @@ class GitHubService:
             self.headers["Authorization"] = f"token {self.token}"
 
     def fetch_user_repos(self, username: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Fetch all public/accessible repositories for a user or authenticated user."""
+        """Fetch all public/accessible repositories across all pages for a user or authenticated user."""
         target_username = username or os.getenv("GITHUB_USERNAME")
-        if target_username:
-            url = f"https://api.github.com/users/{target_username}/repos?per_page=100&sort=updated"
-        else:
-            url = "https://api.github.com/user/repos?per_page=100&sort=updated"
+        all_repos = []
+        page = 1
         
-        response = requests.get(url, headers=self.headers)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            response.raise_for_status()
-            return []
+        while True:
+            if target_username:
+                url = f"https://api.github.com/users/{target_username}/repos?per_page=100&page={page}&sort=updated"
+            else:
+                url = f"https://api.github.com/user/repos?per_page=100&page={page}&sort=updated"
+            
+            response = requests.get(url, headers=self.headers)
+            if response.status_code == 200:
+                data = response.json()
+                if not data:
+                    break
+                all_repos.extend(data)
+                if len(data) < 100:
+                    break
+                page += 1
+            else:
+                if page == 1:
+                    response.raise_for_status()
+                break
+        return all_repos
 
     @staticmethod
     def parse_repo_identifier(repo_input: str) -> str:
