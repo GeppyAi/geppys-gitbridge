@@ -176,8 +176,25 @@ def launch_app_endpoint(slug: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
 
     from gitbridge.services.launcher_service import AppLauncherService
-    result = AppLauncherService.launch_app(app_obj)
+    result = AppLauncherService.launch_localhost(app_obj)
+    
+    # Save detected live_url to database profile if launched
+    if result.get("launched") and result.get("target"):
+        app_obj.live_url = result["target"]
+        db.commit()
+
     return result
+
+@app.get("/api/servers")
+def get_active_servers():
+    from gitbridge.services.launcher_service import AppLauncherService
+    return AppLauncherService.list_active_servers()
+
+@app.delete("/api/servers/{slug}")
+def stop_active_server(slug: str):
+    from gitbridge.services.launcher_service import AppLauncherService
+    stopped = AppLauncherService.stop_localhost_server(slug)
+    return {"slug": slug, "stopped": stopped}
 
 @app.post("/api/apps/{slug}/open-folder")
 def open_app_folder_endpoint(slug: str, db: Session = Depends(get_db)):
