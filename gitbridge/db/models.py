@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from gitbridge.db.database import Base
 from gitbridge.schemas.app_profile import AppStatus, AssetType
@@ -13,16 +13,23 @@ class AppProfileModel(Base):
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     status = Column(SQLEnum(AppStatus), default=AppStatus.IN_DEVELOPMENT)
+    is_hidden = Column(Boolean, default=False, nullable=False)
     github_url = Column(String, nullable=True)
     github_repo_name = Column(String, nullable=True)
     ai_studio_link = Column(String, nullable=True)
     local_path = Column(String, nullable=True)
     launch_command = Column(String, nullable=True)
     live_url = Column(String, nullable=True)
+    icon_url = Column(String, nullable=True)
     _tech_stack = Column("tech_stack", Text, default="[]")
     system_instructions = Column(Text, nullable=True)
     feature_breakdown = Column(Text, nullable=True)
+    priority_tier = Column(String, default="Tier 2 (Core Infrastructure)")
+    health_report_md = Column(Text, nullable=True)
+    last_commit_at = Column(DateTime, nullable=True)
+    open_issues_count = Column(Integer, default=0)
     _tags = Column("tags", Text, default="[]")
+    _backlog = Column("backlog", Text, default="[]")
     version = Column(String, default="0.1.0")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -45,6 +52,14 @@ class AppProfileModel(Base):
     @tags.setter
     def tags(self, value):
         self._tags = json.dumps(value or [])
+
+    @property
+    def backlog(self):
+        return json.loads(self._backlog or "[]")
+
+    @backlog.setter
+    def backlog(self, value):
+        self._backlog = json.dumps(value or [])
 
 class MediaAssetModel(Base):
     __tablename__ = "media_assets"
@@ -83,3 +98,60 @@ class DocManualModel(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     app = relationship("AppProfileModel", back_populates="manuals")
+
+class ContextileModel(Base):
+    __tablename__ = "contextiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False) # e.g. "captain-geppy" for @captain-geppy
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    archetype = Column(String, default="character", nullable=False) # "character", "icon_set", "ui_component", "brand_asset", "environment", "general"
+    reference_type = Column(String, default="text") # "image", "text", "hybrid"
+    reference_text = Column(Text, nullable=True)
+    reference_image_url = Column(String, nullable=True) # Fallback / primary reference image URL
+    primary_image_url = Column(String, nullable=True) # Main reference image for character facial/outfit baseline or key icon standard
+    _gallery_images = Column("gallery_images", Text, default="[]") # JSON list of image URLs: ["/api/sot/reference-file/...", ...]
+    _modifiers = Column("modifiers", Text, default="{}") # JSON dict of active modifiers
+    _tags = Column("tags", Text, default="[]")
+    _variables = Column("variables", Text, default="[]") # Dynamic template variables: [{"key": "team_name", "label": "Team Name", "value": "...", "default_value": "..."}]
+    assembled_prompt = Column(Text, nullable=True)
+    app_slug = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def gallery_images(self):
+        return json.loads(self._gallery_images or "[]")
+
+    @gallery_images.setter
+    def gallery_images(self, value):
+        self._gallery_images = json.dumps(value or [])
+
+    @property
+    def modifiers(self):
+        return json.loads(self._modifiers or "{}")
+
+    @modifiers.setter
+    def modifiers(self, value):
+        self._modifiers = json.dumps(value or {})
+
+    @property
+    def tags(self):
+        return json.loads(self._tags or "[]")
+
+    @tags.setter
+    def tags(self, value):
+        self._tags = json.dumps(value or [])
+
+    @property
+    def variables(self):
+        try:
+            return json.loads(self._variables or "[]")
+        except Exception:
+            return []
+
+    @variables.setter
+    def variables(self, value):
+        self._variables = json.dumps(value or [])
+

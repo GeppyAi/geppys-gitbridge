@@ -1,0 +1,57 @@
+[
+  {
+    "id": "series_1791912068_a22124",
+    "title": "Captain Geppy Emotes Test",
+    "created_at": "2026-10-13 13:21:08",
+    "anchor_title": "Captain Geppy 70s Card",
+    "anchor_image_url": "/api/asset-lab/file/asset_1791911039_50f13f.png",
+    "anchor_prompt": "Authentic 1970s Topps-style vintage baseball card featuring Captain Geppy",
+    "target_format": "trading_card",
+    "aspect_ratio": "2.5:3.5",
+    "output_contextile": null,
+    "consistency_level": "high",
+    "app_slug": null,
+    "item_count": 3,
+    "items": [
+      {
+        "item_id": "series_1791912068_a22124_item_1",
+        "item_num": 1,
+        "title": "Happy & Cheering",
+        "difference": "Wide joyful beaming smile, thumbs-up gesture, golden star sparkles, radiant sunny warm aura",
+        "accent_color": "#F59E0B",
+        "filename": "var_1_c19e.png",
+        "image_url": "/api/asset-lab/series/series_1791912068_a22124/file/var_1_c19e.png",
+        "compiled_prompt": "Authentic 1970s Topps-style vintage baseball card featuring Captain Geppy | [SERIES VARIATION #1 - HAPPY & CHEERING]: Wide joyful beaming smile, thumbs-up gesture, golden star sparkles, radiant sunny warm aura. Accent tone: #F59E0B. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+        "finished_png_url": null,
+        "finished_pdf_url": null
+      },
+      {
+        "item_id": "series_1791912068_a22124_item_2",
+        "item_num": 2,
+        "title": "Pondering & Deep Thought",
+        "difference": "Hand resting under chin, focused curious expression, rotating cyan holographic question ring, analytical gaze",
+        "accent_color": "#06B6D4",
+        "filename": "var_2_bb92.png",
+        "image_url": "/api/asset-lab/series/series_1791912068_a22124/file/var_2_bb92.png",
+        "compiled_prompt": "Authentic 1970s Topps-style vintage baseball card featuring Captain Geppy | [SERIES VARIATION #2 - PONDERING & DEEP THOUGHT]: Hand resting under chin, focused curious expression, rotating cyan holographic question ring, analytical gaze. Accent tone: #06B6D4. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+        "finished_png_url": null,
+        "finished_pdf_url": null
+      },
+      {
+        "item_id": "series_1791912068_a22124_item_3",
+        "item_num": 3,
+        "title": "Hyperspace Focused",
+        "difference": "High-tech flight goggles lowered, wind-swept hair, intense determined gaze, warp-speed stars streaking in visor reflection",
+        "accent_color": "#6366F1",
+        "filename": "var_3_a4f6.png",
+        "image_url": "/api/asset-lab/series/series_1791912068_a22124/file/var_3_a4f6.png",
+        "compiled_prompt": "Authentic 1970s Topps-style vintage baseball card featuring Captain Geppy | [SERIES VARIATION #3 - HYPERSPACE FOCUSED]: High-tech flight goggles lowered, wind-swept hair, intense determined gaze, warp-speed stars streaking in visor reflection. Accent tone: #6366F1. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+        "finished_png_url": null,
+        "finished_pdf_url": null
+      }
+    ],
+    "contact_sheet_url": "/api/asset-lab/series/series_1791912068_a22124/file/contact_sheet_series_1791912068_a22124.png",
+    "zip_url": "/api/asset-lab/series/series_1791912068_a22124/download-zip",
+    "zip_filename": "series_1791912068_a22124_collection.zip"
+  }
+]

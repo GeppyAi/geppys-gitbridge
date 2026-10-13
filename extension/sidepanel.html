@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Geppy's Galactic - AI Live Designer & SOT Engine</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="brand-row">
+      <div class="brand-title">
+        <i class="fa-solid fa-rocket text-indigo-400" style="color: #818cf8;"></i>
+        <span>Geppy's <span class="accent">Galactic</span></span>
+      </div>
+      <div id="connection-status" class="status-indicator">
+        <span class="status-dot"></span>
+        <span id="connection-text">Connecting...</span>
+      </div>
+    </div>
+
+    <!-- Active App Selector -->
+    <div class="app-select-row">
+      <select id="app-select" class="app-dropdown" title="Select or auto-detect App Profile">
+        <option value="">Detecting active app...</option>
+      </select>
+      <span id="app-live-badge" class="app-badge-live" style="display: none;">Live</span>
+      <button id="btn-launch-app" class="btn-launch-app" title="Launch app on localhost server and open in browser tab">
+        <i class="fa-solid fa-rocket"></i>
+        <span>Launch</span>
+      </button>
+      <button id="btn-detect-tab" class="btn-icon-subtle" title="Auto-detect app from current browser tab">
+        <i class="fa-solid fa-crosshairs"></i>
+      </button>
+    </div>
+
+    <!-- Git Sync & Change Tracking Bar -->
+    <div class="git-sync-bar" id="git-sync-bar">
+      <div class="git-status-clickable" id="btn-toggle-commit-drawer" title="Click to view changed files and commit to GitHub">
+        <i class="fa-brands fa-git-alt git-icon"></i>
+        <span id="git-branch-text" class="git-branch-pill">main</span>
+        <span id="git-status-badge" class="git-badge clean">
+          <i class="fa-solid fa-check"></i> <span id="git-status-label">Clean</span>
+        </span>
+      </div>
+      <button id="btn-header-commit" class="btn-git-sync" title="Commit and push changes to PC & GitHub">
+        <i class="fa-brands fa-github"></i>
+        <span>Commit &amp; Push</span>
+      </button>
+    </div>
+
+    <!-- Mode Switcher -->
+    <div class="mode-switcher">
+      <button id="btn-mode-brainstorm" class="mode-btn active">
+        <i class="fa-regular fa-lightbulb"></i>
+        <span>Brainstorm</span>
+      </button>
+      <button id="btn-mode-designer" class="mode-btn">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <span>Live Designer</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- View 1: Brainstorm Mode -->
+  <main id="view-brainstorm" class="view-container">
+    <!-- SOT Contextiles Quick-Bar -->
+    <div class="sot-quickbar">
+      <span class="sot-label"><i class="fa-solid fa-layer-group"></i> SOT @:</span>
+      <div id="sot-contextile-chips" class="sot-chips-container">
+        <span style="color: #64748b; font-size: 11px;">Loading contextiles...</span>
+      </div>
+    </div>
+
+    <!-- Quick Ideation Chips -->
+    <div class="brainstorm-pills">
+      <button class="pill-btn" data-prompt="Propose a modern visual makeover with glassmorphism, glowing accents, and galactic aesthetic.">
+        ✨ Visual Makeover
+      </button>
+      <button class="pill-btn" data-prompt="Brainstorm 5 innovative, high-impact features we could build next for this app.">
+        🚀 5 Feature Ideas
+      </button>
+      <button class="pill-btn" data-prompt="Audit this app's UX flow and suggest micro-interactions and usability polish.">
+        🎯 UX Flow Audit
+      </button>
+      <button class="pill-btn" data-prompt="Recommend an upgraded color palette and dark/light mode tokens.">
+        🎨 Modern Theme
+      </button>
+      <button class="pill-btn git-pill" data-prompt="Audit all modified files and recent changes in our session. Propose a clean Git commit message and confirm if we are ready to push to GitHub.">
+        🐙 Git Changes &amp; Commit
+      </button>
+    </div>
+
+    <!-- Chat History -->
+    <div id="chat-history" class="chat-history">
+      <div class="chat-bubble ai">
+        <div class="captain-badge">
+          <span class="captain-avatar">👨‍🚀</span>
+          <div>
+            <strong style="color: #818cf8;">Captain Geppy</strong>
+            <span class="captain-sub">Galactic Commander &amp; AI Architect</span>
+          </div>
+        </div>
+        <p>Greetings, Commander! Welcome aboard <strong>Geppy's Galactic</strong>.</p>
+        <p>I am Captain Geppy, your pilot through the infinite universe of apps that AI makes possible. I'll proactively propose cosmic feature upgrades, UX breakthroughs, and track our ideas backlog.</p>
+        <p>🛸 <strong>Source of Truth (SOT) Engine:</strong> Type <code>@contextile_name</code> (or click the chips above) to instantly anchor brainstorming and design generations in your saved Source of Truth!</p>
+      </div>
+    </div>
+
+    <!-- Brainstorm Tasks & Ideas Backlog Dock -->
+    <div id="backlog-drawer" class="backlog-drawer">
+      <div id="backlog-header" class="backlog-header">
+        <div style="display: flex; align-items: center;">
+          <i class="fa-solid fa-list-check" style="margin-right: 6px; color: #818cf8;"></i>
+          <span>Ideas & Tasks Backlog</span>
+          <span id="backlog-count" class="backlog-count-badge">0</span>
+        </div>
+        <div style="display: flex; gap: 4px;">
+          <button id="btn-add-custom-task" class="btn-icon-subtle" title="Add custom idea/task">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+          <button id="btn-toggle-backlog" class="btn-icon-subtle" title="Toggle backlog view">
+            <i class="fa-solid fa-chevron-up"></i>
+          </button>
+        </div>
+      </div>
+      <div id="backlog-list" class="backlog-list">
+        <div style="color: #64748b; font-size: 11px; text-align: center; padding: 12px 0;">
+          No brainstormed tasks yet. Chat with AI or click a prompt pill above!
+        </div>
+      </div>
+    </div>
+
+    <!-- Brainstorm Input Bar -->
+    <div class="input-bar">
+      <input type="text" id="brainstorm-input" class="input-box" placeholder="Brainstorm ideas, ask for UX upgrades, themes..." />
+      <button id="btn-send-brainstorm" class="btn-send">
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </div>
+  </main>
+
+  <!-- View 2: Live Designer Mode -->
+  <main id="view-designer" class="view-container hidden">
+    <!-- Proactive AI Suggestions Panel -->
+    <div class="proactive-suggestions-bar">
+      <div class="proactive-header">
+        <span><i class="fa-solid fa-sparkles" style="color: #38bdf8; margin-right: 4px;"></i> Proactive AI Design Suggestions</span>
+        <button id="btn-refresh-suggestions" class="btn-icon-subtle" title="Re-analyze active file and generate new design suggestions">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+      </div>
+      <div id="suggestions-carousel" class="suggestions-carousel">
+        <div style="color: #64748b; font-size: 11px; padding: 8px 0;">Analyzing file for design suggestions...</div>
+      </div>
+    </div>
+
+    <!-- Quick Backlog Drawer for Designer -->
+    <div id="designer-backlog-bar" style="background: #111827; border-bottom: 1px solid #334155; padding: 5px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+      <span style="color: #94a3b8;"><i class="fa-solid fa-list-check" style="color: #a5b4fc; margin-right: 4px;"></i> Brainstorm Backlog Quick-Insert:</span>
+      <select id="designer-task-picker" style="background: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; padding: 2px 6px; font-size: 10.5px; max-width: 170px;">
+        <option value="">Select idea to apply...</option>
+      </select>
+      <button id="btn-apply-backlog-task" class="btn-file-action primary" style="padding: 2px 7px; font-size: 10px;">
+        <i class="fa-solid fa-bolt"></i> Apply
+      </button>
+    </div>
+
+    <!-- File Selector & Actions -->
+    <div class="file-bar">
+      <select id="file-select" class="file-select" title="Choose file to edit">
+        <option value="">Loading files...</option>
+      </select>
+      <div class="file-actions">
+        <button id="btn-save-file" class="btn-file-action primary" title="Save changes directly to disk (Ctrl+S)">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>Save</span>
+          <span id="unsaved-indicator" class="unsaved-dot" style="display: none;"></span>
+        </button>
+        <button id="btn-reload-tab" class="btn-file-action" title="Reload active browser tab to see live result">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+        <button id="btn-revert-file" class="btn-file-action" title="Revert unsaved changes">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+        </button>
+        <button id="btn-designer-commit" class="btn-file-action git-commit-action" title="Review changes, commit, and push to GitHub">
+          <i class="fa-brands fa-github"></i>
+          <span id="designer-git-count">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Code Editor -->
+    <div class="editor-wrapper">
+      <textarea id="code-editor" class="code-editor" spellcheck="false" placeholder="Select a file to live edit..."></textarea>
+    </div>
+
+    <!-- AI Designer Copilot Prompt Bar -->
+    <div class="designer-prompt-bar">
+      <input type="text" id="designer-ai-input" class="input-box" placeholder="Ask AI Designer to modify this file (e.g. Add dark mode toggle)..." />
+      <button id="btn-apply-designer-ai" class="btn-send" style="background: linear-gradient(135deg, #6366f1, #06b6d4);">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <span>Apply</span>
+      </button>
+    </div>
+  </main>
+
+  <!-- Git Commit & Push Modal / Drawer -->
+  <div id="commit-modal" class="modal-overlay hidden">
+    <div class="modal-content commit-modal-content">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-brands fa-github" style="color: #818cf8; font-size: 16px;"></i>
+          <span>Save &amp; Commit to GitHub</span>
+        </div>
+        <button id="btn-close-commit-modal" class="btn-icon-subtle" title="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <!-- Dual Persistence Status Banner -->
+        <div class="persistence-banner">
+          <div class="persistence-col">
+            <div class="persistence-icon pc"><i class="fa-solid fa-desktop"></i></div>
+            <div class="persistence-info">
+              <span class="p-title">Computer Disk</span>
+              <span id="modal-pc-status" class="p-subtitle">Checking local files...</span>
+            </div>
+          </div>
+          <div class="persistence-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+          <div class="persistence-col">
+            <div class="persistence-icon gh"><i class="fa-brands fa-github"></i></div>
+            <div class="persistence-info">
+              <span class="p-title">GitHub Remote</span>
+              <span id="modal-gh-status" class="p-subtitle">Checking remote...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs: Changed Files vs Session Changelog -->
+        <div class="commit-tabs">
+          <button id="tab-changed-files" class="commit-tab-btn active">
+            <i class="fa-solid fa-file-code"></i>
+            <span>Changed Files (<span id="modal-changed-count">0</span>)</span>
+          </button>
+          <button id="tab-session-log" class="commit-tab-btn">
+            <i class="fa-solid fa-timeline"></i>
+            <span>Session Log (<span id="modal-session-log-count">0</span>)</span>
+          </button>
+        </div>
+
+        <!-- Tab Content 1: Changed Files List -->
+        <div id="panel-changed-files" class="commit-panel-tab">
+          <div id="modal-files-list" class="modal-files-list">
+            <div style="color: #64748b; font-size: 11px; text-align: center; padding: 14px 0;">
+              No uncommitted changes detected.
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab Content 2: Session Activity Log -->
+        <div id="panel-session-log" class="commit-panel-tab hidden">
+          <div id="modal-session-timeline" class="modal-session-timeline">
+            <div style="color: #64748b; font-size: 11px; text-align: center; padding: 14px 0;">
+              No session edits logged yet.
+            </div>
+          </div>
+        </div>
+
+        <!-- Commit Message Section -->
+        <div class="commit-msg-section">
+          <div class="commit-msg-header">
+            <label for="commit-msg-input" class="commit-label">
+              <i class="fa-solid fa-comment-dots"></i> Commit Message:
+            </label>
+            <button id="btn-generate-ai-commit-msg" class="btn-ai-sparkle" title="Use Captain Geppy to synthesize recent changes into a commit message">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>✨ AI Message</span>
+            </button>
+          </div>
+          <textarea id="commit-msg-input" class="commit-msg-textarea" rows="2" placeholder="e.g. feat(ui): add glassmorphic styling and SOT contextile"></textarea>
+        </div>
+
+        <!-- Feedback Card (for progress or success) -->
+        <div id="commit-feedback" class="commit-feedback hidden"></div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button id="btn-commit-pc-only" class="btn-secondary-commit" title="Commit locally to Git on PC without pushing to remote">
+          <i class="fa-solid fa-hard-drive"></i>
+          <span>Save to PC Only</span>
+        </button>
+        <button id="btn-do-commit-and-push" class="btn-primary-commit" title="Save locally and push to GitHub">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <span>🚀 Commit &amp; Push</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

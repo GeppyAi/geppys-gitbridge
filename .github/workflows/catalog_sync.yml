@@ -1,0 +1,60 @@
+name: Anti-Gravity App Universe Sync & AI Health Analysis
+
+on:
+  schedule:
+    - cron: '0 4 * * *' # Runs daily at 04:00 UTC
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  catalog-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Initialize GitBridge Catalog Engine
+        run: |
+          python -m gitbridge.cli init
+
+      - name: Sync GitHub Repositories & Ingest Metadata
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ secrets.GEPPY_GITHUB_USERNAME || 'GeppyAi' }}
+        run: |
+          python -m gitbridge.cli sync-github
+
+      - name: Generate AI Health Cards & Priorities
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          python -m gitbridge.cli analyze-health --target all
+
+      - name: Sync Reports to Google Drive & Sheets
+        env:
+          GOOGLE_CREDENTIALS_FILE: 'credentials.json'
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
+        run: |
+          python -m gitbridge.cli sync-drive
+          python -m gitbridge.cli sync-sheets || true
+
+      - name: Upload Health Reports & Master Catalog Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-universe-health-reports
+          path: |
+            reports/
+            gitbridge.db

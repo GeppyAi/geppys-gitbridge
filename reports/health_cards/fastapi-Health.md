@@ -1,0 +1,40 @@
+# App Name: fastapi
+- **Repository:** https://github.com/fastapi/fastapi
+- **Last Synced:** 2026-10-05
+- **Priority Tier:** Tier 2 (Core Infrastructure & Utility)
+- **Tech Stack:** Python, api, async, asyncio, fastapi, framework, json, json-schema, openapi, openapi3, pydantic, python, python-types, python3, redoc, rest, starlette, swagger, swagger-ui, uvicorn, web, Python Poetry/Flit
+- **Active Maintenance:** Last commit `52159d7` on 2026-10-05T13:38:35Z by **latest-changes[bot]**: _📝 Update release notes_
+- **Open Issues / Bugs:**
+  - #16459 (PR): 📝 Embed the FastAPI and friends newsletter signup form
+  - #16456 (PR): Fix awkward wording in FastAPI README
+  - #16452 (PR): ⬆️ Bump ty to 0.0.84
+  - #16424 (PR): 🐛 Fix stale Content-Length in 205 Reset Content responses
+  - #16407 (PR): 📝 Fix docs issues reported in pinned discussion
+  - #16387 (PR): 🐛 Fix endpoint context shared and mutated across requests
+  - #16384 (PR): 🐛 Fix explicit response_model ignored on streaming generator endpoints
+  - #16368 (PR): ✅ Fix order-dependent tests in test_dependency_contextmanager.py
+  - #16354 (PR): 📝 Clarify comment about SSE event terminator
+  - #16351 (PR): fix(dependencies): preserve Query metadata for complex fields in BaseModel dependencies
+  - #16350 (PR): Fix jsonable_encoder raising an unclear UnicodeDecodeError for non-UTF-8 bytes
+  - #16348 (PR): 🐛 Support Annotated in stream return annotations for JSONL and SSE
+  - #16328 (PR): 🌐 Improve Hindi translation for docs/hi/tutorial/first-steps.md
+  - #16272 (PR): docs: fix type annotation mismatch in sub-dependencies tutorial example
+  - #16245 (PR): 🐛 Fix WebSocket paths in route contexts
+  - #16236 (PR): Inherit Starlette router dispatch
+  - #16159 (PR): ⚡️ Skip included routers whose prefix cannot match the request path
+  - #16152 (PR): 👷 Optimize cache usage in workflows
+  - #15953 (PR): 📝 Document custom headers for JSONL and SSE streams
+  - #15941 (PR): 🐛 Fix copy button copying HTML tags from termynal command lines
+  - #15859 (PR): ✅ Add tests for `OAuth2AuthorizationCodeBearer` with `auto_error=False`
+  - #15813 (PR): 🐛 Set `X-Accel-Buffering: no` on JSONL streaming responses
+  - #15646 (PR):  Preserve `null` values in user-provided OpenAPI `example`/`examples`
+  - #15641 (PR): Fix jsonable_encoder crash on invalid UTF‑8 bytes
+  - #15617 (PR): ⚡️ Use `TypeAdapter.validate_json` instead of `json.loads`
+  - #15480 (PR): 📝 Add diagram to "Multiple middleware execution order" docs
+  - #15476 (PR): ⚡ Skip `set(obj.keys())` allocation in `jsonable_encoder` when `include`/`exclude` are not set
+  - #15388 (PR): 🐛 fix deadlocks in depends by using a separate CapacityLimiter for teardown
+  - #15364 (PR): fix: resolve ForwardRef inside Annotated in get_typed_annotation
+  - #15329 (PR): Fix `PydanticUserError` when a generic `BaseModel` with `Json[T]` field is specialized with `SerializeAsAny[SomeModel]`
+
+- **AI Recommendations:** 
+  - Focus next sprint on clearing open issues (30) and enhancing documentation.

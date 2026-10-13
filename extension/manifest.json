@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Geppy's Galactic",
+  "version": "1.0.0",
+  "description": "Live side-panel companion with Captain Geppy AI, Source of Truth (SOT) Contextiles, and real-time app designer for Geppy's GitBridge.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "tabs",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8000/*",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
+  ],
+  "action": {
+    "default_title": "Open Geppy's Galactic AI Companion"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

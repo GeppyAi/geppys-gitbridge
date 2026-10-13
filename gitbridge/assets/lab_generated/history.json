@@ -1,0 +1,228 @@
+[
+  {
+    "id": "asset_1791914982_d11371",
+    "title": "Captain Geppy: GitBridge Chat Sticker",
+    "filename": "asset_1791914982_d11371.png",
+    "file_url": "/api/asset-lab/file/asset_1791914982_d11371.png",
+    "target_format": "banner_hero",
+    "aspect_ratio": "16:9",
+    "master_prompt": "Full-body Captain Geppy character, rendered in an upbeat, energetic Saturday-morning cartoon style inspired by classic adventurous animation (like Duck Tales). Geppy wears his signature plain blue shirt with white 'Geppy' text. He is depicted as a friendly, approachable, and dependable galactic captain, confidently gesturing or giving a friendly salute, embodying his role as captain on the 'GitBridge' within the Geppy Galaxy. The image is specifically designed as a 512x512 transparent chat sticker, with the entire background completely removed, and featuring a crisp, clean 8px white contour edge outlining the character for optimal visibility on both dark and light mode chat apps. Clear, friendly branding, vector art, smooth lines, flat colors with subtle cel shading, high detail, no pixelation.",
+    "color_palette": [
+      "#2563EB (Geppy Blue)",
+      "#FFFFFF (White)",
+      "#FACC15 (Energetic Yellow)",
+      "#1E293B (Dark Accent)"
+    ],
+    "composition_blueprint": "Full-body cartoon character of Captain Geppy, centered and dynamically posed within a 512x512 transparent canvas, with a strong 8px white contour stroke outlining the entire figure.",
+    "ingredients_summary": [
+      {
+        "name": "geppybrand",
+        "title": "Geppy Brand",
+        "archetype": "character",
+        "role": "subject",
+        "weight": 1,
+        "primary_image_url": "/api/sot/reference-file/1791929177_Geppy.png",
+        "reference_text": "The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct.",
+        "modifiers": {
+          "lighting": [],
+          "theme": [],
+          "era": [],
+          "medium": [],
+          "materials": []
+        }
+      },
+      {
+        "name": "chat-sticker",
+        "title": "Transparent Chat Sticker (512px)",
+        "archetype": "output",
+        "role": "style",
+        "weight": 1,
+        "primary_image_url": "/api/sot/reference-file/preview_chat-sticker.png",
+        "reference_text": "Standard 512x512 transparent PNG chat sticker with background removed and crisp 8px white contour edge for dark & light mode chat apps (Discord, Slack, Telegram).",
+        "modifiers": {
+          "background_mode": "transparent",
+          "print_size": "chat_sticker_512",
+          "bg_tolerance": 35,
+          "edge_feather": 2,
+          "diecut_stroke_width": 8,
+          "diecut_stroke_color": "#FFFFFF",
+          "export_pdf": false,
+          "dpi": 300
+        }
+      }
+    ],
+    "app_slug": "geppys-gitbridge",
+    "created_at": "2026-10-13 14:09:42"
+  },
+  {
+    "id": "asset_1791914932_a4d373",
+    "title": "Fine-Tuned Asset (@geppybrand + @chat-sticker)",
+    "filename": "asset_1791914932_a4d373.png",
+    "file_url": "/api/asset-lab/file/asset_1791914932_a4d373.png",
+    "target_format": "banner_hero",
+    "aspect_ratio": "16:9",
+    "master_prompt": "[SUBJECT: The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct.] | [STYLE: Standard 512x512 transparent PNG chat sticker with background removed and crisp 8px white contour edge for dark & light mode chat apps (Discord, Slack, Telegram).] | This app is for managing apps in the Geppy Galaxy of apps. Where Geppy is the captain on the get bridge as a play on the bridge of the Enterprise | 8K Octane Render, volumetric rim lighting, frosted translucent glass, smooth squircle curvature, masterwork design.",
+    "color_palette": [
+      "#06B6D4 (Cyan Visor)",
+      "#6366F1 (Indigo Nebula)",
+      "#F59E0B (Amber Gold)",
+      "#0F172A (Obsidian)"
+    ],
+    "composition_blueprint": "Optimized for banner_hero (16:9) with centered focal subject, ambient depth lighting, and glassmorphic micro-bevels.",
+    "ingredients_summary": [
+      {
+        "name": "geppybrand",
+        "title": "Geppy Brand",
+        "archetype": "character",
+        "role": "subject",
+        "weight": 1,
+        "primary_image_url": "/api/sot/reference-file/1791929177_Geppy.png",
+        "reference_text": "The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct.",
+        "modifiers": {
+          "lighting": [],
+          "theme": [],
+          "era": [],
+          "medium": [],
+          "materials": []
+        }
+      },
+      {
+        "name": "chat-sticker",
+        "title": "Transparent Chat Sticker (512px)",
+        "archetype": "output",
+        "role": "style",
+        "weight": 1,
+        "primary_image_url": "/api/sot/reference-file/preview_chat-sticker.png",
+        "reference_text": "Standard 512x512 transparent PNG chat sticker with background removed and crisp 8px white contour edge for dark & light mode chat apps (Discord, Slack, Telegram).",
+        "modifiers": {
+          "background_mode": "transparent",
+          "print_size": "chat_sticker_512",
+          "bg_tolerance": 35,
+          "edge_feather": 2,
+          "diecut_stroke_width": 8,
+          "diecut_stroke_color": "#FFFFFF",
+          "export_pdf": false,
+          "dpi": 300
+        }
+      }
+    ],
+    "app_slug": "geppys-gitbridge",
+    "created_at": "2026-10-13 14:08:52"
+  },
+  {
+    "id": "asset_1791912892_b84956",
+    "title": "1970s Vintage Baseball Card: Big Papi",
+    "filename": "asset_1791912892_b84956.png",
+    "file_url": "/api/asset-lab/file/asset_1791912892_b84956.png",
+    "target_format": "trading_card",
+    "aspect_ratio": "2.5:3.5",
+    "master_prompt": "Authentic 1970s Topps-style vintage baseball card featuring Big Papi as star DH",
+    "color_palette": [],
+    "composition_blueprint": "Authentic 1970s trading card layout",
+    "ingredients_summary": [],
+    "variables": {
+      "team_name": "BOSTON RED SOX",
+      "player_name": "BIG PAPI",
+      "position": "DH",
+      "stats": ".286 AVG \u2022 541 HR \u2022 1,768 RBI \u2022 3X WORLD SERIES CHAMP",
+      "card_number": "#34",
+      "year_era": "'04"
+    },
+    "app_slug": null,
+    "created_at": "2026-10-13 13:34:52"
+  },
+  {
+    "id": "asset_1791911039_50f13f",
+    "title": "Captain Geppy 70s Card",
+    "filename": "asset_1791911039_50f13f.png",
+    "file_url": "/api/asset-lab/file/asset_1791911039_50f13f.png",
+    "target_format": "trading_card",
+    "aspect_ratio": "2.5:3.5",
+    "master_prompt": "Authentic 1970s Topps-style vintage baseball card featuring Captain Geppy",
+    "color_palette": [],
+    "composition_blueprint": "Authentic 1970s trading card layout",
+    "ingredients_summary": [
+      {
+        "name": "captain-geppy",
+        "title": "Captain Geppy",
+        "role": "subject"
+      },
+      {
+        "name": "70s-baseball-card",
+        "title": "70s Baseball Card",
+        "role": "style"
+      }
+    ],
+    "app_slug": null,
+    "created_at": "2026-10-13 13:03:59"
+  },
+  {
+    "id": "asset_1791911023_d97a50",
+    "title": "Captain Geppy 70s Card",
+    "filename": "asset_1791911023_d97a50.png",
+    "file_url": "/api/asset-lab/file/asset_1791911023_d97a50.png",
+    "target_format": "trading_card",
+    "aspect_ratio": "2.5:3.5",
+    "master_prompt": "",
+    "color_palette": [],
+    "composition_blueprint": "Authentic 1970s trading card layout",
+    "ingredients_summary": [],
+    "app_slug": null,
+    "created_at": "2026-10-13 13:03:43"
+  },
+  {
+    "id": "asset_1791910736_458407",
+    "title": "1970s Vintage Baseball Card: Captain Geppy",
+    "filename": "asset_1791910736_458407.png",
+    "file_url": "/api/asset-lab/file/asset_1791910736_458407.png",
+    "target_format": "trading_card",
+    "aspect_ratio": "2.5:3.5",
+    "master_prompt": "Authentic 1970s Topps-style vintage baseball trading card featuring Captain Geppy as the star galactic commander. Captain Geppy wears an obsidian-and-gold flight suit with gleaming gold commander bars and a galactic crest, his face partially obscured by an illuminated translucent cyan visor reflecting swirling nebula galaxies. He is posed against a bright, sunlit cosmic backdrop. The card is rendered with the warm, slightly desaturated color grading and visible 35mm Kodachrome film grain characteristic of the era. It features a bold, primary color border, an arched team banner typography reading 'GALACTIC COMMANDER' or 'STAR COMMAND', and a round star position badge. Printed on thick, textured aged cardboard stock with a slightly glossy finish, showcasing subtle offset lithography print dots, minor color misregistration, and authentically worn, soft corners and edges, indicating time and handling. The overall aesthetic is nostalgic and iconic.",
+    "color_palette": [],
+    "composition_blueprint": "Authentic 1970s trading card layout",
+    "ingredients_summary": [
+      {
+        "name": "captain-geppy",
+        "title": "Captain Geppy (Galactic Commander)",
+        "role": "subject",
+        "reference_text": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies. Gold commander bars and galactic crest.",
+        "primary_image_url": null
+      },
+      {
+        "name": "70s-baseball-card",
+        "title": "Diamond Dreams '70s",
+        "role": "style",
+        "reference_text": "An authentic 1970s baseball trading card features a subject set against a bright, often sunlit backdrop or studio lighting. It is printed on thick, textured cardboard with a slightly glossy or matte finish. Borders are typically bold, often primary colors, sometimes with decorative elements or an arched team banner/nameplate. The color grading leans warm and slightly desaturated, reminiscent of Kodachrome 35mm film, with visible offset lithography print dots, subtle misregistration, and aged corners or edges indicating wear and time.",
+        "primary_image_url": "/api/sot/reference-file/preview_70s-baseball-card.png"
+      }
+    ],
+    "app_slug": null,
+    "created_at": "2026-10-13 12:58:56"
+  },
+  {
+    "id": "asset_1791910269_3385cb",
+    "title": "Fine-Tuned Asset (@captain-geppy + @galactic-icons)",
+    "filename": "asset_1791910269_3385cb.png",
+    "file_url": "/api/asset-lab/file/asset_1791910269_3385cb.png",
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "[SUBJECT: Cosmic astronaut commander in obsidian-gold suit] | [STYLE: 3D squircle app icon collection with bevel shadows and glowing glyphs] | Captain Geppy heroic commander pose centered in a glossy 3D squircle app icon | 8K Octane Render, volumetric rim lighting, frosted translucent glass, smooth squircle curvature, masterwork design.",
+    "color_palette": [
+      "#06B6D4 (Cyan Visor)",
+      "#6366F1 (Indigo Nebula)",
+      "#F59E0B (Amber Gold)",
+      "#0F172A (Obsidian)"
+    ],
+    "composition_blueprint": "Optimized for app_icon (1:1) with centered focal subject, ambient depth lighting, and glassmorphic micro-bevels.",
+    "ingredients_summary": [
+      {
+        "name": "captain-geppy"
+      },
+      {
+        "name": "galactic-icons"
+      }
+    ],
+    "app_slug": null,
+    "created_at": "2026-10-13 12:51:09"
+  }
+]

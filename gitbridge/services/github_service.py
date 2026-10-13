@@ -12,6 +12,25 @@ class GitHubService:
         if self.token and self.token != "your_github_personal_access_token_here":
             self.headers["Authorization"] = f"token {self.token}"
 
+    def create_repository(self, name: str, description: Optional[str] = None, private: bool = False) -> Dict[str, Any]:
+        """Create a new GitHub repository under the authenticated user's account."""
+        if not self.token or self.token == "your_github_personal_access_token_here":
+            raise ValueError("GitHub Personal Access Token (PAT) is required to create GitHub repositories. Please add your token in Settings & Workspace.")
+
+        url = "https://api.github.com/user/repos"
+        payload = {
+            "name": name,
+            "description": description or f"Repository for {name}",
+            "private": private,
+            "auto_init": False
+        }
+        response = requests.post(url, json=payload, headers=self.headers)
+        if response.status_code in [200, 201]:
+            return response.json()
+        else:
+            response.raise_for_status()
+            return {}
+
     def fetch_user_repos(self, username: Optional[str] = None) -> List[Dict[str, Any]]:
         """Fetch all public & private repositories across all pages for authenticated user or target username."""
         target_username = username or os.getenv("GITHUB_USERNAME")
@@ -65,13 +84,115 @@ class GitHubService:
 
     def fetch_repo_readme(self, repo_full_name: str) -> Optional[str]:
         """Fetch raw content of README.md from repo."""
-        url = f"https://api.github.com/repos/{repo_full_name}/readme"
+        clean_name = self.parse_repo_identifier(repo_full_name)
+        url = f"https://api.github.com/repos/{clean_name}/readme"
         headers = dict(self.headers)
         headers["Accept"] = "application/vnd.github.v3.raw"
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             return response.text
         return None
+
+    def fetch_open_issues(self, repo_full_name: str) -> List[Dict[str, Any]]:
+        """Fetch open issues and PRs for a repository."""
+        clean_name = self.parse_repo_identifier(repo_full_name)
+        url = f"https://api.github.com/repos/{clean_name}/issues?state=open&per_page=30"
+        response = requests.get(url, headers=self.headers)
+        issues_list = []
+        if response.status_code == 200:
+            data = response.json()
+            for item in data:
+                issues_list.append({
+                    "number": item.get("number"),
+                    "title": item.get("title"),
+                    "is_pr": "pull_request" in item,
+                    "html_url": item.get("html_url"),
+                    "created_at": item.get("created_at"),
+                    "user": item.get("user", {}).get("login"),
+                    "labels": [l.get("name") for l in item.get("labels", [])]
+                })
+        return issues_list
+
+    def fetch_recent_commits(self, repo_full_name: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Fetch most recent commits for active maintenance tracking."""
+        clean_name = self.parse_repo_identifier(repo_full_name)
+        url = f"https://api.github.com/repos/{clean_name}/commits?per_page={limit}"
+        response = requests.get(url, headers=self.headers)
+        commits_list = []
+        if response.status_code == 200:
+            data = response.json()
+            for c in data:
+                commit_obj = c.get("commit", {})
+                author_obj = commit_obj.get("author", {})
+                commits_list.append({
+                    "sha": c.get("sha", "")[:7],
+                    "message": commit_obj.get("message", "").split("\n")[0],
+                    "author": author_obj.get("name") or c.get("author", {}).get("login"),
+                    "date": author_obj.get("date")
+                })
+        return commits_list
+
+    def fetch_dependency_files(self, repo_full_name: str) -> Dict[str, Any]:
+        """Inspect repository files to extract package dependencies (package.json, requirements.txt, pyproject.toml)."""
+        clean_name = self.parse_repo_identifier(repo_full_name)
+        detected_dependencies = []
+        file_checks = [
+            ("package.json", "Node.js / JS"),
+            ("requirements.txt", "Python"),
+            ("pyproject.toml", "Python Poetry/Flit"),
+            ("Cargo.toml", "Rust"),
+            ("go.mod", "Go"),
+            ("pom.xml", "Java Maven")
+        ]
+        
+        headers = dict(self.headers)
+        headers["Accept"] = "application/vnd.github.v3.raw"
+
+        for filepath, tech_name in file_checks:
+            url = f"https://api.github.com/repos/{clean_name}/contents/{filepath}"
+            res = requests.get(url, headers=headers)
+            if res.status_code == 200:
+                detected_dependencies.append(tech_name)
+                content = res.text
+                if filepath == "package.json":
+                    try:
+                        import json
+                        pkg = json.loads(content)
+                        deps = list(pkg.get("dependencies", {}).keys()) + list(pkg.get("devDependencies", {}).keys())
+                        detected_dependencies.extend(deps[:15])
+                    except Exception:
+                        pass
+                elif filepath == "requirements.txt":
+                    lines = [line.strip().split("==")[0].split(">=")[0] for line in content.splitlines() if line.strip() and not line.startswith("#")]
+                    detected_dependencies.extend(lines[:15])
+
+        return {
+            "dependencies": list(dict.fromkeys(detected_dependencies))
+        }
+
+    def fetch_comprehensive_repo_metadata(self, repo_full_name: str) -> Dict[str, Any]:
+        """Fetch complete repository package: details, README, issues, commits, dependencies."""
+        clean_name = self.parse_repo_identifier(repo_full_name)
+        details = self.fetch_repo_details(clean_name)
+        readme = self.fetch_repo_readme(clean_name)
+        issues = self.fetch_open_issues(clean_name)
+        commits = self.fetch_recent_commits(clean_name, limit=5)
+        deps = self.fetch_dependency_files(clean_name)
+
+        tech_stack = self.extract_tech_stack(details)
+        if deps.get("dependencies"):
+            tech_stack = list(dict.fromkeys(tech_stack + deps["dependencies"]))
+
+        return {
+            "details": details,
+            "readme": readme,
+            "issues": issues,
+            "commits": commits,
+            "dependencies": deps.get("dependencies", []),
+            "tech_stack": tech_stack,
+            "last_commit_at": commits[0]["date"] if commits else details.get("pushed_at"),
+            "open_issues_count": len(issues)
+        }
 
     def extract_tech_stack(self, repo_data: Dict[str, Any]) -> List[str]:
         """Extract tech stack languages and topics from repo metadata."""

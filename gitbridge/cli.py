@@ -17,6 +17,8 @@ from gitbridge.schemas.app_profile import AppStatus, AssetType
 from gitbridge.services.github_service import GitHubService
 from gitbridge.services.sheets_service import GoogleSheetsService
 from gitbridge.services.ai_studio_service import AIStudioParser
+from gitbridge.services.analyzer_service import AppAnalyzerService
+from gitbridge.services.drive_service import GoogleDriveService
 
 app = typer.Typer(help="Geppy's GitBridge CLI - App Universe Catalog & Context Bridge")
 console = Console()
@@ -146,6 +148,7 @@ def sync_github(
 ):
     """Sync repository or repositories from GitHub into GitBridge catalog."""
     gh_service = GitHubService()
+    analyzer = AppAnalyzerService()
     db = get_db()
     
     try:
@@ -163,7 +166,25 @@ def sync_github(
         for r in repos:
             parsed = gh_service.parse_repo_to_profile_dict(r)
             slug = parsed["slug"]
+            repo_full_name = parsed["github_repo_name"]
+
+            # Deep metadata fetch if available
+            issues_count = 0
+            last_commit = None
+            tech_stack = parsed["tech_stack"]
+
+            if repo_full_name:
+                try:
+                    meta = gh_service.fetch_comprehensive_repo_metadata(repo_full_name)
+                    issues_count = meta.get("open_issues_count", 0)
+                    last_commit = meta.get("last_commit_at")
+                    if meta.get("tech_stack"):
+                        tech_stack = list(dict.fromkeys(tech_stack + meta["tech_stack"]))
+                except Exception as e:
+                    pass
+
             existing = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+            priority_tier = analyzer.determine_priority_tier(parsed["name"], parsed["status"], tech_stack, parsed["tags"], issues_count)
 
             if not existing:
                 app_obj = AppProfileModel(
@@ -173,9 +194,11 @@ def sync_github(
                     status=AppStatus(parsed["status"]),
                     github_url=parsed["github_url"],
                     github_repo_name=parsed["github_repo_name"],
+                    priority_tier=priority_tier,
+                    open_issues_count=issues_count,
                     version=parsed["version"]
                 )
-                app_obj.tech_stack = parsed["tech_stack"]
+                app_obj.tech_stack = tech_stack
                 app_obj.tags = parsed["tags"]
                 db.add(app_obj)
                 added_count += 1
@@ -184,7 +207,9 @@ def sync_github(
                 existing.github_repo_name = parsed["github_repo_name"]
                 if parsed["description"]:
                     existing.description = parsed["description"]
-                existing.tech_stack = list(dict.fromkeys(existing.tech_stack + parsed["tech_stack"]))
+                existing.tech_stack = list(dict.fromkeys(existing.tech_stack + tech_stack))
+                existing.priority_tier = priority_tier
+                existing.open_issues_count = issues_count
                 updated_count += 1
 
         db.commit()
@@ -382,6 +407,133 @@ def launch_app_cmd(slug: str):
     else:
         console.print(f"[yellow]{result['message']}[/yellow]")
     db.close()
+
+@app.command("analyze-health")
+def analyze_health_cmd(
+    target: str = typer.Option("all", help="App slug or 'all' to generate Health Cards for catalog")
+):
+    """Generate standardized [App-Name]-Health.md report(s) and update DB."""
+    db = get_db()
+    analyzer = AppAnalyzerService()
+    drive_service = GoogleDriveService()
+
+    if target == "all":
+        apps = db.query(AppProfileModel).all()
+    else:
+        app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == target).first()
+        apps = [app_obj] if app_obj else []
+
+    if not apps:
+        console.print(f"[yellow]No applications matching target '{target}' found in catalog.[/yellow]")
+        db.close()
+        return
+
+    console.print(f"[cyan]Generating Health Cards for {len(apps)} app(s)...[/cyan]")
+    generated_paths = []
+
+    for a in apps:
+        health_md = analyzer.generate_health_card(a)
+        a.health_report_md = health_md
+        a.feature_breakdown = health_md
+        
+        filepath = drive_service.save_health_report(a.slug, a.name, health_md)
+        generated_paths.append(filepath)
+        console.print(f"  [green]✓[/green] Health report saved: [bold white]{os.path.basename(filepath)}[/bold white]")
+
+    db.commit()
+
+    # Generate master exports
+    app_dicts = []
+    for a in db.query(AppProfileModel).all():
+        app_dicts.append({
+            "slug": a.slug,
+            "name": a.name,
+            "priority_tier": a.priority_tier,
+            "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
+            "description": a.description,
+            "github_url": a.github_url,
+            "tech_stack": a.tech_stack,
+            "open_issues_count": a.open_issues_count or 0,
+            "last_commit_at": a.last_commit_at,
+            "tags": a.tags,
+            "version": a.version
+        })
+    drive_service.sync_master_catalog_files(app_dicts)
+
+    console.print(f"[bold green][OK] Health Analysis & File Generation complete for {len(apps)} app(s)![/bold green]")
+    db.close()
+
+@app.command("sync-drive")
+def sync_drive_cmd():
+    """Sync all Health Cards and Master CSV/JSON files to Google Drive."""
+    db = get_db()
+    drive_service = GoogleDriveService()
+    apps = db.query(AppProfileModel).all()
+
+    if not apps:
+        console.print("[yellow]Catalog is empty. Nothing to sync.[/yellow]")
+        db.close()
+        return
+
+    console.print(f"[cyan]Syncing health reports and master datasets for {len(apps)} apps to Google Drive/local...[/cyan]")
+    
+    analyzer = AppAnalyzerService()
+    app_dicts = []
+
+    for a in apps:
+        health_md = a.health_report_md or analyzer.generate_health_card(a)
+        drive_service.save_health_report(a.slug, a.name, health_md)
+        app_dicts.append({
+            "slug": a.slug,
+            "name": a.name,
+            "priority_tier": a.priority_tier,
+            "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
+            "description": a.description,
+            "github_url": a.github_url,
+            "tech_stack": a.tech_stack,
+            "open_issues_count": a.open_issues_count or 0,
+            "last_commit_at": a.last_commit_at,
+            "tags": a.tags,
+            "version": a.version
+        })
+
+    master_files = drive_service.sync_master_catalog_files(app_dicts)
+    console.print(f"[bold green][OK] Master datasets updated: {master_files['csv']} & {master_files['json']}[/bold green]")
+    db.close()
+
+@app.command("export-context")
+def export_context_cmd(
+    output: Optional[str] = typer.Option(None, help="Custom output file path for GEMINI_UNIVERSE_CONTEXT.md")
+):
+    """Export master GEMINI_UNIVERSE_CONTEXT.md Markdown context dump for Gemini AI."""
+    db = get_db()
+    from gitbridge.services.context_service import GeminiContextService
+    res = GeminiContextService.export_context_file(db, filepath=output)
+    console.print(f"[bold green][OK] Exported master Gemini Universe Context to: {res['filepath']}[/bold green]")
+    db.close()
+
+@app.command("get-context")
+def get_context_cmd(
+    slug: str = typer.Argument(..., help="App slug to retrieve context for")
+):
+    """Display targeted Markdown context payload for a single application profile."""
+    db = get_db()
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+    if not app_obj:
+        console.print(f"[bold red]App '{slug}' not found.[/bold red]")
+        db.close()
+        return
+
+    from gitbridge.services.context_service import GeminiContextService
+    context_md = GeminiContextService.generate_app_markdown(app_obj, db)
+    console.print(Panel(context_md, title=f"🧠 Gemini Context: {app_obj.name}", border_style="indigo"))
+    db.close()
+
+@app.command("mcp")
+def run_mcp_cmd():
+    """Start stdio Model Context Protocol (MCP) server for Gemini / Antigravity integration."""
+    from gitbridge.mcp_server import run_stdio_mcp_server
+    run_stdio_mcp_server()
 
 if __name__ == "__main__":
     app()
