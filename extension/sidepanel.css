@@ -214,7 +214,12 @@ body {
   position: relative;
 }
 
-.view-container.hidden {
+/* Universal Visibility Controls */
+.hidden,
+.view-container.hidden,
+.modal-overlay.hidden,
+.commit-panel-tab.hidden,
+.commit-feedback.hidden {
   display: none !important;
 }
 
@@ -865,6 +870,12 @@ body {
   animation: fadeIn 0.15s ease-out;
 }
 
+.modal-overlay.hidden,
+.modal-overlay[style*="display: none"],
+.modal-overlay[style*="display:none"] {
+  display: none !important;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -1171,6 +1182,27 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.btn-cancel {
+  background: #0f172a;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+}
+
+.btn-cancel:hover {
+  background: #1e293b;
+  color: #f1f5f9;
+  border-color: #64748b;
 }
 
 .btn-secondary-commit {

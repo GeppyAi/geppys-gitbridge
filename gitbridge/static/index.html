@@ -587,7 +587,13 @@
                 </div>
 
                 <div>
-                  <label class="text-[11px] text-slate-300 font-semibold block mb-1">Select File (Image / Apple HEIC / Document)</label>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-[11px] text-slate-300 font-semibold block">Select File (Image / Apple HEIC / Document)</label>
+                    <button type="button" onclick="openHEICConverterModal()" class="text-[10px] text-pink-400 hover:text-pink-300 font-medium inline-flex items-center space-x-1">
+                      <i class="fa-solid fa-camera-retro"></i>
+                      <span>HEIC Studio</span>
+                    </button>
+                  </div>
                   <input type="file" id="dash-upload-asset-file" accept="image/*,.pdf,.svg,.ico,.heic,.heif,.HEIC,.HEIF" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-slate-300 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500">
                 </div>
 
@@ -1057,9 +1063,22 @@
                   <span>Additional Reference Images</span>
                   <span id="lab-extra-image-count" class="text-[10px] text-slate-500 font-mono">0 attached</span>
                 </label>
-                <div class="border-2 border-dashed border-slate-800 hover:border-amber-500/50 rounded-xl p-3 text-center cursor-pointer transition bg-slate-950/40" onclick="document.getElementById('lab-extra-file-input').click()">
-                  <i class="fa-solid fa-cloud-arrow-up text-amber-400 text-lg mb-1"></i>
-                  <p class="text-[11px] text-slate-300 font-medium">Click to upload extra sketch, reference, or iPhone HEIC</p>
+                <div id="lab-extra-dropzone" class="border-2 border-dashed border-slate-800 hover:border-amber-500/50 rounded-xl p-3 text-center cursor-pointer transition bg-slate-950/40 group" onclick="document.getElementById('lab-extra-file-input').click()">
+                  <div class="flex items-center justify-center space-x-2 mb-1">
+                    <i class="fa-solid fa-cloud-arrow-up text-amber-400 text-base"></i>
+                    <i class="fa-solid fa-camera-retro text-pink-400 text-sm"></i>
+                  </div>
+                  <p class="text-[11px] text-slate-300 font-medium group-hover:text-amber-300 transition">Click or Drag &amp; Drop extra sketch, reference, or iPhone HEIC</p>
+                  <div class="mt-2 flex items-center justify-center space-x-2">
+                    <span class="px-2 py-0.5 bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/30 rounded text-[10px] text-amber-300 font-medium transition flex items-center space-x-1">
+                      <i class="fa-solid fa-folder-open text-[10px]"></i>
+                      <span>Browse Files</span>
+                    </span>
+                    <button type="button" onclick="event.stopPropagation(); openHEICConverterModal();" class="px-2 py-0.5 bg-pink-950/40 hover:bg-pink-900/50 border border-pink-500/30 rounded text-[10px] text-pink-300 font-medium transition flex items-center space-x-1">
+                      <i class="fa-solid fa-camera-retro text-[10px] text-pink-400"></i>
+                      <span>HEIC Studio</span>
+                    </button>
+                  </div>
                   <input type="file" id="lab-extra-file-input" accept="image/*,.heic,.heif,.HEIC,.HEIF" multiple class="hidden" onchange="handleLabExtraImageUpload(this)">
                 </div>
                 <div id="lab-extra-images-strip" class="flex items-center space-x-2 overflow-x-auto py-1 scrollbar-none"></div>
@@ -1689,10 +1708,23 @@
               </div>
 
               <!-- Drop Zone / Upload Button -->
-              <div class="border-2 border-dashed border-slate-800 hover:border-cyan-500/50 rounded-xl p-4 text-center cursor-pointer transition bg-slate-950/40" onclick="document.getElementById('sot-multi-file-input').click()">
-                <i class="fa-solid fa-cloud-arrow-up text-xl text-cyan-400 mb-1"></i>
-                <p class="text-xs text-slate-200 font-medium">Click to upload reference images, photos, or iPhone HEIC</p>
-                <p class="text-[10px] text-slate-500">Upload multiple files at once. Apple HEIC auto-converts to PNG. Star one as Main Reference Image.</p>
+              <div id="sot-reference-dropzone" class="border-2 border-dashed border-slate-800 hover:border-cyan-500/50 rounded-xl p-4 text-center cursor-pointer transition bg-slate-950/40 group" onclick="document.getElementById('sot-multi-file-input').click()">
+                <div class="flex items-center justify-center space-x-2 mb-1">
+                  <i class="fa-solid fa-cloud-arrow-up text-xl text-cyan-400"></i>
+                  <i class="fa-solid fa-camera-retro text-lg text-pink-400"></i>
+                </div>
+                <p class="text-xs text-slate-200 font-medium group-hover:text-cyan-300 transition">Click or Drag &amp; Drop reference photos, images, or Apple HEIC</p>
+                <p class="text-[10px] text-slate-500 mt-0.5">Upload multiple files at once. Apple HEIC auto-converts to high-res PNG. Star one as Main Reference Image.</p>
+                <div class="mt-2.5 flex items-center justify-center space-x-2">
+                  <span class="px-2.5 py-1 bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/30 rounded-lg text-[11px] text-cyan-300 font-medium transition flex items-center space-x-1">
+                    <i class="fa-solid fa-folder-open text-xs"></i>
+                    <span>Browse Images</span>
+                  </span>
+                  <button type="button" onclick="event.stopPropagation(); openHEICConverterModal();" class="px-2.5 py-1 bg-pink-950/40 hover:bg-pink-900/50 border border-pink-500/30 rounded-lg text-[11px] text-pink-300 font-medium transition flex items-center space-x-1">
+                    <i class="fa-solid fa-camera-retro text-xs text-pink-400"></i>
+                    <span>HEIC Studio</span>
+                  </button>
+                </div>
                 <input type="file" id="sot-multi-file-input" accept="image/*,.heic,.heif,.HEIC,.HEIF" multiple class="hidden" onchange="handleSOTMultiImageUpload(this)">
               </div>
 
@@ -2294,9 +2326,19 @@
           </div>
           <div>
             <label class="text-xs font-semibold text-slate-300 block mb-1">Upload Reference Image (Optional)</label>
-            <div class="border-2 border-dashed border-slate-800 hover:border-cyan-500/50 rounded-xl p-4 text-center cursor-pointer bg-slate-950" onclick="document.getElementById('anchor-custom-file').click()">
-              <i class="fa-solid fa-cloud-arrow-up text-cyan-400 text-xl mb-1"></i>
-              <p class="text-xs text-slate-300">Click to choose image or iPhone HEIC file</p>
+            <div id="anchor-custom-dropzone" class="border-2 border-dashed border-slate-800 hover:border-cyan-500/50 rounded-xl p-4 text-center cursor-pointer bg-slate-950 group" onclick="document.getElementById('anchor-custom-file').click()">
+              <div class="flex items-center justify-center space-x-2 mb-1">
+                <i class="fa-solid fa-cloud-arrow-up text-cyan-400 text-xl"></i>
+                <i class="fa-solid fa-camera-retro text-pink-400 text-lg"></i>
+              </div>
+              <p class="text-xs text-slate-300 group-hover:text-cyan-300 transition">Click or Drag &amp; Drop reference photo, image, or Apple HEIC</p>
+              <div class="mt-2 flex items-center justify-center space-x-2">
+                <span class="px-2 py-0.5 bg-cyan-950/40 border border-cyan-500/30 rounded text-[10px] text-cyan-300 font-medium">Browse Files</span>
+                <button type="button" onclick="event.stopPropagation(); openHEICConverterModal();" class="px-2 py-0.5 bg-pink-950/40 hover:bg-pink-900/50 border border-pink-500/30 rounded text-[10px] text-pink-300 font-medium transition flex items-center space-x-1">
+                  <i class="fa-solid fa-camera-retro text-[10px] text-pink-400"></i>
+                  <span>HEIC Studio</span>
+                </button>
+              </div>
               <input type="file" id="anchor-custom-file" accept="image/*,.heic,.heif,.HEIC,.HEIF" class="hidden" onchange="handleAnchorCustomFileUpload(this)">
             </div>
             <div id="anchor-custom-preview-frame" class="mt-2 w-24 h-24 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden hidden">
@@ -2426,6 +2468,7 @@
                 <option value="none" selected>Studio Results (Manual Action)</option>
                 <option value="sot">Auto-Send to SOT Reference Gallery</option>
                 <option value="asset_lab">Auto-Send to Asset Lab Mixer</option>
+                <option value="app_assets">Auto-Upload to Active App Assets</option>
               </select>
               <p class="text-[10px] text-slate-400 mt-1">Automatically routes converted images into your workflow.</p>
             </div>
@@ -2716,7 +2759,13 @@
         </div>
 
         <div>
-          <label class="text-xs font-semibold text-slate-300 block mb-1">Select File (Image / Apple HEIC / Document)</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-slate-300 block">Select File (Image / Apple HEIC / Document)</label>
+            <button type="button" onclick="openHEICConverterModal()" class="text-[11px] text-pink-400 hover:text-pink-300 font-medium inline-flex items-center space-x-1">
+              <i class="fa-solid fa-camera-retro"></i>
+              <span>Launch HEIC Studio</span>
+            </button>
+          </div>
           <input type="file" id="upload-asset-file" accept="image/*,.pdf,.svg,.ico,.heic,.heif,.HEIC,.HEIF" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500">
           <p class="text-[10px] text-slate-400 mt-1">Apple HEIC/HEIF photos are automatically converted to high-fidelity PNG. Uploaded file will be saved directly into <code class="font-mono">d:\Geppy_Apps\&lt;app-folder&gt;\assets\</code>.</p>
         </div>
@@ -4610,8 +4659,9 @@
     }
 
     async function handleSOTMultiImageUpload(input) {
-      if (!input.files || input.files.length === 0) return;
-      const files = Array.from(input.files);
+      const fileList = input.files || (input instanceof FileList || Array.isArray(input) ? input : null);
+      if (!fileList || fileList.length === 0) return;
+      const files = Array.from(fileList);
       const formData = new FormData();
       files.forEach(f => formData.append('files', f));
 
@@ -4641,7 +4691,7 @@
       } catch (e) {
         alert('Upload error: ' + e);
       } finally {
-        input.value = '';
+        if (input && 'value' in input) input.value = '';
       }
     }
 
@@ -6049,8 +6099,9 @@
     }
 
     async function handleLabExtraImageUpload(input) {
-      if (!input.files || input.files.length === 0) return;
-      const files = Array.from(input.files);
+      const fileList = input.files || (input instanceof FileList || Array.isArray(input) ? input : null);
+      if (!fileList || fileList.length === 0) return;
+      const files = Array.from(fileList);
       const formData = new FormData();
       files.forEach(f => formData.append('files', f));
 
@@ -6071,7 +6122,7 @@
       } catch (e) {
         alert('Upload error: ' + e);
       } finally {
-        input.value = '';
+        if (input && 'value' in input) input.value = '';
       }
     }
 
@@ -7410,8 +7461,9 @@
     }
 
     async function handleAnchorCustomFileUpload(input) {
-      if (!input.files || input.files.length === 0) return;
-      const file = input.files[0];
+      const fileList = input.files || (input instanceof FileList || Array.isArray(input) ? input : (input instanceof File ? [input] : null));
+      if (!fileList || fileList.length === 0) return;
+      const file = fileList[0];
       const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
 
       if (isHeic) {
@@ -7429,6 +7481,7 @@
           if (res.ok && data.url) {
             anchorCustomUploadedUrl = data.url;
             if (img) img.src = data.url;
+            if (frame) frame.classList.remove('hidden');
           } else {
             alert('HEIC auto-conversion failed: ' + (data.detail || 'Unknown error'));
           }
@@ -7821,6 +7874,11 @@
               if (!labExtraImages.includes(item.url)) {
                 labExtraImages.push(item.url);
               }
+            } else if (destination === 'app_assets') {
+              const targetSlug = currentAppSlug || (globalApps[0] && globalApps[0].slug);
+              if (targetSlug) {
+                sendConvertedToAppAssets(item.url, item.filename, false);
+              }
             }
           });
 
@@ -7829,6 +7887,11 @@
             updateCompiledSOTPrompt();
           } else if (destination === 'asset_lab') {
             renderLabExtraImages();
+          } else if (destination === 'app_assets') {
+            const targetSlug = currentAppSlug || (globalApps[0] && globalApps[0].slug);
+            if (targetSlug && typeof loadAppAssetsList === 'function') {
+              loadAppAssetsList(targetSlug);
+            }
           }
 
           clearHEICQueue();
@@ -7869,6 +7932,7 @@
         const convSizeMb = (item.converted_size / (1024 * 1024)).toFixed(2);
         const sizeSummary = `${origSizeMb}MB -> ${convSizeMb}MB`;
         const downloadUrl = `/api/media/converted/${encodeURIComponent(item.filename)}?download=true`;
+        const targetAppSlug = currentAppSlug || (globalApps[0] && globalApps[0].slug);
 
         return `
           <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 flex flex-col space-y-2.5 relative group hover:border-pink-500/40 transition">
@@ -7909,6 +7973,12 @@
                 <i class="fa-solid fa-sliders"></i>
                 <span>Designer</span>
               </button>
+              ${targetAppSlug ? `
+              <button type="button" onclick="sendConvertedToAppAssets('${escapeJsParam(item.url)}', '${escapeJsParam(item.filename)}')" class="col-span-2 py-1.5 px-2 bg-slate-900 hover:bg-emerald-950/40 text-emerald-300 hover:text-emerald-200 border border-slate-800 hover:border-emerald-500/40 rounded-lg text-[11px] font-medium transition flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-folder-plus text-emerald-400"></i>
+                <span>Attach to App Assets (${escapeHtml(targetAppSlug)})</span>
+              </button>
+              ` : ''}
             </div>
           </div>
         `;
@@ -7933,6 +8003,36 @@
       }
       renderLabExtraImages();
       alert(`Added converted photo to Asset Lab references!`);
+    }
+
+    async function sendConvertedToAppAssets(url, filename, showAlert = true) {
+      const slug = currentAppSlug || (globalApps[0] && globalApps[0].slug);
+      if (!slug) {
+        if (showAlert) alert('Please select or register an application first.');
+        return;
+      }
+      try {
+        const resBlob = await fetch(url);
+        const blob = await resBlob.blob();
+        const formData = new FormData();
+        formData.append('file', blob, filename);
+        formData.append('asset_type', 'other');
+        formData.append('title', filename.replace(/\.[^.]+$/, ''));
+
+        const res = await fetch(`/api/apps/${encodeURIComponent(slug)}/assets/upload`, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (res.ok) {
+          if (showAlert) alert(`Photo saved directly to ${slug} assets!`);
+          if (typeof loadAppAssetsList === 'function') loadAppAssetsList(slug);
+        } else {
+          if (showAlert) alert('Failed to save to app assets: ' + (data.detail || 'Unknown error'));
+        }
+      } catch (err) {
+        if (showAlert) alert('Error saving to app assets: ' + err);
+      }
     }
 
     function sendAllConvertedToSOT() {
@@ -7965,6 +8065,58 @@
     function clearHEICResults() {
       heicResults = [];
       renderHEICResults();
+    }
+
+    // ==========================================
+    // Universal Drag-and-Drop Dropzone Setup
+    // ==========================================
+    function setupDragAndDropZone(zoneId, onFilesDropped) {
+      const zone = document.getElementById(zoneId);
+      if (!zone || zone.dataset.dragDropReady) return;
+      zone.dataset.dragDropReady = 'true';
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        zone.addEventListener(eventName, e => {
+          e.preventDefault();
+          e.stopPropagation();
+          zone.classList.add('border-cyan-400', 'bg-cyan-950/20');
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        zone.addEventListener(eventName, e => {
+          e.preventDefault();
+          e.stopPropagation();
+          zone.classList.remove('border-cyan-400', 'bg-cyan-950/20');
+        }, false);
+      });
+
+      zone.addEventListener('drop', e => {
+        const dt = e.dataTransfer;
+        if (dt && dt.files && dt.files.length > 0) {
+          onFilesDropped(dt.files);
+        }
+      }, false);
+    }
+
+    function initGlobalDragAndDropUploads() {
+      setupDragAndDropZone('sot-reference-dropzone', (files) => {
+        handleSOTMultiImageUpload({ files });
+      });
+
+      setupDragAndDropZone('lab-extra-dropzone', (files) => {
+        handleLabExtraImageUpload({ files });
+      });
+
+      setupDragAndDropZone('anchor-custom-dropzone', (files) => {
+        handleAnchorCustomFileUpload({ files });
+      });
+    }
+
+    // Initialize dropzones and URL deep links
+    setTimeout(initGlobalDragAndDropUploads, 300);
+    if (window.location.search.includes('action=heic') || window.location.hash === '#heic') {
+      setTimeout(openHEICConverterModal, 200);
     }
   </script>
 </body>

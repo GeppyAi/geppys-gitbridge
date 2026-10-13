@@ -34,6 +34,9 @@
       <button id="btn-detect-tab" class="btn-icon-subtle" title="Auto-detect app from current browser tab">
         <i class="fa-solid fa-crosshairs"></i>
       </button>
+      <button id="btn-open-heic" class="btn-icon-subtle" title="Open Apple HEIC / Photo Converter Studio in GitBridge" onclick="window.open('http://127.0.0.1:8000/?action=heic', '_blank')">
+        <i class="fa-solid fa-camera-retro" style="color: #f472b6;"></i>
+      </button>
     </div>
 
     <!-- Git Sync & Change Tracking Bar -->
@@ -208,7 +211,7 @@
   </main>
 
   <!-- Git Commit & Push Modal / Drawer -->
-  <div id="commit-modal" class="modal-overlay hidden">
+  <div id="commit-modal" class="modal-overlay hidden" style="display: none;" onclick="if (event.target === this) closeCommitModal()">
     <div class="modal-content commit-modal-content">
       <!-- Modal Header -->
       <div class="modal-header">
@@ -216,7 +219,7 @@
           <i class="fa-brands fa-github" style="color: #818cf8; font-size: 16px;"></i>
           <span>Save &amp; Commit to GitHub</span>
         </div>
-        <button id="btn-close-commit-modal" class="btn-icon-subtle" title="Close">
+        <button id="btn-close-commit-modal" class="btn-icon-subtle" title="Close (Esc)" onclick="closeCommitModal()">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -292,6 +295,7 @@
 
       <!-- Modal Footer -->
       <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeCommitModal()" title="Close without committing">Cancel</button>
         <button id="btn-commit-pc-only" class="btn-secondary-commit" title="Commit locally to Git on PC without pushing to remote">
           <i class="fa-solid fa-hard-drive"></i>
           <span>Save to PC Only</span>

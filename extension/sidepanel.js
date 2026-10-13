@@ -181,6 +181,12 @@ function setupEventListeners() {
       if (e.target === commitModal) closeCommitModal();
     });
   }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" || e.keyCode === 27) {
+      closeCommitModal();
+    }
+  });
 }
 
 // --- Mode Switcher ---
@@ -1088,12 +1094,22 @@ async function openCommitModal() {
   }
 
   switchCommitTab("files");
-  commitModal.classList.remove("hidden");
+  if (commitModal) {
+    commitModal.classList.remove("hidden");
+    commitModal.style.display = "flex";
+  }
 }
 
 function closeCommitModal() {
-  commitModal.classList.add("hidden");
+  if (commitModal) {
+    commitModal.classList.add("hidden");
+    commitModal.style.display = "none";
+  }
 }
+
+// Export to window for inline onclick handlers
+window.closeCommitModal = closeCommitModal;
+window.openCommitModal = openCommitModal;
 
 function switchCommitTab(tab) {
   if (tab === "files") {
