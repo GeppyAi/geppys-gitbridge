@@ -12,21 +12,46 @@ class GitHubService:
         if self.token and self.token != "your_github_personal_access_token_here":
             self.headers["Authorization"] = f"token {self.token}"
 
+    def get_authenticated_username(self) -> Optional[str]:
+        """Get the GitHub username of the authenticated token owner."""
+        if self.token and self.token != "your_github_personal_access_token_here":
+            try:
+                r = requests.get("https://api.github.com/user", headers=self.headers, timeout=8)
+                if r.status_code == 200:
+                    return r.json().get("login")
+            except Exception:
+                pass
+        return os.getenv("GITHUB_USERNAME")
+
     def create_repository(self, name: str, description: Optional[str] = None, private: bool = False) -> Dict[str, Any]:
-        """Create a new GitHub repository under the authenticated user's account."""
+        """Create a new GitHub repository under the authenticated user's account, or return it if it already exists."""
         if not self.token or self.token == "your_github_personal_access_token_here":
             raise ValueError("GitHub Personal Access Token (PAT) is required to create GitHub repositories. Please add your token in Settings & Workspace.")
 
+        # 1. Check if the repository already exists on GitHub under the user's account
+        username = self.get_authenticated_username()
+        if username:
+            existing_check = requests.get(f"https://api.github.com/repos/{username}/{name}", headers=self.headers, timeout=8)
+            if existing_check.status_code == 200:
+                return existing_check.json()
+
+        # 2. Attempt to create the repository via GitHub API
         url = "https://api.github.com/user/repos"
         payload = {
             "name": name,
-            "description": description or f"Repository for {name}",
+            "description": (description or f"Repository for {name}")[:340],
             "private": private,
             "auto_init": False
         }
-        response = requests.post(url, json=payload, headers=self.headers)
+        response = requests.post(url, json=payload, headers=self.headers, timeout=12)
         if response.status_code in [200, 201]:
             return response.json()
+        elif response.status_code == 403:
+            raise PermissionError(
+                f"Your GitHub Personal Access Token does not have permission to create new repositories ('administration: write'). "
+                f"To fix this: either (A) go to GitHub -> Settings -> Developer settings -> Personal access tokens, edit your token to allow 'All repositories' with 'Administration: Read and write' + 'Contents: Read and write', "
+                f"OR (B) create an empty repository named '{name}' at https://github.com/new and click Push again."
+            )
         else:
             response.raise_for_status()
             return {}
