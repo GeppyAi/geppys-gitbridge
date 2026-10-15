@@ -1,0 +1,91 @@
+{
+  "id": "series_1791924153_e54721",
+  "title": "Captain Geppy (Galactic Commander) \u2022 Emotes & Expressions Pack",
+  "created_at": "2026-10-13 16:42:35",
+  "anchor_title": "Captain Geppy (Galactic Commander)",
+  "anchor_image_url": "",
+  "anchor_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe",
+  "target_format": "app_icon",
+  "aspect_ratio": "1:1",
+  "output_contextile": null,
+  "consistency_level": "high",
+  "app_slug": "geppys-gitbridge",
+  "item_count": 6,
+  "items": [
+    {
+      "item_id": "series_1791924153_e54721_item_1",
+      "item_num": 1,
+      "title": "Happy & Cheering",
+      "difference": "Wide joyful beaming smile, thumbs-up gesture, golden star sparkles, radiant sunny warm aura",
+      "accent_color": "#F59E0B",
+      "filename": "var_1_62f1.png",
+      "image_url": "/api/asset-lab/series/series_1791924153_e54721/file/var_1_62f1.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #1 - HAPPY & CHEERING]: Wide joyful beaming smile, thumbs-up gesture, golden star sparkles, radiant sunny warm aura. Accent tone: #F59E0B. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1791924153_e54721_item_2",
+      "item_num": 2,
+      "title": "Pondering & Deep Thought",
+      "difference": "Hand resting under chin, focused curious expression, rotating cyan holographic question ring, analytical gaze",
+      "accent_color": "#06B6D4",
+      "filename": "var_2_f59e.png",
+      "image_url": "/api/asset-lab/series/series_1791924153_e54721/file/var_2_f59e.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #2 - PONDERING & DEEP THOUGHT]: Hand resting under chin, focused curious expression, rotating cyan holographic question ring, analytical gaze. Accent tone: #06B6D4. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1791924153_e54721_item_3",
+      "item_num": 3,
+      "title": "Hyperspace Focused",
+      "difference": "High-tech flight goggles lowered, wind-swept hair, intense determined gaze, warp-speed stars streaking in visor reflection",
+      "accent_color": "#6366F1",
+      "filename": "var_3_afb2.png",
+      "image_url": "/api/asset-lab/series/series_1791924153_e54721/file/var_3_afb2.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #3 - HYPERSPACE FOCUSED]: High-tech flight goggles lowered, wind-swept hair, intense determined gaze, warp-speed stars streaking in visor reflection. Accent tone: #6366F1. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1791924153_e54721_item_4",
+      "item_num": 4,
+      "title": "Power-Down / Coffee Needed",
+      "difference": "Drowsy half-lidded eyes, slumped relaxed shoulders, holding a blinking low-battery indicator datapad",
+      "accent_color": "#64748B",
+      "filename": "var_4_0dcd.png",
+      "image_url": "/api/asset-lab/series/series_1791924153_e54721/file/var_4_0dcd.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #4 - POWER-DOWN / COFFEE NEEDED]: Drowsy half-lidded eyes, slumped relaxed shoulders, holding a blinking low-battery indicator datapad. Accent tone: #64748B. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1791924153_e54721_item_5",
+      "item_num": 5,
+      "title": "Mind Blown / Cosmic Discovery",
+      "difference": "Eyes wide in cosmic awe with vibrant swirling galaxy reflections, subtle electrical shockwave aura, hands raised in revelation",
+      "accent_color": "#EC4899",
+      "filename": "var_5_4284.png",
+      "image_url": "/api/asset-lab/series/series_1791924153_e54721/file/var_5_4284.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #5 - MIND BLOWN / COSMIC DISCOVERY]: Eyes wide in cosmic awe with vibrant swirling galaxy reflections, subtle electrical shockwave aura, hands raised in revelation. Accent tone: #EC4899. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1791924153_e54721_item_6",
+      "item_num": 6,
+      "title": "Cool & Confident",
+      "difference": "Sleek mirrored sunglasses or dark aviator visor, charming confident smirk, golden glimmer sparkle on teeth/badge",
+      "accent_color": "#10B981",
+      "filename": "var_6_e2d4.png",
+      "image_url": "/api/asset-lab/series/series_1791924153_e54721/file/var_6_e2d4.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #6 - COOL & CONFIDENT]: Sleek mirrored sunglasses or dark aviator visor, charming confident smirk, golden glimmer sparkle on teeth/badge. Accent tone: #10B981. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    }
+  ],
+  "contact_sheet_url": "/api/asset-lab/series/series_1791924153_e54721/file/contact_sheet_series_1791924153_e54721.png",
+  "zip_url": "/api/asset-lab/series/series_1791924153_e54721/download-zip",
+  "zip_filename": "series_1791924153_e54721_collection.zip"
+}

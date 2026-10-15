@@ -10,32 +10,14 @@ from gitbridge.db.models import AppProfileModel
 from gitbridge.services.workspace_service import WorkspaceService
 from gitbridge.services.sot_service import SOTService
 
-GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-3.8-flash"]
+from gitbridge.services.central_key_service import CentralKeyService
+
+GEMINI_MODELS = ["gemini-2.5-flash", "gemini-3.8-flash"]
 
 def call_gemini(messages: List[Dict[str, Any]], system_instruction: str) -> Optional[str]:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return None
+    """Delegate to CentralKeyService for Gemini execution with robust fallback."""
+    return CentralKeyService.call_gemini(messages, system_instruction)
 
-    for model in GEMINI_MODELS:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-            payload = {
-                "contents": messages,
-                "systemInstruction": {"parts": [{"text": system_instruction}]}
-            }
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=25)
-            if res.status_code == 200:
-                data = res.json()
-                candidates = data.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts:
-                        return parts[0].get("text", "").strip()
-        except Exception as e:
-            print(f"[ExtensionService] Gemini call failed on {model}: {e}")
-            continue
-    return None
 
 class ExtensionService:
 
@@ -61,7 +43,16 @@ class ExtensionService:
                     if app:
                         return {"slug": app.slug, "name": app.name, "match_type": "active_port", "live_url": s_url}
 
-        # 2. Match by live_url in database
+        # 2. Match GitBridge itself (port 8000 on localhost / 127.0.0.1)
+        if port == 8000 or (hostname in ["localhost", "127.0.0.1"] and port == 8000):
+            gb_app = db.query(AppProfileModel).filter(AppProfileModel.slug == "geppys-gitbridge").first()
+            if gb_app:
+                if gb_app.live_url != f"http://localhost:{port}":
+                    gb_app.live_url = f"http://localhost:{port}"
+                    db.commit()
+                return {"slug": gb_app.slug, "name": gb_app.name, "match_type": "gitbridge_server", "live_url": gb_app.live_url}
+
+        # 3. Match by live_url in database
         apps = db.query(AppProfileModel).all()
         for app in apps:
             if app.live_url:
@@ -77,14 +68,49 @@ class ExtensionService:
         return None
 
     @staticmethod
+    def associate_app_url(slug: str, url: str, db: Session) -> Dict[str, Any]:
+        """Associate a live browser tab URL / port with an application profile and mark it live."""
+        app = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+        if not app:
+            return {"success": False, "message": f"App '{slug}' not found"}
+
+        clean_url = url.strip()
+        app.live_url = clean_url
+        db.commit()
+        db.refresh(app)
+        return {
+            "success": True,
+            "slug": app.slug,
+            "name": app.name,
+            "live_url": app.live_url,
+            "message": f"Successfully linked {app.name} to {clean_url}"
+        }
+
+    @staticmethod
     def brainstorm(
         slug: str,
         message: str,
         history: List[Dict[str, str]] = [],
         file_path: Optional[str] = None,
+        is_image: bool = False,
         db: Optional[Session] = None
     ) -> Dict[str, Any]:
         """Conversational brainstorming mode that ideates and curates an idea & task backlog."""
+        from gitbridge.services.chat_service import ChatService
+        if is_image or ChatService.is_image_request(message):
+            img_result = ChatService.generate_chat_image(prompt=message, app_slug=slug, db=db)
+            return {
+                "text": img_result["text"],
+                "is_image": True,
+                "image_data": {
+                    "image_url": img_result["image_url"],
+                    "title": img_result["image_title"],
+                    "filename": img_result["image_filename"],
+                    "color_palette": img_result["color_palette"]
+                },
+                "extracted_tasks": img_result.get("extracted_tasks", [])
+            }
+
         app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first() if (slug and db) else None
 
         app_name = app_obj.name if app_obj else "Active Project"
@@ -332,7 +358,10 @@ CRITICAL RULES:
         prompt_text = f"Instruction: {instruction}\n"
         if sot_grounding:
             prompt_text = f"{sot_grounding}\n{prompt_text}"
-        prompt_text += f"\nCurrent File Content:\n```\n{current_code}\n```"
+        if current_code and current_code.strip():
+            prompt_text += f"\nCurrent File Content:\n```\n{current_code}\n```"
+        else:
+            prompt_text += f"\nTarget File: {file_path} is currently empty or a new file. Generate complete, clean, professional code from scratch for this file."
 
         messages = [{
             "role": "user",
@@ -380,3 +409,57 @@ CRITICAL RULES:
         db.commit()
         db.refresh(app_obj)
         return app_obj.backlog
+
+    @staticmethod
+    def get_chat_history(slug: str, db: Session) -> List[Dict[str, Any]]:
+        """Retrieve brainstorm conversational chat history for an app."""
+        app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+        if not app_obj:
+            return []
+        return app_obj.chat_history or []
+
+    @staticmethod
+    def save_chat_history(slug: str, history: List[Dict[str, Any]], db: Session) -> List[Dict[str, Any]]:
+        """Save brainstorm conversational chat history for an app."""
+        app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+        if not app_obj:
+            return []
+        app_obj.chat_history = history
+        db.commit()
+        db.refresh(app_obj)
+        return app_obj.chat_history
+
+    @staticmethod
+    def batch_apply_design(
+        slug: str,
+        file_path: str,
+        current_code: str,
+        tasks: List[Dict[str, Any]],
+        db: Session
+    ) -> Dict[str, Any]:
+        """Apply a batch/group of tasks sequentially to code in a single coordinated operation."""
+        if not tasks:
+            return {"success": False, "message": "No tasks provided in batch", "modified_code": current_code}
+
+        task_prompts = []
+        for idx, t in enumerate(tasks):
+            desc = t.get("suggested_prompt") or t.get("prompt") or t.get("description") or t.get("title") or ""
+            task_prompts.append(f"{idx + 1}. [{t.get('category', 'Upgrade').upper()}] {t.get('title', 'Task')}: {desc}")
+
+        combined_instruction = "Implement the following batch of improvements together in this code:\n" + "\n".join(task_prompts)
+
+        res = ExtensionService.apply_design(
+            slug=slug,
+            file_path=file_path,
+            current_code=current_code,
+            instruction=combined_instruction,
+            db=db
+        )
+
+        return {
+            "success": res.get("success", False),
+            "modified_code": res.get("modified_code", current_code),
+            "task_count": len(tasks),
+            "applied_tasks": [t.get("id") or t.get("title") for t in tasks],
+            "explanation": f"Successfully applied batch of {len(tasks)} tasks to {os.path.basename(file_path)}"
+        }

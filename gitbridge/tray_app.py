@@ -16,11 +16,19 @@ from PIL import Image, ImageDraw, ImageFont
 import pystray
 from pystray import MenuItem as item, Menu
 
+from dotenv import load_dotenv
+
 # Ensure working directory is project root
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
+root_env = os.path.join(BASE_DIR, ".env")
+if os.path.exists(root_env):
+    load_dotenv(root_env, override=False)
+
 from gitbridge.services.workspace_service import WorkspaceService
+from gitbridge.services.central_key_service import CentralKeyService
+
 
 UVICORN_THREAD = None
 SERVER_PORT = 8000
@@ -279,8 +287,9 @@ def main():
     uv_thread = threading.Thread(target=run_uvicorn_server, daemon=True)
     uv_thread.start()
 
-    # Automatically open dashboard in browser on start
-    threading.Thread(target=lambda: (time.sleep(1.5), webbrowser.open(SERVER_URL)), daemon=True).start()
+    # Automatically open dashboard in browser on start (unless suppressed)
+    if not os.environ.get("NO_AUTO_BROWSER"):
+        threading.Thread(target=lambda: (time.sleep(1.5), webbrowser.open(SERVER_URL)), daemon=True).start()
 
     # System Tray Icon Setup
     icon_image = create_tray_icon_image()
@@ -291,7 +300,13 @@ def main():
         menu=Menu(create_dynamic_menu)
     )
 
-    icon.run()
+    try:
+        icon.run()
+    except Exception as e:
+        print(f"[TrayApp] Tray icon error: {e}", file=sys.stderr)
+    finally:
+        while IS_RUNNING:
+            time.sleep(1)
 
 if __name__ == "__main__":
     main()

@@ -14,119 +14,95 @@ def generate_contextile_thumbnail(
     title: str,
     concept: str,
     archetype: str = "style",
-    color_palette: Optional[List[str]] = None
+    color_palette: Optional[List[str]] = None,
+    reference_text: Optional[str] = None,
+    master_style_prompt: Optional[str] = None
 ) -> Optional[str]:
-    """Procedurally render an authentic preview thumbnail for the contextile."""
+    """Generate an authentic AI example preview image for the SOT Contextile."""
     try:
         ref_dir = SOTService._get_references_dir()
         fname = f"preview_{handle}.png"
         filepath = os.path.join(ref_dir, fname)
 
-        w, h = (600, 800) if (archetype == "style" or "card" in concept.lower() or "baseball" in concept.lower()) else (600, 600)
-        img = Image.new("RGBA", (w, h), (244, 237, 222, 255))
+        low = f"{concept} {title} {reference_text or ''} {master_style_prompt or ''}".lower()
+        is_card = "baseball" in low or "trading card" in low or "topps" in low
+        is_sticker = "sticker" in low or "die-cut" in low or "diecut" in low
+        w, h = (600, 800) if is_card else (768, 768)
+
+        # 1. Primary Path: Real AI Image Generation showcasing the style/subject
+        if archetype != "output":
+            try:
+                from gitbridge.services.asset_lab_service import AssetLabService
+                from gitbridge.services.output_service import OutputService
+
+                style_desc = master_style_prompt or reference_text or concept or title
+                if archetype == "style":
+                    if is_sticker:
+                        ai_prompt = (
+                            f"Vibrant showcase example of '{title}' ({concept}): "
+                            f"A charismatic cyberpunk anime character mascot die-cut sticker with bold cel-shaded linework, "
+                            f"shimmering holographic prism foil highlights, neon cyan and magenta rim lighting, and a crisp white die-cut vinyl border. "
+                            f"Style specification: {style_desc}"
+                        )
+                    elif is_card:
+                        ai_prompt = (
+                            f"Authentic showcase example of '{title}' ({concept}): "
+                            f"Vintage portrait illustration in {style_desc} aesthetic, rich period color grading and texture."
+                        )
+                    else:
+                        ai_prompt = (
+                            f"Masterpiece visual showcase example demonstrating the '{title}' style ({concept}): "
+                            f"{style_desc}. Iconic focal subject rendered with signature lighting, materials, and color palette."
+                        )
+                else:
+                    ai_prompt = f"{title}: {style_desc}"
+
+                should_cutout = is_sticker or archetype in ("character", "icon_set", "brand_asset")
+                ai_img, _raw_uncut = AssetLabService._generate_ai_raster_image(
+                    title=title,
+                    master_prompt=ai_prompt,
+                    target_format="trading_card" if is_card else "app_icon",
+                    width=w,
+                    height=h,
+                    color_palette=color_palette or [],
+                    composition_blueprint=reference_text or "",
+                    ingredients_summary=[],
+                    vars_dict={},
+                    ref_paths=[],
+                    use_chroma_cutout=should_cutout,
+                    is_hex=False
+                )
+                if ai_img is not None:
+                    ai_img.save(filepath, "PNG")
+                    return f"/api/sot/reference-file/{fname}"
+            except Exception as ai_err:
+                print(f"[generate_contextile_thumbnail] AI generation fallback triggered: {ai_err}")
+
+        # 2. Fallback Procedural Preview (only if AI generation is unavailable or archetype == 'output')
+        img = Image.new("RGBA", (w, h), (15, 23, 42, 255))
         draw = ImageDraw.Draw(img)
 
-        low = (concept + " " + title).lower()
-        if "baseball" in low or "card" in low or "trading" in low:
+        if is_card:
             # Authentic 1970s Baseball Trading Card Layout
-            # 1. Aged cardboard paper base with warm fiber tint
             for y in range(h):
                 ratio = y / h
                 r = int(246 - 12 * ratio)
                 g = int(238 - 14 * ratio)
                 b = int(224 - 18 * ratio)
                 draw.line([(0, y), (w, y)], fill=(r, g, b, 255))
-            
-            # Subtle cardboard flecks/grain
-            grain_overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-            g_draw = ImageDraw.Draw(grain_overlay)
-            for i in range(0, w, 6):
-                for j in range(0, h, 6):
-                    if (i * 13 + j * 29) % 19 == 0:
-                        g_draw.point((i, j), fill=(120, 100, 70, 25))
-            img = Image.alpha_composite(img, grain_overlay)
-            draw = ImageDraw.Draw(img)
 
-            # Outer vintage border line
             pad = 22
             draw.rectangle([pad, pad, w - pad, h - pad], outline=(30, 41, 59, 220), width=3)
-            draw.rectangle([pad + 5, pad + 5, w - pad - 5, h - pad - 5], outline=(217, 119, 6, 160), width=1)
-
-            # Top Arched Team Banner
             banner_y0 = pad + 18
             banner_y1 = banner_y0 + 72
             draw.rounded_rectangle([pad + 16, banner_y0, w - pad - 16, banner_y1], radius=14, fill=(220, 38, 38, 240), outline=(245, 158, 11, 255), width=3)
-            
             font_def = ImageFont.load_default()
-            header_text = "70S ALL-STAR SOT FLEET"
+            header_text = title.upper()[:28]
             h_bbox = draw.textbbox((0, 0), header_text, font=font_def)
-            hw = h_bbox[2] - h_bbox[0]
-            draw.text(((w - hw) // 2, banner_y0 + 26), header_text, fill=(255, 255, 255, 255), font=font_def)
+            draw.text(((w - (h_bbox[2] - h_bbox[0])) // 2, banner_y0 + 26), header_text, fill=(255, 255, 255, 255), font=font_def)
 
-            # Round Position Star Badge in corner
-            badge_r = 34
-            badge_cx = w - pad - 42
-            badge_cy = banner_y1 + 40
-            draw.ellipse([badge_cx - badge_r, badge_cy - badge_r, badge_cx + badge_r, badge_cy + badge_r], fill=(245, 158, 11, 255), outline=(220, 38, 38, 255), width=3)
-            pos_text = "MVP"
-            pb_box = draw.textbbox((0, 0), pos_text, font=font_def)
-            draw.text((badge_cx - (pb_box[2]-pb_box[0])//2, badge_cy - 7), pos_text, fill=(30, 27, 75, 255), font=font_def)
-
-            # Central Photo Window
-            pw_x0 = pad + 24
-            pw_y0 = banner_y1 + 18
-            pw_x1 = w - pad - 24
-            pw_y1 = h - pad - 120
-            draw.rectangle([pw_x0, pw_y0, pw_x1, pw_y1], fill=(15, 23, 42, 255), outline=(30, 41, 59, 255), width=3)
-            draw.rectangle([pw_x0 + 4, pw_y0 + 4, pw_x1 - 4, pw_y1 - 4], outline=(245, 158, 11, 200), width=2)
-
-            # Inside photo: Retro stadium sky and floodlights
-            photo_draw_area = Image.new("RGBA", (pw_x1 - pw_x0, pw_y1 - pw_y0), (15, 23, 42, 255))
-            p_draw = ImageDraw.Draw(photo_draw_area)
-            pw_h = pw_y1 - pw_y0
-            pw_w = pw_x1 - pw_x0
-            for py in range(pw_h):
-                p_rat = py / pw_h
-                pr = int(15 + 40 * p_rat)
-                pg = int(23 + 20 * p_rat)
-                pb = int(42 + 60 * p_rat)
-                p_draw.line([(0, py), (pw_w, py)], fill=(pr, pg, pb, 255))
-            
-            # Stadium light beams
-            for beam_x in [int(pw_w * 0.25), int(pw_w * 0.75)]:
-                for br in range(120, 0, -15):
-                    b_alpha = int(40 * (1.0 - br/120))
-                    p_draw.ellipse([beam_x - br, -20 - br, beam_x + br, -20 + br], fill=(254, 240, 138, b_alpha))
-            
-            # Stylized Captain Geppy / Pilot outline
-            p_cx, p_cy = pw_w // 2, int(pw_h * 0.55)
-            p_draw.ellipse([p_cx - 48, p_cy - 70, p_cx + 48, p_cy + 26], fill=(30, 41, 59, 255), outline=(245, 158, 11, 200), width=2)
-            p_draw.rounded_rectangle([p_cx - 28, p_cy - 44, p_cx + 28, p_cy - 20], radius=6, fill=(6, 182, 212, 255), outline=(255, 255, 255, 230), width=1)
-            p_draw.polygon([(p_cx - 90, pw_h), (p_cx - 50, p_cy + 30), (p_cx + 50, p_cy + 30), (p_cx + 90, pw_h)], fill=(15, 23, 42, 255), outline=(245, 158, 11, 200))
-            
-            img.paste(photo_draw_area, (pw_x0, pw_y0))
-            draw = ImageDraw.Draw(img)
-
-            # Lower Nameplate Banner
-            np_y0 = pw_y1 + 14
-            np_y1 = np_y0 + 58
-            draw.rounded_rectangle([pad + 18, np_y0, w - pad - 18, np_y1], radius=8, fill=(30, 58, 138, 255), outline=(245, 158, 11, 240), width=2)
-            
-            p_name = title.upper() if len(title) < 28 else title[:26].upper() + "..."
-            nb_box = draw.textbbox((0, 0), p_name, font=font_def)
-            draw.text(((w - (nb_box[2]-nb_box[0])) // 2, np_y0 + 14), p_name, fill=(255, 255, 255, 255), font=font_def)
-
-            sub_txt = "RETRO 70s BASEBALL CARD • SOT STYLE"
-            sb_box = draw.textbbox((0, 0), sub_txt, font=font_def)
-            draw.text(((w - (sb_box[2]-sb_box[0])) // 2, np_y0 + 34), sub_txt, fill=(253, 224, 71, 255), font=font_def)
-
-            foot_txt = "'76 SOT COLLECTIBLE • GEPPY'S GALACTIC"
-            fb_box = draw.textbbox((0, 0), foot_txt, font=font_def)
-            draw.text(((w - (fb_box[2]-fb_box[0])) // 2, h - pad - 20), foot_txt, fill=(100, 116, 139, 255), font=font_def)
-
-        elif archetype == "output" or "print" in low or "diecut" in low or "sticker" in low or "pdf" in low:
-            # Output & Print Spec Thumbnail
-            # 1. Dark slate checkered transparency pattern
+        elif archetype == "output":
+            # Output & Print Spec Thumbnail (ONLY for explicit 'output' print-spec archetype)
             tile_sz = 24
             for ty in range(0, h, tile_sz):
                 for tx in range(0, w, tile_sz):
@@ -134,90 +110,47 @@ def generate_contextile_thumbnail(
                     c = (15, 23, 42, 255) if is_dark else (30, 41, 59, 255)
                     draw.rectangle([tx, ty, tx + tile_sz, ty + tile_sz], fill=c)
 
-            # 2. Die-Cut Sticker Silhouette with White Rim
             st_cx, st_cy = w // 2, h // 2 - 20
             st_r = 130
-            # Outer white vinyl stroke
             draw.ellipse([st_cx - st_r, st_cy - st_r, st_cx + st_r, st_cy + st_r], fill=(255, 255, 255, 255))
-            # Inner badge
             draw.ellipse([st_cx - st_r + 14, st_cy - st_r + 14, st_cx + st_r - 14, st_cy + st_r - 14], fill=(6, 182, 212, 255))
-            # Printer icon symbol
-            draw.rectangle([st_cx - 40, st_cy - 20, st_cx + 40, st_cy + 25], fill=(15, 23, 42, 255), outline=(255, 255, 255, 255), width=2)
-            draw.rectangle([st_cx - 25, st_cy - 45, st_cx + 25, st_cy - 20], fill=(241, 245, 249, 255), outline=(15, 23, 42, 255), width=2)
-            draw.rectangle([st_cx - 30, st_cy + 15, st_cx + 30, st_cy + 38], fill=(255, 255, 255, 255), outline=(15, 23, 42, 255), width=1)
-            draw.line([(st_cx - 20, st_cy + 23), (st_cx + 20, st_cy + 23)], fill=(6, 182, 212, 255), width=2)
-            draw.line([(st_cx - 20, st_cy + 30), (st_cx + 10, st_cy + 30)], fill=(99, 102, 241, 255), width=2)
-
-            # 3. Printer crop marks at outer corners
-            c_len = 24
-            c_gap = 10
-            c_col = (236, 72, 153, 255) # Magenta crop marks
-            pad = 25
-            # Top-left
-            draw.line([(pad, pad + c_gap), (pad, pad + c_gap + c_len)], fill=c_col, width=2)
-            draw.line([(pad + c_gap, pad), (pad + c_gap + c_len, pad)], fill=c_col, width=2)
-            # Top-right
-            draw.line([(w - pad, pad + c_gap), (w - pad, pad + c_gap + c_len)], fill=c_col, width=2)
-            draw.line([(w - pad - c_gap, pad), (w - pad - c_gap - c_len, pad)], fill=c_col, width=2)
-            # Bottom-left
-            draw.line([(pad, h - pad - c_gap), (pad, h - pad - c_gap - c_len)], fill=c_col, width=2)
-            draw.line([(pad + c_gap, h - pad), (pad + c_gap + c_len, h - pad)], fill=c_col, width=2)
-            # Bottom-right
-            draw.line([(w - pad, h - pad - c_gap), (w - pad, h - pad - c_gap - c_len)], fill=c_col, width=2)
-            draw.line([(w - pad - c_gap, h - pad), (w - pad - c_gap - c_len, h - pad)], fill=c_col, width=2)
-
-            # 4. Dimension & Spec Banner
             font_def = ImageFont.load_default()
             np_y0 = h - 90
+            pad = 25
             draw.rounded_rectangle([pad + 10, np_y0, w - pad - 10, np_y0 + 55], radius=10, fill=(15, 23, 42, 240), outline=(6, 182, 212, 200), width=2)
-            
-            disp_title = title.upper()
-            if len(disp_title) > 28: disp_title = disp_title[:26] + "..."
+            disp_title = title.upper()[:28]
             tb_box = draw.textbbox((0, 0), disp_title, font=font_def)
-            draw.text(((w - (tb_box[2]-tb_box[0])) // 2, np_y0 + 12), disp_title, fill=(255, 255, 255, 255), font=font_def)
-            
-            spec_sub = "300 DPI • TRANSPARENT PNG • PRINT PDF"
-            sb_box = draw.textbbox((0, 0), spec_sub, font=font_def)
-            draw.text(((w - (sb_box[2]-sb_box[0])) // 2, np_y0 + 32), spec_sub, fill=(234, 179, 8, 255), font=font_def)
-
-        elif "sticker" in low or "hologram" in low:
-            # Holographic iridescent sticker
-            for y in range(h):
-                draw.line([(0, y), (w, y)], fill=(15, 23, 42, 255))
-            for gx in range(0, w, 30): draw.line([(gx, 0), (gx, h)], fill=(30, 41, 59, 100))
-            for gy in range(0, h, 30): draw.line([(0, gy), (w, gy)], fill=(30, 41, 59, 100))
-            
-            st_pad = 80
-            draw.rounded_rectangle([st_pad, st_pad, w - st_pad, h - st_pad], radius=32, fill=(255, 255, 255, 255))
-            draw.rounded_rectangle([st_pad + 12, st_pad + 12, w - st_pad - 12, h - st_pad - 12], radius=24, fill=(129, 140, 248, 255), outline=(6, 182, 212, 255), width=4)
-            for sl in range(st_pad + 20, w - st_pad - 20, 20):
-                draw.line([(sl, st_pad + 15), (sl - 60, h - st_pad - 15)], fill=(255, 255, 255, 80), width=3)
-            font_def = ImageFont.load_default()
-            st_txt = title.upper()
-            st_box = draw.textbbox((0, 0), st_txt, font=font_def)
-            draw.text(((w - (st_box[2]-st_box[0])) // 2, h // 2 - 8), st_txt, fill=(255, 255, 255, 255), font=font_def)
+            draw.text(((w - (tb_box[2] - tb_box[0])) // 2, np_y0 + 12), disp_title, fill=(255, 255, 255, 255), font=font_def)
 
         else:
-            # Premium Designer Aesthetic Swatch Card
+            # Vibrant Neon / Prism Style Swatch Card
             for y in range(h):
                 ratio = y / h
-                r = int(15 + 15 * ratio)
-                g = int(23 + 12 * ratio)
-                b = int(42 + 45 * ratio)
+                r = int(18 + 45 * ratio)
+                g = int(12 + 25 * (1.0 - ratio))
+                b = int(48 + 90 * ratio)
                 draw.line([(0, y), (w, y)], fill=(r, g, b, 255))
-            
-            draw.ellipse([w//2 - 180, h//2 - 180, w//2 + 180, h//2 + 180], outline=(99, 102, 241, 120), width=4)
-            draw.ellipse([w//2 - 140, h//2 - 140, w//2 + 140, h//2 + 140], outline=(6, 182, 212, 140), width=3)
-            
+
+            cx, cy = w // 2, h // 2
+            pts_outer = []
+            pts_inner = []
+            import math
+            for i in range(6):
+                ang = math.radians(60 * i - 30)
+                pts_outer.append((cx + int(190 * math.cos(ang)), cy + int(190 * math.sin(ang))))
+                pts_inner.append((cx + int(168 * math.cos(ang)), cy + int(168 * math.sin(ang))))
+            draw.polygon(pts_outer, fill=(255, 255, 255, 255))
+            draw.polygon(pts_inner, fill=(15, 23, 42, 255), outline=(6, 182, 212, 255))
+            draw.ellipse([cx - 110, cy - 110, cx + 110, cy + 110], outline=(236, 72, 153, 220), width=4)
+
             font_def = ImageFont.load_default()
             t_box = draw.textbbox((0, 0), title, font=font_def)
-            draw.text(((w - (t_box[2]-t_box[0])) // 2, h // 2 - 20), title, fill=(255, 255, 255, 255), font=font_def)
-            arch_badge = f"SOT {archetype.upper()} PREVIEW"
+            draw.text(((w - (t_box[2] - t_box[0])) // 2, cy - 12), title, fill=(255, 255, 255, 255), font=font_def)
+            arch_badge = f"SOT {archetype.upper()} STYLE"
             a_box = draw.textbbox((0, 0), arch_badge, font=font_def)
-            draw.text(((w - (a_box[2]-a_box[0])) // 2, h // 2 + 10), arch_badge, fill=(6, 182, 212, 255), font=font_def)
+            draw.text(((w - (a_box[2] - a_box[0])) // 2, cy + 14), arch_badge, fill=(56, 189, 248, 255), font=font_def)
 
-        img = img.convert("RGB")
-        img.save(filepath, "PNG", quality=92)
+        img.save(filepath, "PNG")
         return f"/api/sot/reference-file/{fname}"
     except Exception as e:
         print(f"[generate_contextile_thumbnail] Error: {e}")
@@ -337,29 +270,9 @@ ARCHETYPES = {
 }
 
 def call_gemini(messages: List[Dict[str, Any]], system_instruction: str) -> Optional[str]:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return None
+    from gitbridge.services.central_key_service import CentralKeyService
+    return CentralKeyService.call_gemini(messages, system_instruction)
 
-    for model in GEMINI_MODELS:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-            payload = {
-                "contents": messages,
-                "systemInstruction": {"parts": [{"text": system_instruction}]}
-            }
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=20)
-            if res.status_code == 200:
-                data = res.json()
-                candidates = data.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts:
-                        return parts[0].get("text", "").strip()
-        except Exception as e:
-            print(f"[SOTService] Gemini call failed on {model}: {e}")
-            continue
-    return None
 
 class SOTService:
 
@@ -1001,7 +914,9 @@ Respond STRICTLY with valid JSON having these fields:
             title=title,
             concept=seed,
             archetype=archetype_out,
-            color_palette=color_palette
+            color_palette=color_palette,
+            reference_text=parsed_data.get("reference_text"),
+            master_style_prompt=parsed_data.get("master_style_prompt")
         )
 
         modifiers_dict = {

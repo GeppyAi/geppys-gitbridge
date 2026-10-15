@@ -12,12 +12,18 @@
   <header class="header">
     <div class="brand-row">
       <div class="brand-title">
-        <i class="fa-solid fa-rocket text-indigo-400" style="color: #818cf8;"></i>
+        <img src="icons/icon48.png" alt="Geppy's Galactic" style="width: 22px; height: 22px; border-radius: 4px; object-fit: contain; filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4)); vertical-align: middle;" />
         <span>Geppy's <span class="accent">Galactic</span></span>
       </div>
-      <div id="connection-status" class="status-indicator">
-        <span class="status-dot"></span>
-        <span id="connection-text">Connecting...</span>
+      <div class="header-status-group">
+        <button id="btn-central-key-vault" class="key-vault-badge" title="GitBridge Central Gemini Key Vault - Click to inspect or test">
+          <i class="fa-solid fa-bolt key-icon"></i>
+          <span id="central-key-label">Gemini: ...</span>
+        </button>
+        <div id="connection-status" class="status-indicator">
+          <span class="status-dot"></span>
+          <span id="connection-text">Connecting...</span>
+        </div>
       </div>
     </div>
 
@@ -31,6 +37,9 @@
         <i class="fa-solid fa-rocket"></i>
         <span>Launch</span>
       </button>
+      <button id="btn-header-add-app" class="btn-icon-subtle" title="Register / Add New App to Galactic">
+        <i class="fa-solid fa-plus text-cyan-400" style="color: #38bdf8;"></i>
+      </button>
       <button id="btn-detect-tab" class="btn-icon-subtle" title="Auto-detect app from current browser tab">
         <i class="fa-solid fa-crosshairs"></i>
       </button>
@@ -38,6 +47,25 @@
         <i class="fa-solid fa-camera-retro" style="color: #f472b6;"></i>
       </button>
     </div>
+
+    <!-- Unrecognized Active Tab App Bar / Reassociation Dock -->
+    <div id="unrecognized-app-bar" class="unrecognized-banner hidden">
+      <div class="unrecognized-info">
+        <i class="fa-solid fa-circle-question" style="color: #fbbf24;"></i>
+        <span>Tab not registered: <strong id="unrecognized-url-label">localhost:3000</strong></span>
+      </div>
+      <div class="unrecognized-actions">
+        <button id="btn-reassociate-tab" class="btn-quick-link hidden" title="Link / reassociate this live tab directly to currently selected app">
+          <i class="fa-solid fa-link"></i>
+          <span id="reassociate-btn-text">Link to App</span>
+        </button>
+        <button id="btn-show-add-app-modal" class="btn-quick-add" title="Register this as a new app in Galactic">
+          <i class="fa-solid fa-plus"></i>
+          <span>Add New</span>
+        </button>
+      </div>
+    </div>
+
 
     <!-- Git Sync & Change Tracking Bar -->
     <div class="git-sync-bar" id="git-sync-bar">
@@ -62,7 +90,11 @@
       </button>
       <button id="btn-mode-designer" class="mode-btn">
         <i class="fa-solid fa-wand-magic-sparkles"></i>
-        <span>Live Designer</span>
+        <span>Designer</span>
+      </button>
+      <button id="btn-mode-assets" class="mode-btn">
+        <i class="fa-solid fa-flask"></i>
+        <span>Asset Lab</span>
       </button>
     </div>
   </header>
@@ -71,7 +103,12 @@
   <main id="view-brainstorm" class="view-container">
     <!-- SOT Contextiles Quick-Bar -->
     <div class="sot-quickbar">
-      <span class="sot-label"><i class="fa-solid fa-layer-group"></i> SOT @:</span>
+      <button type="button" id="btn-open-sot-fleet" class="sot-label-btn" title="Click to view all Sources of Truth">
+        <i class="fa-solid fa-layer-group text-cyan"></i>
+        <span>SOT Fleet</span>
+        <span id="sot-quickbar-count" class="sot-count-badge">0</span>
+        <i class="fa-solid fa-chevron-right" style="font-size: 8px; opacity: 0.6; margin-left: 1px;"></i>
+      </button>
       <div id="sot-contextile-chips" class="sot-chips-container">
         <span style="color: #64748b; font-size: 11px;">Loading contextiles...</span>
       </div>
@@ -91,6 +128,9 @@
       <button class="pill-btn" data-prompt="Recommend an upgraded color palette and dark/light mode tokens.">
         🎨 Modern Theme
       </button>
+      <button class="pill-btn image-pill" data-prompt="/image Generate a brand-new official app icon with bold orange border and transparent background for this app.">
+        🎨 Generate App Icon
+      </button>
       <button class="pill-btn git-pill" data-prompt="Audit all modified files and recent changes in our session. Propose a clean Git commit message and confirm if we are ready to push to GitHub.">
         🐙 Git Changes &amp; Commit
       </button>
@@ -100,7 +140,7 @@
     <div id="chat-history" class="chat-history">
       <div class="chat-bubble ai">
         <div class="captain-badge">
-          <span class="captain-avatar">👨‍🚀</span>
+          <span class="captain-avatar"><img src="icons/icon48.png" alt="Captain Geppy" class="captain-avatar-img" /></span>
           <div>
             <strong style="color: #818cf8;">Captain Geppy</strong>
             <span class="captain-sub">Galactic Commander &amp; AI Architect</span>
@@ -115,10 +155,10 @@
     <!-- Brainstorm Tasks & Ideas Backlog Dock -->
     <div id="backlog-drawer" class="backlog-drawer">
       <div id="backlog-header" class="backlog-header">
-        <div style="display: flex; align-items: center;">
-          <i class="fa-solid fa-list-check" style="margin-right: 6px; color: #818cf8;"></i>
-          <span>Ideas & Tasks Backlog</span>
-          <span id="backlog-count" class="backlog-count-badge">0</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-list-check" style="color: #818cf8;"></i>
+          <span>Ideas &amp; Tasks</span>
+          <span id="backlog-count" class="backlog-count-badge" title="Active pending tasks">0 active</span>
         </div>
         <div style="display: flex; gap: 4px;">
           <button id="btn-add-custom-task" class="btn-icon-subtle" title="Add custom idea/task">
@@ -129,17 +169,96 @@
           </button>
         </div>
       </div>
+
+      <!-- Folder Navigation Tabs: Active vs Done Pile -->
+      <div class="backlog-folder-tabs">
+        <button type="button" id="tab-backlog-active" class="btn-backlog-tab active" title="View active tasks to implement">
+          <i class="fa-solid fa-bolt text-amber-400"></i>
+          <span>Active Tasks</span>
+          <span id="badge-active-tasks-count" class="backlog-tab-pill">0</span>
+        </button>
+        <button type="button" id="tab-backlog-done" class="btn-backlog-tab done-tab" title="View completed tasks filed in Done Pile">
+          <i class="fa-solid fa-folder-closed text-emerald-400"></i>
+          <span>Done Pile</span>
+          <span id="badge-done-tasks-count" class="backlog-tab-pill done-pill">0</span>
+        </button>
+      </div>
+
+      <!-- Batch & Group Runner Toolbar -->
+      <div id="backlog-batch-bar" class="backlog-batch-bar">
+        <div class="batch-select-group">
+          <label class="batch-select-all-label">
+            <input type="checkbox" id="chk-backlog-select-all" />
+            <span>Select All</span>
+          </label>
+          <span id="batch-selected-count" class="batch-count-pill">0 selected</span>
+          <label class="batch-select-all-label" title="Always prompt with Implementation Control Center to choose target file and mode" style="margin-left: 6px; cursor: pointer;">
+            <input type="checkbox" id="chk-always-confirm-target" checked />
+            <span style="color: #cbd5e1; font-size: 10px;">⚙️ Options</span>
+          </label>
+        </div>
+        <div class="batch-btn-group">
+          <button id="btn-batch-mark-done" class="btn-batch-done" disabled title="File selected tasks directly to Done Pile">
+            <i class="fa-solid fa-folder-arrow-down"></i>
+            <span>File to Done</span>
+          </button>
+          <button id="btn-run-batch-tasks" class="btn-run-batch" disabled title="Run selected tasks in sequence automatically">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Run Batch</span>
+          </button>
+          <button id="btn-run-next-batch" class="btn-run-all" title="Run next 3 pending tasks in batch">
+            <i class="fa-solid fa-forward-step"></i>
+            <span>Run Next 3</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Batch Execution Live Progress Banner -->
+      <div id="batch-progress-banner" class="batch-progress-banner hidden">
+        <div class="progress-info">
+          <span id="batch-progress-status" class="progress-status"><i class="fa-solid fa-spinner animate-spin"></i> Applying batch...</span>
+          <span id="batch-progress-percent" class="progress-percent">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="batch-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Active Tasks List -->
       <div id="backlog-list" class="backlog-list">
         <div style="color: #64748b; font-size: 11px; text-align: center; padding: 12px 0;">
           No brainstormed tasks yet. Chat with AI or click a prompt pill above!
+        </div>
+      </div>
+
+      <!-- Collapsible Done Folder / Done Pile Dock -->
+      <div id="backlog-done-dock" class="done-folder-dock">
+        <div id="done-folder-toggle" class="done-folder-header" title="Click to expand or collapse Done Pile">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <i id="done-folder-icon" class="fa-solid fa-folder-closed text-emerald-400"></i>
+            <span style="font-weight: 700; color: #34d399;">Done Pile</span>
+            <span id="done-folder-count-badge" class="done-badge-tag">0 completed</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button type="button" id="btn-clear-done-pile" class="btn-clear-done-pile" title="Clear all completed tasks from Done Pile">
+              <i class="fa-solid fa-trash-can"></i> Clear Done
+            </button>
+            <i id="done-folder-chevron" class="fa-solid fa-chevron-down" style="color: #64748b; font-size: 10px;"></i>
+          </div>
+        </div>
+        <div id="backlog-done-list" class="done-folder-body hidden">
+          <!-- Completed tasks rendered here -->
         </div>
       </div>
     </div>
 
     <!-- Brainstorm Input Bar -->
     <div class="input-bar">
-      <input type="text" id="brainstorm-input" class="input-box" placeholder="Brainstorm ideas, ask for UX upgrades, themes..." />
-      <button id="btn-send-brainstorm" class="btn-send">
+      <button type="button" id="btn-chat-mode-image" class="btn-chat-mode" title="Toggle Image Generation Mode (or type /image ...)">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+      </button>
+      <input type="text" id="brainstorm-input" class="input-box" placeholder="Ask Captain Geppy or type /image to generate visuals..." />
+      <button id="btn-send-brainstorm" class="btn-send" title="Send message to Captain Geppy">
         <i class="fa-solid fa-paper-plane"></i>
       </button>
     </div>
@@ -207,6 +326,380 @@
         <i class="fa-solid fa-wand-magic-sparkles"></i>
         <span>Apply</span>
       </button>
+  </main>
+
+  <!-- View 3: Asset Lab & Image Manager Mode -->
+  <main id="view-assets" class="view-container hidden">
+    <!-- Assets Sub-Header & Navigation Tabs -->
+    <div class="assets-subnav">
+      <div class="assets-nav-group">
+        <button id="btn-assets-sub-manager" class="assets-sub-tab active">
+          <i class="fa-solid fa-images"></i>
+          <span>App Images (<span id="detected-images-count">0</span>)</span>
+        </button>
+        <button id="btn-assets-sub-lab" class="assets-sub-tab">
+          <i class="fa-solid fa-flask"></i>
+          <span>Asset Lab &amp; Drop</span>
+        </button>
+      </div>
+      <div class="assets-nav-actions">
+        <button id="btn-backup-all-images" class="btn-subtle-glow" title="Backup all app images as ZIP archive">
+          <i class="fa-solid fa-file-zipper"></i>
+          <span>Backup ZIP</span>
+        </button>
+        <button id="btn-refresh-app-images" class="btn-icon-subtle" title="Rescan app directory for images">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sub-Section 1: App Image Management Gallery -->
+    <div id="section-app-images" class="assets-panel-view">
+      <div class="images-summary-bar">
+        <span id="images-summary-text" class="summary-text"><i class="fa-solid fa-shield-halved text-cyan"></i> App Image Assets Directory</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span id="images-total-size" class="summary-badge">0 KB</span>
+          <button type="button" id="btn-toggle-app-upload" class="btn-step-pill" style="padding: 2px 7px; font-size: 11px;" title="Upload an image from your PC directly into the app">
+            <i class="fa-solid fa-cloud-arrow-up text-cyan"></i> <span>Upload to App</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Collapsible Direct Upload to App Dock -->
+      <div id="app-upload-dock" class="app-upload-dock hidden">
+        <div class="app-upload-dock-header">
+          <span><i class="fa-solid fa-upload text-cyan"></i> Upload Image from PC into App</span>
+          <button type="button" id="btn-close-app-upload" class="btn-icon-subtle"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <input type="file" id="app-upload-file-input" accept="image/*,.heic,.heif,.ico,.svg" style="display: none;" />
+        <div id="app-upload-dropzone" class="lab-ref-dropzone" style="margin-bottom: 8px;">
+          <i class="fa-solid fa-file-arrow-up" style="font-size: 20px; color: #38bdf8; margin-bottom: 4px;"></i>
+          <span id="app-upload-prompt-text" style="font-size: 11px;">Click or drop image to upload directly to app</span>
+        </div>
+        <div class="lab-form-group" style="margin-bottom: 6px;">
+          <label style="font-size: 10px; color: #94a3b8;">Target Folder:</label>
+          <select id="app-upload-target-folder" class="lab-select" style="font-size: 11px; padding: 4px 6px;">
+            <option value="assets">assets/</option>
+            <option value="public/images">public/images/</option>
+            <option value="public">public/</option>
+            <option value="static">static/</option>
+            <option value="images">images/</option>
+            <option value=".">root (/)</option>
+          </select>
+        </div>
+        <div class="lab-checkbox-group" style="margin-bottom: 8px; gap: 4px;">
+          <label class="lab-checkbox-label" style="font-size: 10px;">
+            <input type="checkbox" id="chk-app-upload-set-icon" checked />
+            <span>Set as Official App Icon</span>
+          </label>
+          <label class="lab-checkbox-label" style="font-size: 10px;">
+            <input type="checkbox" id="chk-app-upload-code-refs" checked />
+            <span>Update &lt;link rel="icon"&gt; in index.html</span>
+          </label>
+        </div>
+        <button type="button" id="btn-do-app-upload" class="btn-drop-cta" style="padding: 6px 12px; font-size: 11px;" disabled>
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <span>Upload Image &amp; Update App</span>
+        </button>
+        <div id="app-upload-feedback" class="drop-feedback hidden"></div>
+      </div>
+
+      <div id="app-images-grid" class="app-images-grid">
+        <div class="images-empty-state">
+          <i class="fa-solid fa-photo-film"></i>
+          <p>Scanning active app directory for images...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sub-Section 2: Asset Lab Synthesis & Drop-Into-App Station -->
+    <div id="section-asset-lab" class="assets-panel-view hidden">
+      <!-- 3-Step Asset Synthesis Station -->
+      <div class="lab-card">
+        <div class="lab-card-header">
+          <i class="fa-solid fa-flask-vial text-amber"></i>
+          <span>Asset Synthesis Pipeline</span>
+        </div>
+
+        <!-- Step 1: Asset Target & Brand Identity -->
+        <div class="lab-step-box">
+          <div class="lab-step-header">
+            <span class="step-num-pill">1</span>
+            <span class="step-title">Asset Target &amp; Brand Identity</span>
+          </div>
+          <div class="lab-form-group">
+            <label>What is this asset for?</label>
+            <select id="ext-lab-purpose-select" class="lab-select" style="margin-bottom: 6px;">
+              <option value="">📋 Browse full list of asset roles &amp; purposes...</option>
+              <optgroup label="🚀 App Launchers &amp; System Icons">
+                <option value="App Launcher Squircle Icon (Modern iOS/macOS Rounded Square)">📱 App Launcher Squircle Icon</option>
+                <option value="Geppy Hexagonal (#F59E0B) App Launcher Icon (Dark Navy Core with Orange Rim)">🔶 Geppy Hexagonal (#F59E0B) App Launcher Icon</option>
+                <option value="Windows Taskbar &amp; System Tray Icon (.ico Crisp Micro Multi-Resolution)">💻 Windows Taskbar / System Tray Icon</option>
+                <option value="Chrome Extension Action Badge Icon (Vector Scalable 16x16, 48x48, 128x128)">🧩 Chrome Extension Action Badge Icon</option>
+                <option value="Mobile Web App PWA Touch Icon (High-DPI Retina Display)">📲 Mobile Web App (PWA) Touch Icon</option>
+                <option value="Browser Tab Favicon (High-Contrast Silhouette &amp; Brand Accent)">🌐 Browser Tab Favicon</option>
+                <option value="macOS Dock Cylindrical / Floating Squircle Icon">🖥️ macOS Dock Squircle Icon</option>
+              </optgroup>
+              <optgroup label="🪙 Badges, Medals &amp; Currency">
+                <option value="Geppy's Cash &amp; Coin Transaction Badge (Emerald &amp; Stamped Gold)">🪙 Geppy's Cash &amp; Coin Transaction Badge</option>
+                <option value="Star Captain Leaderboard Trophy (Gleaming Gold &amp; Cosmic Pedestal)">🏆 Star Captain Leaderboard Trophy</option>
+                <option value="Achievement Crest &amp; Galactic Rank Insignia">🎖️ Achievement Crest &amp; Rank Insignia</option>
+                <option value="Verified Security Shield Badge (Encrypted Hologram Emblem)">🛡️ Verified Security Shield Badge</option>
+                <option value="VIP Loyalty Crest &amp; Cosmic Club Membership Seal">👑 VIP Loyalty Crest &amp; Membership Seal</option>
+                <option value="Cryptographic Vault Token &amp; Key Ledger Emblem">🔑 Cryptographic Vault Token</option>
+                <option value="Level-Up Star Medal &amp; Milestone Tier Pin">⭐ Level-Up Star Medal</option>
+              </optgroup>
+              <optgroup label="🎛️ UI Widgets, Dashboard &amp; Controls">
+                <option value="Calendar &amp; Schedule Sync Widget (Dynamic Date &amp; Status Indicator)">📅 Calendar &amp; Schedule Sync Widget</option>
+                <option value="Real-Time Metrics Dashboard Tile (Glowing Gauges &amp; Data Telemetry)">📊 Real-Time Metrics Dashboard Tile</option>
+                <option value="Notification &amp; Activity Alert Bell (Ringing Pulsar Indicator)">🔔 Notification &amp; Activity Alert Bell</option>
+                <option value="Floating Action Button (FAB) Icon (Vibrant Gradient Primary Trigger)">⚡ Floating Action Button (FAB) Icon</option>
+                <option value="System Configuration Engine &amp; Settings Gear">⚙️ System Configuration Gear &amp; Engine</option>
+                <option value="User Profile Avatar Frame &amp; Status Ring">👤 User Profile Avatar Frame</option>
+                <option value="Audio Synthesizer &amp; Media Player Visualizer Control">🎵 Audio &amp; Media Player Control</option>
+                <option value="Git Branch Synchronization &amp; Cloud Bridge Node">🌿 Git Branch &amp; Cloud Bridge Node</option>
+              </optgroup>
+              <optgroup label="🖼️ Graphics, Mascot &amp; Marketing">
+                <option value="Captain Geppy Mascot (Hero Thumbs Up &amp; Confident Stance)">👍 Captain Geppy Mascot (Hero Thumbs Up)</option>
+                <option value="Captain Geppy Starfleet Helm (Navigating Cosmic Flight Deck)">🚀 Captain Geppy Starfleet Helm</option>
+                <option value="Captain Geppy Code Inspector (Holding Magnifying Lens &amp; Data Terminal)">🔍 Captain Geppy Code Inspector</option>
+                <option value="Hero Showcase Splash Banner (Widescreen 16:9 Cosmic Feature Graphic)">🖼️ Hero Showcase Splash Banner</option>
+                <option value="Deep Space Cosmic Nebula Wallpaper &amp; Header Backdrop">🌌 Deep Space Cosmic Nebula Wallpaper</option>
+                <option value="Die-Cut Brand Vinyl Sticker (Bold White Contour Perimeter)">🏷️ Die-Cut Brand Vinyl Sticker</option>
+                <option value="1970s Vintage Collectible Trading Card (Topps Cardboard Lithograph)">⚾ 1970s Vintage Collectible Trading Card</option>
+              </optgroup>
+            </select>
+            <input type="text" id="ext-lab-purpose" class="lab-input" placeholder="e.g. Official app icon, Geppy's Cash badge, Hero graphic..." />
+            <div class="lab-pill-shortcuts">
+              <button type="button" class="btn-step-pill" data-purpose="Official App Launcher Icon" data-shape="hex-orange-nobg">🚀 App Icon</button>
+              <button type="button" class="btn-step-pill" data-purpose="Geppy Hexagonal (#F59E0B) App Launcher Icon" data-shape="hex-orange-nobg">🔶 Hex Icon</button>
+              <button type="button" class="btn-step-pill" data-purpose="Geppy's Cash &amp; Vault Badge" data-shape="vault-gold-emerald">💳 Cash Badge</button>
+              <button type="button" class="btn-step-pill" data-purpose="Captain Geppy Commander Mascot Badge" data-shape="squircle-glass">🌟 Mascot</button>
+              <button type="button" class="btn-step-pill" data-purpose="Hero Dashboard Graphic &amp; Visual Feature" data-shape="isometric-scene">🖼️ Hero</button>
+              <button type="button" class="btn-step-pill" data-purpose="Die-Cut Brand Vinyl Sticker" data-shape="sticker-diecut">🏷️ Sticker</button>
+            </div>
+          </div>
+          <div class="lab-form-group">
+            <label>Brand / Character SOT Grounding:</label>
+            <select id="ext-lab-brand-select" class="lab-select">
+              <option value="">🌟 Auto-Detect Brand / Character Likeness</option>
+            </select>
+            <div id="ext-lab-brand-chip" class="lab-brand-chip hidden">
+              <img id="ext-lab-brand-thumb" src="" alt="Brand Mascot" class="lab-brand-thumb-img" />
+              <div class="lab-brand-meta">
+                <span id="ext-lab-brand-name" class="lab-brand-name">Captain Geppy</span>
+                <span class="lab-brand-sub">Character Likeness Grounding</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Visual Style, Shape & Theme -->
+        <div class="lab-step-box">
+          <div class="lab-step-header">
+            <span class="step-num-pill">2</span>
+            <span class="step-title">Visual Style, Shape &amp; Theme</span>
+            <button type="button" id="btn-open-create-contextile-modal" class="btn-mini-action" title="Create &amp; save new Context Style">
+              <i class="fa-solid fa-plus"></i> New Context Style
+            </button>
+          </div>
+          <div class="lab-form-group">
+            <label>Shape &amp; Style Preset:</label>
+            <select id="ext-lab-shape-preset" class="lab-select">
+              <option value="hex-orange-nobg" selected>🔶 Hexagonal App Icon (Orange Accent / No Background)</option>
+              <option value="squircle-glass">📱 3D Glassmorphic Squircle (Apple iOS Style)</option>
+              <option value="vault-gold-emerald">🪙 Metallic Vault Emblem (Gold &amp; Emerald)</option>
+              <option value="isometric-scene">🪐 Cosmic Isometric Scene (Deep Multilayer Glass)</option>
+              <option value="sticker-diecut">🏷️ Die-Cut Vinyl Sticker (White Contour Rim)</option>
+              <option value="trading-card">⚾ 1970s Vintage Trading Card (Topps Cardboard Litho)</option>
+              <option value="custom">🎨 Custom Style Directive</option>
+            </select>
+          </div>
+          <div class="lab-form-group">
+            <label>Style Contextile Grounding:</label>
+            <select id="ext-lab-style-contextile" class="lab-select">
+              <option value="">🌟 Select Style Contextile (or custom)</option>
+            </select>
+          </div>
+
+          <!-- Style Reference Icon / Artwork Dock -->
+          <div class="lab-form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label style="margin-bottom: 0;">Style Reference Icon / Asset:</label>
+              <button type="button" id="btn-use-app-icon-ref" class="btn-step-pill" style="padding: 1px 6px; font-size: 9px;" title="Use current app's existing icon as style reference">
+                <i class="fa-solid fa-crosshairs"></i> Use App Icon
+              </button>
+            </div>
+            
+            <input type="file" id="ext-lab-ref-file" accept="image/*,.heic,.heif" style="display: none;" />
+
+            <!-- Dropzone -->
+            <div id="ext-lab-ref-dropzone" class="lab-ref-dropzone" title="Click or drop an icon image to use as style reference">
+              <i class="fa-solid fa-cloud-arrow-up text-amber"></i>
+              <span id="ext-lab-ref-prompt-text">Click or drop icon image to ground style</span>
+            </div>
+
+            <!-- Active Style Reference Bar -->
+            <div id="ext-lab-ref-preview-bar" class="lab-ref-preview-bar hidden">
+              <img id="ext-lab-ref-thumb" src="" alt="Ref" class="lab-ref-thumb-img" />
+              <div class="lab-ref-meta">
+                <span id="ext-lab-ref-name" class="lab-ref-filename">reference-icon.png</span>
+                <span id="ext-lab-ref-status" class="lab-ref-status-tag">Active Style Reference</span>
+              </div>
+              <button type="button" id="btn-remove-ext-lab-ref" class="btn-icon-subtle" title="Clear style reference">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="lab-form-group">
+            <label>Custom Style Directive &amp; Texture Specs:</label>
+            <select id="ext-lab-style-select" class="lab-select" style="margin-bottom: 6px;">
+              <option value="">🎨 Browse full list of style &amp; aesthetic presets...</option>
+              <optgroup label="🔶 Geppy Brand Standards">
+                <option value="Geppy Hex Brand (Hexagonal #F59E0B orange border, dark interior, transparent PNG)">🔶 Geppy Hex Brand (#F59E0B Orange Rim, No Background PNG)</option>
+                <option value="Geppy's Cash (Mint emerald &amp; polished gold coin seal, micro-relief stamping)">🪙 Geppy's Cash (Mint Emerald &amp; Gold Coin Seal)</option>
+                <option value="Geppy Galactic Starfleet (Deep navy void, cyan star trails &amp; electric amber accents)">🚀 Geppy Galactic Starfleet (Navy, Electric Cyan &amp; Amber)</option>
+                <option value="Geppy Vintage (1970s Topps lithograph, soft halftone dots, aged card stock)">⚾ Geppy Vintage (1970s Lithograph, Halftone &amp; Aged Card)</option>
+              </optgroup>
+              <optgroup label="✨ Modern 3D &amp; Digital">
+                <option value="3D Skeuomorphic Glass Squircle with Beveled Rim and Ray-Traced Refraction">✨ 3D Skeuomorphic Glass Squircle with Beveled Rim</option>
+                <option value="Galactic Cyberpunk Starlight Glow with Neon Accents and Dark Obsidian Base">🌌 Galactic Cyberpunk Starlight Glow with Neon Accents</option>
+                <option value="Obsidian &amp; Brushed Gold Minimalist Premium Vector with Subtle Depth">💎 Obsidian &amp; Brushed Gold Minimalist Premium Vector</option>
+                <option value="Holographic Prismatic Foil with Shimmer Specular Highlights and Iridescent Sheen">🌈 Holographic Prismatic Foil with Iridescent Sheen</option>
+                <option value="Isometric 3D Ray-Traced Tech Diorama (Soft ambient occlusion and micro-details)">🪐 Isometric 3D Ray-Traced Tech Diorama</option>
+                <option value="Frosted Glassmorphism (Backdrop blur, translucent frosted rim, specular gleam)">🧊 Frosted Glassmorphism with Backdrop Blur</option>
+                <option value="Neumorphic Soft Depth with Tactile Concave Inset and Soft Shadow Contours">🔘 Neumorphic Soft Depth &amp; Tactile Inset</option>
+                <option value="Claymorphic 3D Matte Plastic with Chunky Rounded Forms and Vibrant Pastels">🎨 Claymorphic 3D Matte Plastic (Cute Chunky Form)</option>
+              </optgroup>
+              <optgroup label="⚾ Retro &amp; Physical Media">
+                <option value="1970s Vintage Retro Card with Textured Grain, Halftone Dots &amp; Distressed Border">⚾ 1970s Vintage Retro Card with Textured Halftone Grain</option>
+                <option value="Matte Vinyl Die-Cut Sticker with Thick White Contour Outline &amp; Satin Finish">🏷️ Matte Vinyl Die-Cut Sticker with White Contour Rim</option>
+                <option value="1980s Retro Synthwave Neon Wireframe Grid with Sunset Horizon">🕹️ 1980s Retro Synthwave Neon Wireframe Grid</option>
+                <option value="Vintage Hand-Carved Woodcut Lithograph Engraving with Fine Cross-Hatching">📜 Vintage Hand-Carved Woodcut Lithograph Engraving</option>
+                <option value="16-Bit Pixel Art Arcade Sprite (Crisp integer scaling, retro palette)">👾 16-Bit Pixel Art Arcade Sprite</option>
+                <option value="Bold Comic Book Pop-Art with Ben-Day Dots &amp; Thick Black Inked Outlines">💥 Bold Comic Book Pop-Art with Ben-Day Dots</option>
+              </optgroup>
+              <optgroup label="📐 Minimalist &amp; Vector">
+                <option value="Flat Duo-Tone Vector with Vivid Contrast Gradient and Clean Geometry">📐 Flat Duo-Tone Vector with Vivid Contrast Gradient</option>
+                <option value="Elegant Thin Line-Art with Polished Monoline Geometry and Gold Accents">✒️ Elegant Thin Line-Art with Polished Monoline Geometry</option>
+                <option value="Soft Pastel Kawaii Vector Illustration with Friendly Expressive Shapes">🌸 Soft Pastel Kawaii Vector Illustration</option>
+                <option value="Blueprint Technical Engineering Schematic (White lines on deep blueprint grid)">📐 Blueprint Technical Engineering Schematic</option>
+                <option value="High-Contrast OLED Cyber Dark Mode (Deep black with luminescent phosphor)">⚡ High-Contrast OLED Cyber Dark Mode</option>
+                <option value="Bauhaus Geometric Constructivist Art (Bold primary shapes, diagonal balance)">🔺 Bauhaus Geometric Constructivist Art</option>
+              </optgroup>
+            </select>
+            <input type="text" id="ext-lab-style" class="lab-input" placeholder="e.g. Hexagonal icon with bold orange border, metallic accents, no background, transparent PNG..." />
+            <div class="lab-pill-shortcuts">
+              <button type="button" class="btn-step-pill btn-step-style-pill" data-style="3D Skeuomorphic Glass Squircle with Beveled Rim">✨ 3D Glass</button>
+              <button type="button" class="btn-step-pill btn-step-style-pill" data-style="Galactic Cyberpunk Starlight Glow with Neon Accents">🚀 Cyberpunk</button>
+              <button type="button" class="btn-step-pill btn-step-style-pill" data-style="Geppy Hex Brand (Hexagonal #F59E0B orange border, dark interior, transparent PNG)">🔶 Geppy Hex</button>
+              <button type="button" class="btn-step-pill btn-step-style-pill" data-style="1970s Vintage Retro Card with Textured Grain">⚾ 70s Card</button>
+              <button type="button" class="btn-step-pill btn-step-style-pill" data-style="Obsidian &amp; Brushed Gold Minimalist Premium Vector">💎 Obsidian/Gold</button>
+              <button type="button" class="btn-step-pill btn-step-style-pill" data-style="Matte Vinyl Die-Cut Sticker with Thick White Contour Outline">🏷️ Die-Cut</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Output Spec / Production Preset -->
+        <div class="lab-step-box">
+          <div class="lab-step-header">
+            <span class="step-num-pill">3</span>
+            <span class="step-title">Output Spec &amp; Production Preset</span>
+          </div>
+          <div class="lab-form-group">
+            <label>Output Format Preset:</label>
+            <select id="ext-lab-output-preset" class="lab-select">
+              <option value="png-transparent" selected>✨ Transparent PNG (No Background / Isolated Icon)</option>
+              <option value="icon-solid">🖼️ Standard App Icon (1024x1024 Solid / Gradient BG)</option>
+              <option value="svg-vector">⚡ Scalable Vector Graphics (SVG Vector)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Synthesis Actions -->
+        <div class="lab-actions-row">
+          <button id="btn-ext-brainstorm-concepts" class="btn-lab-primary" title="Generate 3 bespoke concepts with blueprints &amp; SVG previews">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Generate 3 Concepts</span>
+          </button>
+          <button id="btn-ext-instant-synthesize" class="btn-lab-secondary" title="Synthesize high-fidelity PNG instantly">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Instant Synthesize</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Brainstormed Concepts Container (when generated) -->
+      <div id="ext-lab-concepts-box" class="lab-concepts-box hidden">
+        <div class="lab-concepts-title">
+          <span><i class="fa-solid fa-cubes text-amber"></i> Brainstormed Concepts:</span>
+          <span class="text-muted">Select one to drop into app or build</span>
+        </div>
+        <div id="ext-lab-concepts-list" class="lab-concepts-list"></div>
+      </div>
+
+      <!-- Active Generated Asset & Drop-In Dock -->
+      <div id="ext-lab-drop-dock" class="lab-drop-dock hidden">
+        <div class="lab-card-header">
+          <i class="fa-solid fa-rocket text-indigo"></i>
+          <span>Drop Asset into App Repository</span>
+        </div>
+        
+        <!-- Preview Box -->
+        <div class="lab-preview-container">
+          <div id="ext-lab-preview-frame" class="lab-preview-frame">
+            <img id="ext-lab-preview-img" src="" alt="Generated Asset" class="hidden" />
+            <div id="ext-lab-preview-svg" class="lab-svg-frame hidden"></div>
+          </div>
+          <div class="lab-preview-meta">
+            <strong id="ext-lab-asset-title">Synthesized Asset</strong>
+            <div id="ext-lab-palette-chips" class="lab-palette-chips"></div>
+          </div>
+        </div>
+
+        <!-- Target Destination Form -->
+        <div class="lab-drop-options">
+          <div class="lab-form-group">
+            <label>Target Folder in App:</label>
+            <div class="folder-input-wrapper">
+              <select id="ext-lab-target-folder" class="lab-select">
+                <option value="assets">assets/</option>
+                <option value="static">static/</option>
+                <option value="public/images">public/images/</option>
+                <option value="images">images/</option>
+                <option value=".">root (/)</option>
+              </select>
+              <input type="text" id="ext-lab-custom-folder" class="lab-input-subtle" placeholder="or custom folder name..." />
+            </div>
+          </div>
+          <div class="lab-form-group">
+            <label>Target Filename:</label>
+            <input type="text" id="ext-lab-filename" class="lab-input" placeholder="icon.png" />
+          </div>
+          <div class="lab-checkbox-group">
+            <label class="lab-checkbox-label">
+              <input type="checkbox" id="chk-set-app-icon" checked />
+              <span>Set as Official App Icon in GitBridge</span>
+            </label>
+            <label class="lab-checkbox-label">
+              <input type="checkbox" id="chk-update-code-refs" checked />
+              <span>Update Icon References in Code (index.html)</span>
+            </label>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 10px;">
+            <button id="btn-drop-save-only" type="button" class="btn-drop-cta" style="flex: 1; background: #334155;" title="Only save image file to the app directory without modifying HTML/manifest code">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>💾 Save File Only</span>
+            </button>
+            <button id="btn-drop-asset-to-app" type="button" class="btn-drop-cta" style="flex: 1.4;" title="Save image, update HTML references, set icon, and hot reload">
+              <i class="fa-solid fa-cloud-arrow-down"></i>
+              <span>🚀 Drop &amp; Update App</span>
+            </button>
+          </div>
+          <div id="drop-asset-feedback" class="drop-feedback hidden"></div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -308,6 +801,384 @@
     </div>
   </div>
 
+  <!-- Implementation Control Modal / Drawer -->
+  <div id="implementation-modal" class="modal-overlay hidden" style="display: none;" onclick="if (event.target === this) closeImplementationModal()">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-sliders" style="color: #f59e0b; font-size: 16px;"></i>
+          <span>Implementation Control Center</span>
+        </div>
+        <button id="btn-close-impl-modal" class="btn-icon-subtle" title="Close" onclick="closeImplementationModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="gap: 12px;">
+        <!-- Task Header Banner -->
+        <div class="impl-task-banner">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <span id="impl-modal-category" class="task-tag feature">Task</span>
+            <span id="impl-modal-status-badge" class="impl-badge-pending">Pending Implementation</span>
+          </div>
+          <h4 id="impl-modal-title" style="margin: 0 0 4px 0; font-size: 13px; color: #f8fafc; font-weight: 700;">Task Title</h4>
+          <p id="impl-modal-desc" style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.4;">Task details</p>
+        </div>
+
+        <!-- Target Destination File Section -->
+        <div class="impl-section">
+          <div class="impl-section-header">
+            <label class="impl-label"><i class="fa-solid fa-file-code"></i> Target File to Modify / Create:</label>
+            <span id="impl-suggested-tag" class="impl-suggested-tag"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Suggested</span>
+          </div>
+          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <select id="impl-target-file-select" class="lab-select" style="flex: 1; font-size: 11px;">
+              <option value="">Select target file in app...</option>
+            </select>
+            <button type="button" id="impl-btn-new-file-toggle" class="btn-step-pill" title="Toggle create new file mode">
+              <i class="fa-solid fa-plus"></i> New File
+            </button>
+          </div>
+          <div id="impl-new-file-box" class="hidden" style="margin-bottom: 6px;">
+            <input type="text" id="impl-new-file-path" class="lab-input" placeholder="e.g. src/components/NewFeature.jsx" style="font-size: 11px;" />
+            <span style="font-size: 10px; color: #64748b;">Enter relative path for new file to create from scratch</span>
+          </div>
+        </div>
+
+        <!-- Implementation Mode Selection -->
+        <div class="impl-section">
+          <label class="impl-label"><i class="fa-solid fa-code-compare"></i> Implementation Mode:</label>
+          <div class="impl-mode-grid">
+            <div class="impl-mode-card active" id="mode-card-review" onclick="selectImplMode('review')">
+              <input type="radio" name="impl-mode" id="radio-impl-review" value="review" checked style="display: none;" />
+              <div class="impl-mode-title"><i class="fa-solid fa-eye text-cyan"></i> Review in Editor</div>
+              <div class="impl-mode-desc">Injects generated code into Designer editor so you can review changes and tweak before saving.</div>
+            </div>
+            <div class="impl-mode-card" id="mode-card-direct" onclick="selectImplMode('direct')">
+              <input type="radio" name="impl-mode" id="radio-impl-direct" value="direct" style="display: none;" />
+              <div class="impl-mode-title"><i class="fa-solid fa-bolt text-amber"></i> Direct Auto-Update</div>
+              <div class="impl-mode-desc">Applies AI changes directly, saves to PC disk immediately, and triggers live reload.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scope & Action Checkboxes -->
+        <div class="impl-section">
+          <label class="impl-label"><i class="fa-solid fa-gear"></i> Actions &amp; Scope:</label>
+          <div class="lab-checkbox-group" style="gap: 6px;">
+            <label class="lab-checkbox-label">
+              <input type="checkbox" id="impl-chk-save-disk" checked />
+              <span>Update file directly on PC disk</span>
+            </label>
+            <label class="lab-checkbox-label">
+              <input type="checkbox" id="impl-chk-reload-tab" checked />
+              <span>Hot-reload active browser tab after updating</span>
+            </label>
+            <label class="lab-checkbox-label">
+              <input type="checkbox" id="impl-chk-mark-done" checked />
+              <span>Mark task completed in Backlog</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Live Step Progress Tracker -->
+        <div id="impl-progress-tracker" class="impl-progress-tracker hidden">
+          <div class="impl-step-item" id="impl-step-1">
+            <span class="impl-step-dot">1</span>
+            <span>Target file verified</span>
+          </div>
+          <div class="impl-step-item" id="impl-step-2">
+            <span class="impl-step-dot">2</span>
+            <span>Synthesizing code with Captain Geppy...</span>
+          </div>
+          <div class="impl-step-item" id="impl-step-3">
+            <span class="impl-step-dot">3</span>
+            <span>Updating local file on disk</span>
+          </div>
+          <div class="impl-step-item" id="impl-step-4">
+            <span class="impl-step-dot">4</span>
+            <span>Live reload &amp; sync</span>
+          </div>
+        </div>
+
+        <div id="impl-feedback-banner" class="drop-feedback hidden"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeImplementationModal()">Cancel</button>
+        <button type="button" id="btn-execute-implementation" class="btn-primary-commit" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>🚀 Execute Implementation</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Central API Key Vault -->
+  <div id="central-key-modal" class="commit-modal-backdrop hidden">
+    <div class="commit-modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <i class="fa-solid fa-key" style="color: #38bdf8; font-size: 16px;"></i>
+          <h3>GitBridge Central API Key Vault</h3>
+        </div>
+        <button id="btn-close-key-modal" class="btn-icon-subtle" title="Close modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="gap: 12px;">
+        <div class="key-vault-card">
+          <div class="key-vault-row">
+            <span class="key-vault-meta">Status:</span>
+            <span id="vault-status-badge" class="git-badge clean">Connected</span>
+          </div>
+          <div class="key-vault-row">
+            <span class="key-vault-meta">Central Key:</span>
+            <span id="vault-masked-key" class="font-mono text-cyan-300" style="font-family: monospace; color: #38bdf8;">Loading...</span>
+          </div>
+          <div class="key-vault-row">
+            <span class="key-vault-meta">Active Model:</span>
+            <span id="vault-active-model" class="font-mono text-indigo-300" style="font-family: monospace; color: #a5b4fc;">gemini-2.5-flash</span>
+          </div>
+          <div class="key-vault-row">
+            <span class="key-vault-meta">Vault Source:</span>
+            <span style="color: #94a3b8; font-size: 11px;">GitBridge Master Vault (1 Key for All Apps)</span>
+          </div>
+        </div>
+
+        <div class="key-actions-grid">
+          <button id="btn-test-gemini-key" class="btn-vault-action">
+            <i class="fa-solid fa-bolt text-amber-400" style="color: #fbbf24;"></i>
+            <span>Test API Connection</span>
+          </button>
+          <button id="btn-sync-all-apps-key" class="btn-vault-action">
+            <i class="fa-solid fa-arrows-rotate text-emerald-400" style="color: #34d399;"></i>
+            <span>Sync to All Apps (d:\Geppy_Apps)</span>
+          </button>
+        </div>
+
+        <div id="vault-action-feedback" class="commit-feedback hidden"></div>
+
+        <div style="font-size: 11px; color: #94a3b8; line-height: 1.4; background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(51, 65, 85, 0.5);">
+          <i class="fa-solid fa-circle-info text-cyan-400" style="color: #38bdf8;"></i>
+          All 20+ apps in your workspace automatically inherit this single Gemini key. You only ever need to configure it once in GitBridge!
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button id="btn-open-gitbridge-settings" class="btn-secondary-commit">
+          <i class="fa-solid fa-gear"></i>
+          <span>GitBridge Settings</span>
+        </button>
+        <button id="btn-done-key-modal" class="btn-cancel">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Register & Deep Analyze App -->
+  <div id="modal-register-app" class="commit-modal-backdrop hidden">
+    <div class="commit-modal-card" style="max-width: 460px;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <i class="fa-solid fa-rocket" style="color: #818cf8; font-size: 16px;"></i>
+          <h3>Register App in Galactic</h3>
+        </div>
+        <button id="btn-close-register-modal" class="btn-icon-subtle" title="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="gap: 12px;">
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Application Name</label>
+          <input type="text" id="reg-app-name" class="input-box" placeholder="e.g. Diamond Dream 70s" style="width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Live URL</label>
+          <input type="text" id="reg-app-url" class="input-box font-mono" placeholder="http://localhost:3000" style="width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Project Code Location</label>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px;">
+            <label style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="radio" name="reg-storage-mode" value="workspace" checked id="reg-mode-workspace">
+              <span>Create in primary workspace (<code>d:\Geppy_Apps\[slug]</code>)</span>
+            </label>
+            <label style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="radio" name="reg-storage-mode" value="custom" id="reg-mode-custom">
+              <span>Link existing folder anywhere on PC</span>
+            </label>
+          </div>
+          <input type="text" id="reg-app-custom-path" class="input-box font-mono hidden" placeholder="e.g. C:\MyProjects\cool-app" style="width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.6); padding: 10px; border-radius: 8px; border: 1px solid rgba(51, 65, 85, 0.5);">
+          <label style="font-size: 11px; font-weight: 600; color: #38bdf8; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <input type="checkbox" id="reg-run-deep-analysis" checked>
+            <span>Run Deep AI Analysis &amp; Generate User Guide (HELP.md)</span>
+          </label>
+          <p style="font-size: 10.5px; color: #94a3b8; margin: 4px 0 0 20px; line-height: 1.35;">
+            Synthesizes a GitHub-ready repo description, creates a comprehensive <strong>HELP.md</strong> User Guide, and injects the Central Gemini Key.
+          </p>
+        </div>
+
+        <div id="reg-action-feedback" class="commit-feedback hidden"></div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button id="btn-cancel-register" class="btn-cancel">Cancel</button>
+        <button id="btn-submit-register-app" class="btn-primary-commit" style="background: linear-gradient(135deg, #6366f1, #06b6d4);">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Register &amp; Analyze</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Create & Save SOT Context Style -->
+  <div id="modal-save-contextile" class="modal-overlay hidden" style="display: none;">
+    <div class="modal-content" style="max-width: 440px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-palette text-amber"></i>
+          <span>Create SOT Context Style</span>
+        </div>
+        <button id="btn-close-save-contextile" class="btn-icon-subtle" title="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="gap: 12px;">
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Context Style Handle (e.g. <code>geppy-hex-icon</code>)</label>
+          <input type="text" id="ctx-style-handle" class="input-box font-mono" placeholder="geppy-hex-icon" style="width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Display Title</label>
+          <input type="text" id="ctx-style-title" class="input-box" placeholder="Geppy Hexagonal App Icon (Orange / No Background)" style="width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Upload Reference Icon (Optional)</label>
+          <div id="ctx-style-dropzone" class="ctx-dropzone">
+            <input type="file" id="ctx-style-file" accept="image/*,.heic,.heif" style="display: none;" />
+            <div id="ctx-style-upload-prompt" style="text-align: center; cursor: pointer; padding: 12px 6px;">
+              <i class="fa-solid fa-cloud-arrow-up text-amber" style="font-size: 20px; margin-bottom: 4px; display: block;"></i>
+              <span style="font-size: 11px; color: #cbd5e1;">Click or drop icon image (PNG, JPG, HEIC)</span>
+            </div>
+            <div id="ctx-style-file-preview" class="hidden" style="display: flex; align-items: center; gap: 8px; padding: 6px;">
+              <img id="ctx-style-preview-img" src="" style="width: 44px; height: 44px; object-fit: contain; border-radius: 6px; background: rgba(0,0,0,0.5); border: 1px solid #334155;" />
+              <div style="flex: 1; overflow: hidden;">
+                <span id="ctx-style-file-name" style="font-size: 11px; font-weight: 600; color: #f8fafc; display: block; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"></span>
+                <span id="ctx-style-file-meta" style="font-size: 10px; color: #34d399;">Ready</span>
+              </div>
+              <button type="button" id="btn-clear-ctx-file" class="btn-icon-subtle" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Silhouette Shape</label>
+            <select id="ctx-style-shape" class="input-box" style="width: 100%; box-sizing: border-box;">
+              <option value="hexagonal" selected>Hexagonal (6-sided)</option>
+              <option value="squircle">Squircle (iOS 3D)</option>
+              <option value="circle">Circular Badge</option>
+              <option value="diecut">Freeform Die-Cut</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Accent Color</label>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <input type="color" id="ctx-style-accent-picker" value="#F59E0B" style="width: 32px; height: 28px; border: none; border-radius: 4px; cursor: pointer; background: transparent;" />
+              <input type="text" id="ctx-style-accent-hex" class="input-box font-mono" value="#F59E0B" style="flex: 1; box-sizing: border-box; font-size: 11px; padding: 4px 6px;" />
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Background Mode</label>
+            <select id="ctx-style-bg" class="input-box" style="width: 100%; box-sizing: border-box;">
+              <option value="transparent" selected>None (Transparent PNG)</option>
+              <option value="dark_slate">Dark Slate Gradient</option>
+              <option value="cosmic">Cosmic Nebula Dark</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Target Archetype</label>
+            <select id="ctx-style-archetype" class="input-box" style="width: 100%; box-sizing: border-box;">
+              <option value="icon_set" selected>Icon Set / App Icon</option>
+              <option value="style">Thematic Style &amp; Medium</option>
+              <option value="brand_asset">Brand Asset</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Assembled Style Directive / Prompt</label>
+          <textarea id="ctx-style-prompt" class="input-box font-mono" rows="3" style="width: 100%; box-sizing: border-box; font-size: 10.5px; resize: vertical;" placeholder="Hexagonal app icon with bold orange border and metallic accents, isolated on clean transparent background (no background), transparent PNG output."></textarea>
+        </div>
+
+        <div id="ctx-style-feedback" class="commit-feedback hidden"></div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button id="btn-cancel-save-ctx" class="btn-cancel">Cancel</button>
+        <button id="btn-submit-save-ctx" class="btn-primary-commit" style="background: linear-gradient(135deg, #f59e0b, #6366f1);">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>Save to SOT Fleet</span>
+        </button>
+      </div>
+    </div>
+  <!-- Modal: Sources of Truth Fleet (Big Old List of SOTs) -->
+  <div id="modal-sot-fleet" class="modal-overlay hidden" style="display: none;">
+    <div class="modal-content sot-fleet-modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-layer-group text-cyan"></i>
+          <span>Sources of Truth Fleet</span>
+          <span id="modal-sot-count-badge" class="sot-count-badge">0 Active SOTs</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button id="btn-fleet-create-new" class="btn-mini-primary" title="Create a new SOT Context Style">
+            <i class="fa-solid fa-plus"></i>
+            <span>New SOT</span>
+          </button>
+          <button id="btn-open-sot-web-hub" class="btn-mini-subtle" title="Open full SOT Manager in Browser Hub">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            <span>Web Hub</span>
+          </button>
+          <button id="btn-close-sot-fleet" class="btn-icon-subtle" title="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body sot-fleet-modal-body">
+        <!-- Search & Archetype Filters -->
+        <div class="sot-filter-bar">
+          <div class="sot-search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="sot-search-input" placeholder="Search SOT by handle, title, archetype, or tags..." />
+          </div>
+          <div class="sot-archetype-pills">
+            <button type="button" class="sot-arch-pill active" data-archetype="all">All (<span id="sot-filter-all-count">0</span>)</button>
+            <button type="button" class="sot-arch-pill" data-archetype="character">👤 Character (<span id="sot-filter-char-count">0</span>)</button>
+            <button type="button" class="sot-arch-pill" data-archetype="style">🎨 Style (<span id="sot-filter-style-count">0</span>)</button>
+            <button type="button" class="sot-arch-pill" data-archetype="icon_set">🔶 Icons (<span id="sot-filter-icon-count">0</span>)</button>
+            <button type="button" class="sot-arch-pill" data-archetype="brand_asset">🏷️ Brand (<span id="sot-filter-brand-count">0</span>)</button>
+            <button type="button" class="sot-arch-pill" data-archetype="ui_component">🧩 UI (<span id="sot-filter-ui-count">0</span>)</button>
+            <button type="button" class="sot-arch-pill" data-archetype="output">✨ Output (<span id="sot-filter-output-count">0</span>)</button>
+          </div>
+        </div>
+
+        <!-- Big List Container -->
+        <div id="sot-fleet-cards-list" class="sot-cards-list">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="sidepanel.js"></script>
 </body>
 </html>
+

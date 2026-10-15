@@ -31,86 +31,133 @@ class OutputService:
             return (int(clean[0:2], 16), int(clean[2:4], 16), int(clean[4:6], 16))
         return (255, 255, 255)
 
+    _rembg_session = None
+
     @classmethod
     def remove_background(
         cls,
         image: Image.Image,
-        tolerance: int = 35,
-        edge_feather: int = 2,
+        tolerance: int = 45,
+        edge_feather: int = 1,
         sample_corners: bool = True,
         target_bg_color: Optional[Tuple[int, int, int]] = None,
-        edge_margin_step: int = 20
+        edge_margin_step: int = 12
     ) -> Image.Image:
         """
-        Removes background from image using perimeter-connected flood fill & color distance thresholding,
-        producing a clean alpha mask with antialiased edge feathering.
+        Removes background from an AI-generated or uploaded image using:
+        1. Primary neural salient-object segmentation via `rembg` (U2Net ONNX) for studio-clean cutouts
+        2. Fallback perimeter-connected multi-seed flood fill & chroma-key extraction
         """
+        if target_bg_color is None:
+            try:
+                import rembg
+                if cls._rembg_session is None:
+                    cls._rembg_session = rembg.new_session("u2net")
+                cutout = rembg.remove(image.convert("RGBA"), session=cls._rembg_session)
+                if cutout is not None:
+                    return cutout.convert("RGBA")
+            except Exception as e:
+                print(f"[OutputService] rembg notice, using floodfill fallback: {e}")
+
         im = image.convert("RGB")
         w, h = im.size
 
-        # Determine target background color if not explicitly provided
+        # Sample perimeter pixels to learn background color distribution
         if target_bg_color is None and sample_corners:
-            # Sample four corners
-            corners = [
-                im.getpixel((0, 0)),
-                im.getpixel((w - 1, 0)),
-                im.getpixel((0, h - 1)),
-                im.getpixel((w - 1, h - 1)),
-                im.getpixel((w // 2, 0)),
-                im.getpixel((w // 2, h - 1))
-            ]
-            # Average sample
-            avg_r = sum(c[0] for c in corners) // len(corners)
-            avg_g = sum(c[1] for c in corners) // len(corners)
-            avg_b = sum(c[2] for c in corners) // len(corners)
-            target_bg_color = (avg_r, avg_g, avg_b)
+            perim: List[Tuple[int, int, int]] = []
+            step_s = max(4, min(w, h) // 32)
+            for x in range(0, w, step_s):
+                perim.append(im.getpixel((x, 0)))
+                perim.append(im.getpixel((x, h - 1)))
+            for y in range(0, h, step_s):
+                perim.append(im.getpixel((0, y)))
+                perim.append(im.getpixel((w - 1, y)))
+            avg_r = sum(c[0] for c in perim) / max(1, len(perim))
+            avg_g = sum(c[1] for c in perim) / max(1, len(perim))
+            avg_b = sum(c[2] for c in perim) / max(1, len(perim))
+            target_bg_color = (int(avg_r), int(avg_g), int(avg_b))
         elif target_bg_color is None:
-            target_bg_color = (15, 23, 42) # Default dark slate
+            target_bg_color = (15, 23, 42)
+            avg_r, avg_g, avg_b = 15.0, 23.0, 42.0
+        else:
+            avg_r, avg_g, avg_b = float(target_bg_color[0]), float(target_bg_color[1]), float(target_bg_color[2])
 
-        # Create working copy to flood fill background markers
+        # Detect if the background is a chroma screen (Green, Magenta, or Blue)
+        is_green_bg = (avg_g > avg_r + 42 and avg_g > avg_b + 42)
+        is_magenta_bg = (avg_r > avg_g + 42 and avg_b > avg_g + 42)
+        is_blue_bg = (avg_b > avg_r + 48 and avg_b > avg_g + 48)
+
+        # Create working copy to flood fill perimeter-connected background
         work_im = im.copy()
-        marker_color = (254, 0, 253) # Highly unique magenta marker
+        marker_color = (254, 1, 253)
+        flood_thresh = max(tolerance, 56 if (is_green_bg or is_magenta_bg or is_blue_bg) else tolerance)
 
-        # Flood fill from perimeter coordinates to only remove outer background
-        step = max(10, edge_margin_step)
+        step = max(8, edge_margin_step)
         for x in [0, w - 1]:
             for y in range(0, h, step):
                 try:
-                    ImageDraw.floodfill(work_im, (x, y), marker_color, thresh=tolerance)
+                    ImageDraw.floodfill(work_im, (x, y), marker_color, thresh=flood_thresh)
                 except Exception:
                     pass
         for y in [0, h - 1]:
             for x in range(0, w, step):
                 try:
-                    ImageDraw.floodfill(work_im, (x, y), marker_color, thresh=tolerance)
+                    ImageDraw.floodfill(work_im, (x, y), marker_color, thresh=flood_thresh)
                 except Exception:
                     pass
 
-        # Build alpha mask based on marker color
-        work_rgb = work_im.convert("RGB")
-        alpha = Image.new("L", (w, h), 255)
-        
-        # Fast pixel comparison
-        work_bytes = bytearray(work_rgb.tobytes())
+        raw_bytes = bytearray(im.tobytes())
+        work_bytes = bytearray(work_im.tobytes())
         alpha_bytes = bytearray(w * h)
         m_r, m_g, m_b = marker_color
 
+        is_chroma_bg = is_green_bg or is_magenta_bg or is_blue_bg
+
         for idx in range(w * h):
-            r = work_bytes[idx * 3]
-            g = work_bytes[idx * 3 + 1]
-            b = work_bytes[idx * 3 + 2]
-            if r == m_r and g == m_g and b == m_b:
+            i3 = idx * 3
+            r, g, b = raw_bytes[i3], raw_bytes[i3 + 1], raw_bytes[i3 + 2]
+            wr, wg, wb = work_bytes[i3], work_bytes[i3 + 1], work_bytes[i3 + 2]
+
+            dist = math.sqrt((r - avg_r) ** 2 + (g - avg_g) ** 2 + (b - avg_b) ** 2)
+
+            # Chroma dominance & edge despill (handles interior holes like between arms/legs/handles on chroma screens)
+            chroma_excess = 0.0
+            if is_green_bg:
+                max_rb = max(r, b)
+                chroma_excess = (g - max_rb) - 26.0
+                if g > max_rb:
+                    raw_bytes[i3 + 1] = min(g, int(max_rb * 0.94 + g * 0.06))
+            elif is_magenta_bg:
+                min_rb = min(r, b)
+                chroma_excess = (min_rb - g) - 26.0
+                if min_rb > g:
+                    raw_bytes[i3] = min(r, int(g * 0.88 + r * 0.12))
+                    raw_bytes[i3 + 2] = min(b, int(g * 0.88 + b * 0.12))
+            elif is_blue_bg:
+                max_rg = max(r, g)
+                chroma_excess = (b - max_rg) - 30.0
+                if b > max_rg:
+                    raw_bytes[i3 + 2] = min(b, int(max_rg * 0.92 + b * 0.08))
+
+            if wr == m_r and wg == m_g and wb == m_b:
                 alpha_bytes[idx] = 0
+            elif is_chroma_bg and chroma_excess > 30.0 and dist < 110.0:
+                alpha_bytes[idx] = 0
+            elif is_chroma_bg and chroma_excess > 10.0 and dist < 125.0:
+                a = int(255.0 * (1.0 - (chroma_excess - 10.0) / 20.0))
+                alpha_bytes[idx] = max(0, min(255, a))
             else:
                 alpha_bytes[idx] = 255
 
         alpha = Image.frombytes("L", (w, h), bytes(alpha_bytes))
 
-        # Apply feathering for silky edges
+        # Slight 1px halo choke + smooth Gaussian edge feathering
+        if min(w, h) >= 256:
+            alpha = alpha.filter(ImageFilter.MinFilter(3))
         if edge_feather > 0:
-            alpha = alpha.filter(ImageFilter.GaussianBlur(edge_feather))
+            alpha = alpha.filter(ImageFilter.GaussianBlur(max(1.0, float(edge_feather) * 0.75)))
 
-        result = im.convert("RGBA")
+        result = Image.frombytes("RGB", (w, h), bytes(raw_bytes)).convert("RGBA")
         result.putalpha(alpha)
         return result
 

@@ -54,11 +54,12 @@ def read_root():
 @app.get("/api/settings")
 def get_settings():
     from gitbridge.services.workspace_service import WorkspaceService
+    from gitbridge.services.central_key_service import CentralKeyService
     token = os.getenv("GITHUB_TOKEN", "")
     username = os.getenv("GITHUB_USERNAME", "")
-    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    gemini_key = CentralKeyService.get_api_key()
     masked_token = f"{token[:4]}...{token[-4:]}" if len(token) > 8 else ("configured" if token else "")
-    masked_gemini = f"{gemini_key[:4]}...{gemini_key[-4:]}" if len(gemini_key) > 8 else ("configured" if gemini_key else "")
+    masked_gemini = CentralKeyService.get_masked_key(gemini_key)
     return {
         "github_username": username,
         "github_token_configured": bool(token),
@@ -71,6 +72,7 @@ def get_settings():
 @app.post("/api/settings")
 def save_settings(settings: dict):
     from gitbridge.services.workspace_service import WorkspaceService
+    from gitbridge.services.central_key_service import CentralKeyService
     token = settings.get("github_token", "").strip()
     username = settings.get("github_username", "").strip()
     workspace_dir = settings.get("geppy_apps_dir", "").strip()
@@ -79,10 +81,7 @@ def save_settings(settings: dict):
     if workspace_dir:
         WorkspaceService.set_workspace_dir(workspace_dir)
 
-    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
-    if not os.path.exists(env_path):
-        env_path = ".env"
-
+    env_path = CentralKeyService.get_root_env_path()
     env_data = {}
     if os.path.exists(env_path):
         with open(env_path, "r", encoding="utf-8") as f:
@@ -98,20 +97,76 @@ def save_settings(settings: dict):
     if username:
         env_data["GITHUB_USERNAME"] = username
         os.environ["GITHUB_USERNAME"] = username
-    if gemini_key:
-        env_data["GEMINI_API_KEY"] = gemini_key
-        os.environ["GEMINI_API_KEY"] = gemini_key
 
     with open(env_path, "w", encoding="utf-8") as f:
         for k, v in env_data.items():
             f.write(f"{k}={v}\n")
 
+    sync_res = None
+    if gemini_key:
+        sync_res = CentralKeyService.set_central_key(gemini_key, sync_apps=True)
+
+    active_gemini = CentralKeyService.get_api_key()
     return {
         "message": "Settings updated successfully",
         "github_token_configured": bool(os.getenv("GITHUB_TOKEN")),
-        "gemini_api_key_configured": bool(os.getenv("GEMINI_API_KEY")),
-        "geppy_apps_dir": WorkspaceService.get_workspace_dir()
+        "gemini_api_key_configured": bool(active_gemini),
+        "gemini_api_key_masked": CentralKeyService.get_masked_key(active_gemini),
+        "geppy_apps_dir": WorkspaceService.get_workspace_dir(),
+        "sync_result": sync_res
     }
+
+@app.get("/api/keys/gemini")
+@app.get("/api/central-api-key")
+def get_central_api_key():
+    """Universal endpoint for any app or client in Geppy's App Universe to fetch central key."""
+    from gitbridge.services.central_key_service import CentralKeyService
+    key = CentralKeyService.get_api_key()
+    if not key:
+        raise HTTPException(status_code=404, detail="No Gemini API Key found in GitBridge Central Vault.")
+    return {
+        "status": "success",
+        "configured": True,
+        "gemini_api_key": key,
+        "masked_key": CentralKeyService.get_masked_key(key),
+        "active_model": "gemini-2.5-flash",
+        "supported_models": ["gemini-2.5-flash", "gemini-3.8-flash"],
+        "source": "GitBridge Central Vault",
+        "gitbridge_url": "http://127.0.0.1:8000"
+    }
+
+@app.get("/api/keys/status")
+def get_central_key_status_endpoint():
+    """Retrieve live configuration status and model info for the central key."""
+    from gitbridge.services.central_key_service import CentralKeyService
+    return CentralKeyService.get_key_status()
+
+@app.post("/api/keys/test")
+def test_central_key_endpoint():
+    """Live latency & connection check against Google Gemini API."""
+    from gitbridge.services.central_key_service import CentralKeyService
+    return CentralKeyService.test_connection()
+
+@app.post("/api/keys/sync-all-apps")
+def sync_all_apps_endpoint():
+    """Synchronize central Gemini API key across all apps in d:\\Geppy_Apps."""
+    from gitbridge.services.central_key_service import CentralKeyService
+    return CentralKeyService.sync_all_apps()
+
+@app.post("/api/keys/generate")
+def generate_via_central_key_endpoint(payload: dict = {}):
+    """Direct AI generation endpoint proxying through GitBridge central key."""
+    from gitbridge.services.central_key_service import CentralKeyService
+    prompt = (payload.get("prompt") or "").strip()
+    system_instruction = (payload.get("system_instruction") or "").strip()
+    model = (payload.get("model") or "gemini-2.5-flash").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Prompt is required")
+    messages = [{"role": "user", "parts": [{"text": prompt}]}]
+    res = CentralKeyService.call_gemini(messages, system_instruction, model_preference=model)
+    if not res:
+        raise HTTPException(status_code=502, detail="Gemini call failed or timed out.")
+    return {"status": "success", "text": res, "model": model}
 
 @app.post("/api/workspace/scan")
 def scan_workspace_endpoint(db: Session = Depends(get_db)):
@@ -438,23 +493,24 @@ def save_app_file_content_endpoint(slug: str, payload: dict = {}, db: Session = 
 
 @app.post("/api/chat")
 def chat_api_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
-    prompt = payload.get("message", "").strip()
+    prompt = (payload.get("message") or payload.get("prompt") or "").strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="Message prompt is required")
 
     app_slug = payload.get("app_slug")
     file_path = payload.get("file_path")
     history = payload.get("history", [])
+    is_image = payload.get("is_image", False)
 
     from gitbridge.services.chat_service import ChatService
-    response_text = ChatService.process_chat_message(prompt=prompt, app_slug=app_slug, file_path=file_path, history=history, db=db)
-
-    return {
-        "sender": "ai",
-        "text": response_text,
-        "app_slug": app_slug,
-        "file_path": file_path
-    }
+    return ChatService.process_chat(
+        prompt=prompt,
+        app_slug=app_slug,
+        file_path=file_path,
+        history=history,
+        is_image=is_image,
+        db=db
+    )
 
 # --- Chrome Extension Companion API Endpoints ---
 @app.get("/api/extension/detect-app")
@@ -462,9 +518,18 @@ def extension_detect_app_endpoint(url: str = Query(...), db: Session = Depends(g
     """Detect which app is running at the given browser tab URL."""
     from gitbridge.services.extension_service import ExtensionService
     from gitbridge.services.launcher_service import ACTIVE_SERVERS
+    from urllib.parse import urlparse
     match = ExtensionService.detect_active_app(url, ACTIVE_SERVERS, db)
     if not match:
-        return {"matched": False, "app": None}
+        parsed = urlparse(url)
+        suggested_name = f"Port {parsed.port} App" if parsed.port else (parsed.netloc.split(".")[0].title() if parsed.netloc else "New App")
+        return {
+            "matched": False,
+            "app": None,
+            "url": url,
+            "port": parsed.port,
+            "suggested_name": suggested_name
+        }
     app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == match["slug"]).first()
     return {
         "matched": True,
@@ -472,18 +537,122 @@ def extension_detect_app_endpoint(url: str = Query(...), db: Session = Depends(g
         "app": serialize_app_profile(app_obj, db) if app_obj else None
     }
 
+@app.post("/api/apps/{slug}/associate-url")
+def associate_app_url_endpoint(slug: str, payload: dict = {}, db: Session = Depends(get_db)):
+    """Associate a live browser tab URL / port with an application profile and mark it live."""
+    live_url = (payload.get("live_url") or "").strip()
+    if not live_url:
+        raise HTTPException(status_code=400, detail="live_url is required")
+    from gitbridge.services.extension_service import ExtensionService
+    result = ExtensionService.associate_app_url(slug=slug, url=live_url, db=db)
+    if not result.get("success"):
+        raise HTTPException(status_code=404, detail=result.get("message", "App not found"))
+    return result
+
+@app.post("/api/extension/register-app")
+def extension_register_app_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """
+    Register a newly discovered app tab directly from Galactic Chrome Extension.
+    Supports creating a folder in d:\\Geppy_Apps or linking an external folder,
+    injects Central Gemini Key, and runs Deep AI Analysis with Help Manual generation.
+    """
+    from gitbridge.services.central_key_service import CentralKeyService
+    from gitbridge.services.analyzer_service import AppAnalyzerService
+    from urllib.parse import urlparse
+
+    name = (payload.get("name") or "").strip()
+    live_url = (payload.get("live_url") or "").strip()
+    local_path = (payload.get("local_path") or payload.get("custom_path") or "").strip()
+    create_in_workspace = bool(payload.get("create_in_workspace", True))
+    run_deep_analysis = bool(payload.get("run_deep_analysis", True))
+
+    if not name:
+        parsed = urlparse(live_url)
+        name = f"Port {parsed.port} App" if parsed.port else (parsed.netloc or "New Application")
+
+    base_slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or f"app-{int(time.time())}"
+    slug = base_slug
+    counter = 2
+    while db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first():
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+
+    resolved_path = None
+    if local_path and os.path.exists(local_path):
+        resolved_path = os.path.abspath(local_path)
+    elif create_in_workspace:
+        from gitbridge.services.workspace_service import WorkspaceService
+        primary_dir = WorkspaceService.get_workspace_dirs()[0]
+        resolved_path = os.path.join(primary_dir, name)
+        os.makedirs(resolved_path, exist_ok=True)
+
+    if resolved_path and os.path.exists(resolved_path):
+        key = CentralKeyService.get_api_key()
+        if key:
+            env_file = os.path.join(resolved_path, ".env")
+            if not os.path.exists(env_file):
+                try:
+                    with open(env_file, "w", encoding="utf-8") as f:
+                        f.write(
+                            f"GEMINI_API_KEY={key}\n"
+                            f"GOOGLE_API_KEY={key}\n"
+                            f"VITE_GEMINI_API_KEY={key}\n"
+                            f"NEXT_PUBLIC_GEMINI_API_KEY={key}\n"
+                            f"REACT_APP_GEMINI_API_KEY={key}\n"
+                        )
+                except Exception as e:
+                    print(f"[RegisterApp] Error creating .env in {resolved_path}: {e}")
+
+    app_obj = AppProfileModel(
+        slug=slug,
+        name=name,
+        description=f"Application active at {live_url}" if live_url else "",
+        status=AppStatus.IN_DEVELOPMENT,
+        live_url=live_url or None,
+        local_path=resolved_path
+    )
+    db.add(app_obj)
+    db.commit()
+    db.refresh(app_obj)
+
+    analysis_res = None
+    if run_deep_analysis:
+        try:
+            analyzer = AppAnalyzerService()
+            analysis_res = analyzer.deep_analyze_and_generate_docs(app_obj, db)
+        except Exception as e:
+            print(f"[RegisterApp] Deep analysis notice for {slug}: {e}")
+
+    return {
+        "success": True,
+        "message": f"Successfully registered '{app_obj.name}' in Geppy's Galactic!",
+        "app": serialize_app_profile(app_obj, db),
+        "analysis": analysis_res
+    }
+
+@app.post("/api/apps/{slug}/deep-analyze")
+def deep_analyze_app_endpoint(slug: str, db: Session = Depends(get_db)):
+    """Trigger deep technical analysis, GitHub description, and User Guide help file generation on any app."""
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+    if not app_obj:
+        raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
+    from gitbridge.services.analyzer_service import AppAnalyzerService
+    analyzer = AppAnalyzerService()
+    return analyzer.deep_analyze_and_generate_docs(app_obj, db)
+
 @app.post("/api/extension/brainstorm")
 def extension_brainstorm_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
-    """Conversational brainstorming endpoint that outputs inspiring concepts and real-time task backlog."""
-    message = payload.get("message", "").strip()
+    """Conversational brainstorming endpoint that outputs inspiring concepts, real-time task backlog, and visual asset generation."""
+    message = (payload.get("message") or payload.get("prompt") or "").strip()
     if not message:
         raise HTTPException(status_code=400, detail="Message is required")
     slug = payload.get("slug")
     file_path = payload.get("file_path")
     history = payload.get("history", [])
+    is_image = payload.get("is_image", False)
 
     from gitbridge.services.extension_service import ExtensionService
-    result = ExtensionService.brainstorm(slug=slug, message=message, history=history, file_path=file_path, db=db)
+    result = ExtensionService.brainstorm(slug=slug, message=message, history=history, file_path=file_path, is_image=is_image, db=db)
     return result
 
 @app.post("/api/extension/proactive-suggestions")
@@ -532,6 +701,118 @@ def save_app_backlog_endpoint(slug: str, payload: dict = {}, db: Session = Depen
     from gitbridge.services.extension_service import ExtensionService
     saved = ExtensionService.save_backlog(slug, tasks, db)
     return {"slug": slug, "tasks": saved, "count": len(saved)}
+
+@app.get("/api/apps/{slug}/chat")
+def get_app_chat_endpoint(slug: str, db: Session = Depends(get_db)):
+    from gitbridge.services.extension_service import ExtensionService
+    history = ExtensionService.get_chat_history(slug, db)
+    return {"slug": slug, "chat_history": history}
+
+@app.post("/api/apps/{slug}/chat")
+def save_app_chat_endpoint(slug: str, payload: dict = {}, db: Session = Depends(get_db)):
+    history = payload.get("chat_history", [])
+    from gitbridge.services.extension_service import ExtensionService
+    saved = ExtensionService.save_chat_history(slug, history, db)
+    return {"slug": slug, "chat_history": saved, "count": len(saved)}
+
+@app.post("/api/extension/batch-apply-design")
+def extension_batch_apply_design_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Apply a batch or grouped series of design/feature tasks to code in a single operation."""
+    slug = payload.get("slug", "")
+    file_path = payload.get("file_path", "")
+    current_code = payload.get("current_code", "")
+    tasks = payload.get("tasks", [])
+
+    if not tasks:
+        raise HTTPException(status_code=400, detail="Tasks list is required for batch application")
+
+    from gitbridge.services.extension_service import ExtensionService
+    result = ExtensionService.batch_apply_design(slug=slug, file_path=file_path, current_code=current_code, tasks=tasks, db=db)
+    return result
+
+@app.get("/api/apps/{slug}/images")
+def get_app_images_endpoint(slug: str, db: Session = Depends(get_db)):
+    """Discover and list all image assets in the app's local repository folder."""
+    from gitbridge.services.app_image_service import AppImageService
+    return AppImageService.get_app_images(slug, db)
+
+@app.get("/api/apps/{slug}/images/file")
+def serve_app_image_file_endpoint(slug: str, path: str = Query(...), db: Session = Depends(get_db)):
+    """Serve a local image or asset file from within the app repository."""
+    from gitbridge.services.app_image_service import AppImageService
+    abs_path = AppImageService.get_image_file_path(slug, path, db)
+    if not abs_path or not os.path.exists(abs_path):
+        raise HTTPException(status_code=404, detail="Image file not found in app repository")
+    return FileResponse(abs_path)
+
+@app.post("/api/apps/{slug}/images/backup")
+def backup_app_images_endpoint(slug: str, db: Session = Depends(get_db)):
+    """Create a zip archive of all images in the app repository for safekeeping/backup."""
+    from gitbridge.services.app_image_service import AppImageService
+    result = AppImageService.backup_images_zip(slug, db)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("message", "Backup failed"))
+    return result
+
+@app.post("/api/apps/{slug}/images/drop-asset")
+def drop_asset_to_app_endpoint(slug: str, payload: dict = {}, db: Session = Depends(get_db)):
+    """Drop a synthesized Asset Lab image into the app's folder and optionally update app icon & code references."""
+    asset_url = (payload.get("asset_url") or "").strip() or None
+    if not asset_url and payload.get("filename"):
+        asset_url = f"/api/asset-lab/file/{payload.get('filename')}"
+    svg_content = payload.get("svg_content")
+    base64_data = payload.get("base64_data")
+    target_folder = payload.get("target_folder", "assets")
+    target_filename = payload.get("target_filename")
+    set_as_app_icon = bool(payload.get("set_as_app_icon", False))
+    update_code_references = bool(payload.get("update_code_references", False))
+
+    if not asset_url and not svg_content and not base64_data:
+        raise HTTPException(status_code=400, detail="asset_url, svg_content, or base64_data is required")
+
+    from gitbridge.services.app_image_service import AppImageService
+    result = AppImageService.drop_asset_to_app(
+        slug=slug,
+        asset_url=asset_url,
+        target_folder=target_folder,
+        target_filename=target_filename,
+        set_as_app_icon=set_as_app_icon,
+        update_code_references=update_code_references,
+        svg_content=svg_content,
+        base64_data=base64_data,
+        db=db
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("message", "Failed to drop asset"))
+    return result
+
+@app.post("/api/apps/{slug}/images/upload")
+async def upload_image_to_app_endpoint(
+    slug: str,
+    file: UploadFile = File(...),
+    target_folder: str = Form("assets"),
+    set_as_app_icon: bool = Form(False),
+    update_code_references: bool = Form(False),
+    db: Session = Depends(get_db)
+):
+    """Directly upload an image from user's PC into the app with automatic HEIC conversion and HTML/manifest updating."""
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    from gitbridge.services.app_image_service import AppImageService
+    result = AppImageService.upload_image_to_app(
+        slug=slug,
+        file_bytes=contents,
+        original_filename=file.filename,
+        target_folder=target_folder or "assets",
+        set_as_app_icon=bool(set_as_app_icon),
+        update_code_references=bool(update_code_references),
+        db=db
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("message", "Failed to upload image"))
+    return result
 
 # --- SOT (Source of Truth) & Contextiles API Endpoints ---
 @app.get("/api/sot/modifiers")
@@ -785,6 +1066,30 @@ def serve_asset_lab_file_endpoint(filename: str):
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Synthesized asset file not found")
     return FileResponse(file_path)
+
+@app.post("/api/asset-lab/brainstorm-concepts")
+def brainstorm_asset_lab_concepts_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Brainstorm 3 diverse asset concepts with visual blueprints, SVG previews, and color palettes."""
+    purpose = payload.get("purpose", "")
+    style_directive = payload.get("style_directive", "")
+    app_slug = payload.get("app_slug")
+    brand_contextile = payload.get("brand_contextile")
+    style_contextile = payload.get("style_contextile")
+    output_contextile = payload.get("output_contextile")
+    reference_images = payload.get("reference_images", [])
+
+    from gitbridge.services.asset_lab_service import AssetLabService
+    concepts = AssetLabService.brainstorm_concepts(
+        purpose=purpose,
+        style_directive=style_directive,
+        app_slug=app_slug,
+        brand_contextile=brand_contextile,
+        style_contextile=style_contextile,
+        output_contextile=output_contextile,
+        reference_images=reference_images,
+        db=db
+    )
+    return {"concepts": concepts, "count": len(concepts)}
 
 @app.post("/api/asset-lab/synthesize")
 def synthesize_asset_recipe_endpoint(payload: dict = {}):

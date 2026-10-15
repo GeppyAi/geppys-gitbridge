@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Geppy's GitBridge | App Universe Control Plane</title>
+  <link rel="icon" type="image/png" href="/static/assets/gitbridge_icon_64.png">
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -33,13 +34,13 @@
 
   <!-- Top Navigation Header -->
   <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-30 backdrop-blur-md px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center space-x-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-        <i class="fa-solid fa-bridge text-xl"></i>
+    <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('catalog')">
+      <div class="w-11 h-11 flex items-center justify-center filter drop-shadow-[0_0_10px_rgba(245,158,11,0.45)] hover:scale-105 transition-transform duration-200">
+        <img src="/static/assets/gitbridge_icon.png" alt="Geppy's GitBridge" class="w-full h-full object-contain" />
       </div>
       <div>
-        <h1 class="text-xl font-bold bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">Geppy's GitBridge</h1>
-        <p class="text-xs text-slate-400">App Universe Control Plane & Gemini Context Bridge</p>
+        <h1 class="text-xl font-bold bg-gradient-to-r from-white via-amber-200 to-indigo-300 bg-clip-text text-transparent">Geppy's GitBridge</h1>
+        <p class="text-xs text-slate-400">App Universe Control Plane &amp; Gemini Context Bridge</p>
       </div>
     </div>
 
@@ -186,6 +187,74 @@
       <!-- View: App Catalog (Default) -->
       <section id="view-catalog" class="space-y-6">
         
+        <!-- GitBridge Mission Control Hero Banner -->
+        <div class="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-950 p-6 md:p-8 shadow-2xl shadow-indigo-950/40">
+          <!-- Background Ambient Glow & Starfields -->
+          <div class="absolute -right-16 -top-16 w-96 h-96 rounded-full bg-amber-500/10 blur-3xl pointer-events-none"></div>
+          <div class="absolute right-1/3 -bottom-20 w-80 h-80 rounded-full bg-indigo-600/15 blur-3xl pointer-events-none"></div>
+          <div class="absolute left-10 -top-10 w-64 h-64 rounded-full bg-cyan-500/10 blur-2xl pointer-events-none"></div>
+
+          <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+            <!-- Left Hero Content -->
+            <div class="flex-1 space-y-4 text-center md:text-left">
+              <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold tracking-wide">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span>MISSION CONTROL &bull; GEPPY'S APP UNIVERSE</span>
+              </div>
+              
+              <div class="space-y-2">
+                <h1 class="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-white flex flex-wrap items-center justify-center md:justify-start gap-3">
+                  <span class="bg-gradient-to-r from-amber-400 via-orange-300 to-indigo-300 bg-clip-text text-transparent">Geppy's GitBridge</span>
+                  <span class="text-xs px-2.5 py-1 rounded-lg bg-indigo-600/30 border border-indigo-400/30 text-indigo-300 font-mono font-medium">v1.0 Nexus</span>
+                </h1>
+                <p class="text-sm md:text-base text-slate-300 max-w-2xl leading-relaxed">
+                  Your central command bridge uniting local apps, GitHub version control, Source of Truth (SOT) design standards, and AI-accelerated development across Geppy's App Universe.
+                </p>
+              </div>
+
+              <!-- Quick Command Action Buttons -->
+              <div class="flex flex-wrap items-center justify-center md:justify-start gap-2.5 pt-2">
+                <button type="button" onclick="triggerWorkspaceScan()" class="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center space-x-2">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                  <span>Scan Local Apps</span>
+                </button>
+                <button type="button" onclick="openExtensionModal()" class="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center space-x-2">
+                  <i class="fa-solid fa-puzzle-piece text-cyan-200"></i>
+                  <span>Open Geppy's Galactic</span>
+                </button>
+                <button type="button" onclick="switchTab('asset-lab')" class="px-3.5 py-2.5 bg-slate-900/90 hover:bg-slate-800 text-fuchsia-300 border border-fuchsia-500/30 font-semibold text-xs rounded-xl transition flex items-center space-x-2">
+                  <i class="fa-solid fa-flask-vial text-fuchsia-400"></i>
+                  <span>Asset Laboratory</span>
+                </button>
+                <button type="button" onclick="switchTab('sot')" class="px-3.5 py-2.5 bg-slate-900/90 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 font-semibold text-xs rounded-xl transition flex items-center space-x-2">
+                  <i class="fa-solid fa-ring text-cyan-400"></i>
+                  <span>SOT Fleet</span>
+                </button>
+                <button type="button" onclick="switchTab('chat')" class="px-3.5 py-2.5 bg-slate-900/90 hover:bg-slate-800 text-amber-300 border border-amber-500/30 font-semibold text-xs rounded-xl transition flex items-center space-x-2">
+                  <i class="fa-solid fa-user-astronaut text-amber-400"></i>
+                  <span>Captain Geppy Chat</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Right Hero Artwork: The Official GitBridge Hexagonal Emblem -->
+            <div class="relative flex-shrink-0 group">
+              <!-- Radial ambient glow behind emblem -->
+              <div class="absolute -inset-4 rounded-full bg-gradient-to-tr from-amber-500/30 via-orange-500/20 to-indigo-500/30 blur-2xl opacity-90 group-hover:opacity-100 transition duration-500"></div>
+              
+              <div class="relative w-48 h-48 sm:w-56 sm:h-56 md:w-60 md:h-60 flex items-center justify-center">
+                <img src="/static/assets/gitbridge_icon.png" alt="Geppy's GitBridge Official Emblem" class="w-full h-full object-contain filter drop-shadow-[0_15px_30px_rgba(245,158,11,0.4)] transition-transform duration-500 group-hover:scale-105 select-none" />
+              </div>
+
+              <!-- Floating Status Chip -->
+              <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-slate-950/90 border border-amber-500/40 rounded-full shadow-lg backdrop-blur-md flex items-center space-x-1.5 whitespace-nowrap">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span class="text-[11px] font-bold text-amber-300">GitBridge Core Active</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Metrics Stats Row -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div class="glass p-5 rounded-2xl">
@@ -220,6 +289,10 @@
             <span id="current-workspace-badge" onclick="openTokenModal()" class="text-xs text-slate-400 font-mono bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 cursor-pointer hover:border-amber-500/50 transition">
               <i class="fa-solid fa-folder-open text-amber-400 mr-1.5"></i>
               <span id="badge-workspace-path">d:\Geppy_Apps</span>
+            </span>
+            <span id="central-key-badge" onclick="openTokenModal()" class="text-xs text-slate-300 font-mono bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 cursor-pointer hover:border-cyan-500/50 transition flex items-center space-x-1.5" title="Central Gemini API Key Vault - Click to inspect or test">
+              <i class="fa-solid fa-bolt text-cyan-400"></i>
+              <span id="badge-key-text">Key: Checking...</span>
             </span>
             <select id="status-filter" onchange="filterCatalog()" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-indigo-500">
               <option value="all">All Statuses</option>
@@ -792,7 +865,10 @@
 
           <form onsubmit="event.preventDefault(); submitGlobalChat();" class="flex space-x-3 relative">
             <div class="flex-1 relative">
-              <input type="text" id="global-chat-input" placeholder="Transmission to Captain Geppy... (type @ to reference an SOT Contextile)" class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-10 py-3 text-sm text-slate-200 focus:outline-none focus:border-amber-500">
+              <input type="text" id="global-chat-input" placeholder="Transmission to Captain Geppy... (type @ for SOT, /image to generate visuals)" class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-16 py-3 text-sm text-slate-200 focus:outline-none focus:border-amber-500">
+              <button type="button" onclick="insertImageCommandIntoChat()" class="absolute right-9 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-400 text-sm" title="Generate Image with Captain Geppy (/image)">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </button>
               <button type="button" onclick="toggleContextilePicker()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-300 text-sm" title="Insert SOT Contextile">
                 <i class="fa-solid fa-at"></i>
               </button>
@@ -937,318 +1013,468 @@
       <!-- View: Asset Laboratory & Style Synthesizer -->
       <section id="view-asset-lab" class="space-y-6 hidden">
         <!-- Lab Header Banner -->
-        <div class="glass p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-fuchsia-500/30 shadow-xl shadow-fuchsia-950/20 bg-gradient-to-r from-slate-950 via-slate-900 to-fuchsia-950/20">
+        <div class="glass p-5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-fuchsia-500/30 shadow-xl shadow-fuchsia-950/20 bg-gradient-to-r from-slate-950 via-slate-900 to-fuchsia-950/20">
           <div>
-            <div class="flex items-center space-x-2.5">
+            <div class="flex items-center space-x-2.5 flex-wrap gap-y-1">
               <span class="w-8 h-8 rounded-xl bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center font-bold text-base shadow-sm border border-fuchsia-500/30">
                 <i class="fa-solid fa-flask-vial"></i>
               </span>
-              <h2 class="text-2xl font-bold text-white tracking-tight">Asset Laboratory &amp; Style Synthesizer</h2>
-              <span class="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-fuchsia-950/80 border border-fuchsia-500/40 text-fuchsia-300">Holodeck Fusion Chamber</span>
+              <h2 class="text-xl font-bold text-white tracking-tight">AI Asset Laboratory</h2>
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-emerald-950/80 border border-emerald-500/40 text-emerald-300">AI Image + Auto-Cutout PNG + Vector SVG</span>
             </div>
-            <p class="text-xs text-slate-400 mt-1.5 max-w-3xl leading-relaxed">
-              Mix multiple Source of Truth (SOT) Contextiles (characters, 3D icon sets, UI design systems) and reference images with custom parameters to synthesize fine-tuned app icons, marketing banners, and visual assets.
+            <p class="text-xs text-slate-400 mt-1 max-w-3xl leading-relaxed">
+              Follow Steps 1 &rarr; 2 &rarr; 3 below to generate an AI asset from your prompt, SOT Contextiles, and reference images, then automatically cut out its background.
             </p>
           </div>
 
-          <div class="flex items-center space-x-3 w-full md:w-auto">
-            <button onclick="resetAssetLab()" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition flex items-center space-x-1.5">
+          <div class="flex items-center space-x-2.5 w-full md:w-auto">
+            <button onclick="resetAssetLab()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition flex items-center space-x-1.5">
               <i class="fa-solid fa-arrows-rotate"></i>
-              <span>Reset Mixer</span>
+              <span>Clear / Reset</span>
             </button>
-            <button onclick="synthesizeAndGenerateLabAsset()" id="btn-synthesize-lab-header" class="flex-1 md:flex-initial px-4 py-2.5 bg-gradient-to-r from-fuchsia-600 via-indigo-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-fuchsia-600/30 transition flex items-center justify-center space-x-2">
+            <button onclick="synthesizeAndGenerateLabAsset()" id="btn-synthesize-lab-header" class="flex-1 md:flex-initial px-4 py-2 bg-gradient-to-r from-fuchsia-600 via-indigo-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-fuchsia-600/30 transition flex items-center justify-center space-x-2">
               <i class="fa-solid fa-wand-magic-sparkles text-amber-200"></i>
-              <span>Synthesize Asset</span>
+              <span>Generate AI Asset</span>
             </button>
           </div>
         </div>
 
-        <!-- Sub-Navigation for Asset Lab: Single Mixer vs Asset Series Generator vs Series Archive -->
+        <!-- Clear Mode Switcher: 1) Single Asset vs 2) Matching Pack / Series vs 3) Saved Series -->
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <div class="flex flex-wrap items-center gap-2">
             <button type="button" onclick="switchLabSubTab('mixer')" id="subnav-lab-mixer" class="px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 bg-fuchsia-600/30 text-white border border-fuchsia-500 shadow-sm transition">
-              <i class="fa-solid fa-flask text-fuchsia-300"></i>
-              <span>Single Asset Mixer</span>
+              <i class="fa-solid fa-wand-magic-sparkles text-fuchsia-300"></i>
+              <span>1. Create Single Asset</span>
             </button>
             <button type="button" onclick="switchLabSubTab('series')" id="subnav-lab-series" class="px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 bg-slate-900 text-slate-400 border border-slate-800 hover:border-slate-700 hover:text-white transition">
               <i class="fa-solid fa-dna text-cyan-400"></i>
-              <span>Asset Series Generator</span>
+              <span>2. Create Matching Series Pack</span>
               <span class="px-1.5 py-0.5 text-[9.5px] rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/30 font-mono">Multi-Image</span>
             </button>
             <button type="button" onclick="switchLabSubTab('archive')" id="subnav-lab-archive" class="px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 bg-slate-900 text-slate-400 border border-slate-800 hover:border-slate-700 hover:text-white transition">
               <i class="fa-solid fa-layer-group text-amber-400"></i>
-              <span>Series Collections Archive</span>
+              <span>Saved Series Packs</span>
               <span id="lab-series-archive-count" class="px-1.5 py-0.5 text-[9.5px] rounded-full bg-amber-950 text-amber-300 border border-amber-500/30 font-mono">0</span>
             </button>
           </div>
         </div>
 
-        <!-- Pane 1: Single Asset Mixer -->
+        <!-- Pane 1: Unified Single Asset Generator Studio -->
         <div id="lab-pane-mixer" class="space-y-6">
-          <!-- 3-Deck Fusion Workstation Grid -->
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-          <!-- Deck 1: Contextiles & SOT Mixer (lg:col-span-4) -->
-          <div class="lg:col-span-4 space-y-4">
-            <div class="glass p-5 rounded-2xl space-y-4 border border-slate-800">
-              <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <div class="flex items-center space-x-2">
-                  <span class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs flex items-center justify-center font-bold">1</span>
-                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">SOT Contextile Ingredients</h3>
-                </div>
-                <span id="lab-ingredient-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-500/30">0 Selected</span>
-              </div>
+          <!-- Unified 2-Column Studio: Left = Steps 1, 2, 3 | Right = Live Cutout Preview & Actions -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-              <!-- Button to add contextile to mixer -->
-              <button type="button" onclick="openLabContextileSelector()" class="w-full py-2.5 bg-slate-950/70 hover:bg-indigo-950/50 border border-dashed border-slate-700 hover:border-indigo-500/60 rounded-xl text-xs text-slate-300 hover:text-white transition flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-plus text-indigo-400 text-xs"></i>
-                <span>Add SOT Contextile to Blender</span>
-              </button>
+            <!-- Left Column: Unified 3-Step Builder (7 cols) -->
+            <div class="lg:col-span-7 space-y-5">
 
-              <!-- Active Ingredient Cards Container -->
-              <div id="lab-ingredients-container" class="space-y-3 min-h-[140px] max-h-[380px] overflow-y-auto pr-1">
-                <div class="py-8 text-center text-xs text-slate-500 space-y-2">
-                  <i class="fa-solid fa-blender text-2xl text-slate-600 block mb-1"></i>
-                  <p>Mixer is empty.</p>
-                  <p class="text-[11px] text-slate-600">Add 1 or more Contextiles above to fuse character likeness, 3D squircle styling, and materials.</p>
-                </div>
-              </div>
-
-              <!-- Quick Preset Combos -->
-              <div class="pt-3 border-t border-slate-800/80 space-y-2">
-                <span class="text-[11px] font-semibold text-slate-400 block">Quick Fusion Presets:</span>
-                <div class="flex flex-wrap gap-1.5">
-                  <button type="button" onclick="loadLabRecipePreset('baseball_card')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10.5px] text-amber-300 border border-slate-800 transition">
-                    ⚾ 70s Baseball Card
-                  </button>
-                  <button type="button" onclick="loadLabRecipePreset('character_icon')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10.5px] text-cyan-300 border border-slate-800 transition">
-                    👤 Character in 3D Icon
-                  </button>
-                  <button type="button" onclick="loadLabRecipePreset('ui_hero')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10.5px] text-indigo-300 border border-slate-800 transition">
-                    🚀 Glassmorphic App Hero
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Deck 2: Extra References & Directives (lg:col-span-4) -->
-          <div class="lg:col-span-4 space-y-4">
-            <div class="glass p-5 rounded-2xl space-y-4 border border-slate-800">
-              <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <div class="flex items-center space-x-2">
-                  <span class="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 text-xs flex items-center justify-center font-bold">2</span>
-                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">Directives &amp; References</h3>
-                </div>
-                <span class="text-[10px] text-amber-400 font-mono">Concept Synthesis</span>
-              </div>
-
-              <!-- Target App Association -->
-              <div>
-                <label class="text-[11px] font-semibold text-slate-300 block mb-1">Target Application (Optional)</label>
-                <select id="lab-app-slug" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
-                  <option value="">-- Global Galactic Fleet --</option>
-                </select>
-              </div>
-
-              <!-- Custom Concept Textarea -->
-              <div>
-                <label class="text-[11px] font-semibold text-slate-300 block mb-1">Creative Concept / Subject Directive</label>
-                <textarea id="lab-custom-prompt" rows="3" placeholder="Describe the scene or composition (e.g. Captain Geppy holding a glowing cyan holo-pad in an isometric 3D glass app icon with floating orbital rings...)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-amber-500 leading-relaxed"></textarea>
-              </div>
-
-              <!-- Additional Image References Upload -->
-              <div class="space-y-2">
-                <label class="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
-                  <span>Additional Reference Images</span>
-                  <span id="lab-extra-image-count" class="text-[10px] text-slate-500 font-mono">0 attached</span>
-                </label>
-                <div id="lab-extra-dropzone" class="border-2 border-dashed border-slate-800 hover:border-amber-500/50 rounded-xl p-3 text-center cursor-pointer transition bg-slate-950/40 group" onclick="document.getElementById('lab-extra-file-input').click()">
-                  <div class="flex items-center justify-center space-x-2 mb-1">
-                    <i class="fa-solid fa-cloud-arrow-up text-amber-400 text-base"></i>
-                    <i class="fa-solid fa-camera-retro text-pink-400 text-sm"></i>
+              <!-- STEP 1: What Are You Making? (Subject, Purpose & Format) -->
+              <div class="glass p-5 rounded-2xl space-y-4 border border-amber-500/30 bg-gradient-to-br from-slate-950 via-slate-900/90 to-amber-950/10">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                  <div class="flex items-center space-x-2.5">
+                    <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs flex items-center justify-center font-bold">1</span>
+                    <div>
+                      <h3 class="text-sm font-bold text-white">What Are You Making?</h3>
+                      <p class="text-[11px] text-slate-400">Pick a preset role or describe the subject, scene, or icon you want to generate.</p>
+                    </div>
                   </div>
-                  <p class="text-[11px] text-slate-300 font-medium group-hover:text-amber-300 transition">Click or Drag &amp; Drop extra sketch, reference, or iPhone HEIC</p>
-                  <div class="mt-2 flex items-center justify-center space-x-2">
-                    <span class="px-2 py-0.5 bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/30 rounded text-[10px] text-amber-300 font-medium transition flex items-center space-x-1">
-                      <i class="fa-solid fa-folder-open text-[10px]"></i>
-                      <span>Browse Files</span>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-500/30">Subject &amp; Format</span>
+                </div>
+
+                <!-- Quick Purpose Chips + Dropdown -->
+                <div class="space-y-2">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="text-[11px] font-semibold text-slate-400 mr-1">Quick Role:</span>
+                    <button type="button" onclick="setConceptPurposeQuick('App Launcher Squircle Icon')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-amber-300 border border-slate-800 transition">📱 App Icon</button>
+                    <button type="button" onclick="setConceptPurposeQuick('Geppy Hexagonal (#F59E0B) App Launcher Icon')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-amber-400 border border-slate-800 transition">🔶 Hex Emblem</button>
+                    <button type="button" onclick="setConceptPurposeQuick('Cash &amp; Coin Transaction Badge')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-cyan-300 border border-slate-800 transition">🪙 Cash Badge</button>
+                    <button type="button" onclick="setConceptPurposeQuick('Star Captain Leaderboard Trophy')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-emerald-300 border border-slate-800 transition">🏆 Trophy</button>
+                    <button type="button" onclick="setConceptPurposeQuick('Captain Geppy Mascot (Hero Thumbs Up)')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-purple-300 border border-slate-800 transition">🌟 Mascot</button>
+                    <button type="button" onclick="setConceptPurposeQuick('Die-Cut Brand Vinyl Sticker')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-pink-300 border border-slate-800 transition">🏷️ Sticker</button>
+                    <button type="button" onclick="loadLabRecipePreset('baseball_card')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-amber-300 border border-amber-500/30 transition">⚾ 70s Trading Card</button>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label class="text-[11px] font-semibold text-slate-300 block mb-1">Preset Asset Role (Optional)</label>
+                      <select id="lab-concept-purpose-select" onchange="onConceptPurposeDropdown(this.value)" class="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl p-2 text-xs text-amber-300 focus:outline-none transition">
+                        <option value="">📋 Choose an asset role preset (or type below)...</option>
+                        <optgroup label="🚀 App Launchers &amp; System Icons">
+                          <option value="App Launcher Squircle Icon (Modern iOS/macOS Rounded Square)">📱 App Launcher Squircle Icon</option>
+                          <option value="Geppy Hexagonal (#F59E0B) App Launcher Icon (Dark Navy Core with Orange Rim)">🔶 Geppy Hexagonal (#F59E0B) App Launcher Icon</option>
+                          <option value="Windows Taskbar &amp; System Tray Icon (.ico Crisp Micro Multi-Resolution)">💻 Windows Taskbar / System Tray Icon</option>
+                          <option value="Chrome Extension Action Badge Icon (Vector Scalable 16x16, 48x48, 128x128)">🧩 Chrome Extension Action Badge Icon</option>
+                          <option value="Mobile Web App PWA Touch Icon (High-DPI Retina Display)">📲 Mobile Web App (PWA) Touch Icon</option>
+                          <option value="Browser Tab Favicon (High-Contrast Silhouette &amp; Brand Accent)">🌐 Browser Tab Favicon</option>
+                        </optgroup>
+                        <optgroup label="🪙 Badges, Medals &amp; Currency">
+                          <option value="Geppy's Cash &amp; Coin Transaction Badge (Emerald &amp; Stamped Gold)">🪙 Geppy's Cash &amp; Coin Transaction Badge</option>
+                          <option value="Star Captain Leaderboard Trophy (Gleaming Gold &amp; Cosmic Pedestal)">🏆 Star Captain Leaderboard Trophy</option>
+                          <option value="Achievement Crest &amp; Galactic Rank Insignia">🎖️ Achievement Crest &amp; Rank Insignia</option>
+                          <option value="Verified Security Shield Badge (Encrypted Hologram Emblem)">🛡️ Verified Security Shield Badge</option>
+                          <option value="VIP Loyalty Crest &amp; Cosmic Club Membership Seal">👑 VIP Loyalty Crest &amp; Membership Seal</option>
+                        </optgroup>
+                        <optgroup label="🎛️ UI Widgets, Dashboard &amp; Controls">
+                          <option value="Calendar &amp; Schedule Sync Widget (Dynamic Date &amp; Status Indicator)">📅 Calendar &amp; Schedule Sync Widget</option>
+                          <option value="Real-Time Metrics Dashboard Tile (Glowing Gauges &amp; Data Telemetry)">📊 Real-Time Metrics Dashboard Tile</option>
+                          <option value="Notification &amp; Activity Alert Bell (Ringing Pulsar Indicator)">🔔 Notification &amp; Activity Alert Bell</option>
+                          <option value="System Configuration Engine &amp; Settings Gear">⚙️ System Configuration Gear &amp; Engine</option>
+                        </optgroup>
+                        <optgroup label="🖼️ Graphics, Mascot &amp; Marketing">
+                          <option value="Captain Geppy Mascot (Hero Thumbs Up &amp; Confident Stance)">👍 Captain Geppy Mascot (Hero Thumbs Up)</option>
+                          <option value="Captain Geppy Starfleet Helm (Navigating Cosmic Flight Deck)">🚀 Captain Geppy Starfleet Helm</option>
+                          <option value="Die-Cut Brand Vinyl Sticker (Bold White Contour Perimeter)">🏷️ Die-Cut Brand Vinyl Sticker</option>
+                          <option value="1970s Vintage Collectible Trading Card (Topps Cardboard Lithograph)">⚾ 1970s Vintage Collectible Trading Card</option>
+                        </optgroup>
+                      </select>
+                      <input type="hidden" id="lab-concept-purpose" value="">
+                    </div>
+                    <div>
+                      <label class="text-[11px] font-semibold text-slate-300 block mb-1">Target App (Optional)</label>
+                      <select id="lab-app-slug" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                        <option value="">-- Global Galactic Fleet --</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Unified Prompt Textarea -->
+                <div>
+                  <label class="text-[11px] font-semibold text-slate-200 flex items-center justify-between mb-1">
+                    <span>Describe Your Asset (Prompt &amp; Details)</span>
+                    <span class="text-[10px] text-slate-400">Combined with your SOT Contextiles &amp; Style below</span>
+                  </label>
+                  <textarea id="lab-custom-prompt" rows="3" oninput="const p=document.getElementById('lab-concept-purpose'); if(p) p.value=this.value;" placeholder="Describe what you want to generate (e.g. '3D metallic hexagonal emblem with Captain Geppy inside a glowing cyan gear crest', or 'Golden trophy cup with neon star accents')..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 focus:outline-none focus:border-amber-400 leading-relaxed"></textarea>
+                </div>
+
+                <!-- Format, Aspect Ratio & Auto-Cutout Row -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-slate-800/80 items-end">
+                  <div>
+                    <label class="text-[11px] font-semibold text-slate-300 block mb-1">Target Format</label>
+                    <select id="lab-target-format" onchange="onLabFormatChanged(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-slate-200 focus:outline-none focus:border-fuchsia-500">
+                      <option value="app_icon">🎨 App Icon / Badge (1:1)</option>
+                      <option value="avatar">👤 Character / Mascot (1:1)</option>
+                      <option value="trading_card">⚾ Vintage Trading Card (2.5:3.5)</option>
+                      <option value="banner_hero">🚀 Launch Hero Banner (16:9)</option>
+                      <option value="ui_component">🧩 UI Widget / Card (4:3)</option>
+                      <option value="social_story">📱 Vertical Poster (9:16)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-[11px] font-semibold text-slate-300 block mb-1">Aspect Ratio</label>
+                    <select id="lab-aspect-ratio" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-slate-200 focus:outline-none focus:border-fuchsia-500">
+                      <option value="1:1">1:1 Square</option>
+                      <option value="2.5:3.5">2.5:3.5 Retro Card</option>
+                      <option value="16:9">16:9 Landscape</option>
+                      <option value="9:16">9:16 Portrait</option>
+                      <option value="4:3">4:3 Card</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="flex items-center space-x-2 p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 cursor-pointer hover:bg-emerald-950/60 transition">
+                      <input type="checkbox" id="lab-cutout-bg" checked class="rounded accent-emerald-400">
+                      <span class="text-xs font-semibold text-emerald-300">✂️ Auto-Cutout BG</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- STEP 2: Style, SOT Contextiles & Reference Images -->
+              <div class="glass p-5 rounded-2xl space-y-4 border border-cyan-500/30 bg-gradient-to-br from-slate-950 via-slate-900/90 to-cyan-950/10">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                  <div class="flex items-center space-x-2.5">
+                    <span class="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs flex items-center justify-center font-bold">2</span>
+                    <div>
+                      <h3 class="text-sm font-bold text-white">Style, SOT Contextiles &amp; References</h3>
+                      <p class="text-[11px] text-slate-400">Attach saved SOT characters/styles, pick an aesthetic preset, or drop in reference images.</p>
+                    </div>
+                  </div>
+                  <span id="lab-ingredient-count-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-500/30">0 SOT Attached</span>
+                </div>
+
+                <!-- Aesthetic Style Preset Row -->
+                <div class="space-y-2">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="text-[11px] font-semibold text-slate-400 mr-1">Quick Style:</span>
+                    <button type="button" onclick="setConceptStyleQuick('Geppy Hex Brand (Hexagonal #F59E0B orange border, dark interior, transparent PNG)')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-amber-400 border border-slate-800 transition">🔶 Geppy Hex</button>
+                    <button type="button" onclick="setConceptStyleQuick('3D Skeuomorphic Glass Squircle with Beveled Rim')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-fuchsia-300 border border-slate-800 transition">✨ 3D Glass</button>
+                    <button type="button" onclick="setConceptStyleQuick('Galactic Cyberpunk Starlight Glow with Neon Accents')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-cyan-300 border border-slate-800 transition">🚀 Cyberpunk</button>
+                    <button type="button" onclick="setConceptStyleQuick('Obsidian &amp; Brushed Gold Minimalist Premium Vector')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-emerald-300 border border-slate-800 transition">💎 Obsidian/Gold</button>
+                    <button type="button" onclick="setConceptStyleQuick('Matte Vinyl Die-Cut Sticker with White Contour Rim')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-pink-300 border border-slate-800 transition">🏷️ Die-Cut Sticker</button>
+                    <button type="button" onclick="setConceptStyleQuick('1970s Vintage Retro Card with Textured Grain')" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-amber-300 border border-slate-800 transition">⚾ 70s Retro</button>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <select id="lab-concept-style-select" onchange="onConceptStyleDropdown(this.value)" class="w-full bg-slate-950 border border-slate-800 focus:border-fuchsia-400 rounded-xl p-2 text-xs text-fuchsia-300 focus:outline-none transition">
+                      <option value="">🎨 Browse style &amp; material presets...</option>
+                      <optgroup label="🔶 Geppy Brand Standards">
+                        <option value="Geppy Hex Brand (Hexagonal #F59E0B orange border, dark interior, transparent PNG)">🔶 Geppy Hex Brand (#F59E0B Orange Rim)</option>
+                        <option value="Geppy's Cash (Mint emerald &amp; polished gold coin seal, micro-relief stamping)">🪙 Geppy's Cash (Mint Emerald &amp; Gold Coin Seal)</option>
+                        <option value="Geppy Galactic Starfleet (Deep navy void, cyan star trails &amp; electric amber accents)">🚀 Geppy Galactic Starfleet (Navy, Cyan &amp; Amber)</option>
+                        <option value="Geppy Vintage (1970s Topps lithograph, soft halftone dots, aged card stock)">⚾ Geppy Vintage (1970s Lithograph &amp; Aged Card)</option>
+                      </optgroup>
+                      <optgroup label="✨ Modern 3D &amp; Digital">
+                        <option value="3D Skeuomorphic Glass Squircle with Beveled Rim and Ray-Traced Refraction">✨ 3D Skeuomorphic Glass Squircle with Beveled Rim</option>
+                        <option value="Galactic Cyberpunk Starlight Glow with Neon Accents and Dark Obsidian Base">🌌 Galactic Cyberpunk Starlight Glow with Neon Accents</option>
+                        <option value="Obsidian &amp; Brushed Gold Minimalist Premium Vector with Subtle Depth">💎 Obsidian &amp; Brushed Gold Minimalist Premium Vector</option>
+                        <option value="Holographic Prismatic Foil with Shimmer Specular Highlights and Iridescent Sheen">🌈 Holographic Prismatic Foil with Iridescent Sheen</option>
+                        <option value="Isometric 3D Ray-Traced Tech Diorama (Soft ambient occlusion and micro-details)">🪐 Isometric 3D Ray-Traced Tech Diorama</option>
+                        <option value="Claymorphic 3D Matte Plastic with Chunky Rounded Forms and Vibrant Pastels">🎨 Claymorphic 3D Matte Plastic</option>
+                      </optgroup>
+                      <optgroup label="⚾ Retro &amp; Vector">
+                        <option value="1970s Vintage Retro Card with Textured Grain, Halftone Dots &amp; Distressed Border">⚾ 1970s Vintage Retro Card with Halftone Grain</option>
+                        <option value="Matte Vinyl Die-Cut Sticker with Thick White Contour Outline &amp; Satin Finish">🏷️ Matte Vinyl Die-Cut Sticker with White Contour Rim</option>
+                        <option value="Flat Duo-Tone Vector with Vivid Contrast Gradient and Clean Geometry">📐 Flat Duo-Tone Vector with Vivid Contrast Gradient</option>
+                      </optgroup>
+                    </select>
+                    <input type="text" id="lab-concept-style" placeholder="Or type custom style / lighting notes..." class="w-full bg-slate-950 border border-slate-800 focus:border-fuchsia-400 rounded-xl p-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none transition">
+                  </div>
+                </div>
+
+                <!-- SOT Contextiles Blender Section -->
+                <div class="pt-3 border-t border-slate-800/80 space-y-3">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center space-x-2">
+                      <span class="text-xs font-bold text-cyan-300 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-ring"></i>
+                        <span>Attached SOT Contextiles (Characters, Styles &amp; Variables)</span>
+                      </span>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                      <button type="button" onclick="loadLabRecipePreset('character_icon')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10.5px] text-cyan-300 border border-slate-800 transition" title="Load Captain Geppy + 3D Icon">👤 Geppy + 3D Icon</button>
+                      <button type="button" onclick="loadLabRecipePreset('baseball_card')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10.5px] text-amber-300 border border-slate-800 transition" title="Load 70s Trading Card Combo">⚾ 70s Card Combo</button>
+                      <button type="button" onclick="openLabContextileSelector()" class="px-3 py-1 bg-indigo-600/30 hover:bg-indigo-600 border border-indigo-500/40 rounded-lg text-xs font-bold text-indigo-200 hover:text-white transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-plus text-[10px]"></i>
+                        <span>Add / Manage SOT</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Active Ingredient Cards Container -->
+                  <div id="lab-ingredients-container" class="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
+                    <div class="py-4 px-3 text-center text-xs text-slate-500 bg-slate-950/50 rounded-xl border border-dashed border-slate-800">
+                      No SOT Contextiles attached yet. Click <strong>+ Add / Manage SOT</strong> above to include saved characters, brand palettes, or dynamic slot variables.
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Reference Images Upload Strip -->
+                <div class="pt-3 border-t border-slate-800/80 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
+                      <i class="fa-solid fa-images text-amber-400"></i>
+                      <span>Reference Images (Optional)</span>
+                    </label>
+                    <span id="lab-extra-image-count" class="text-[10px] text-slate-400 font-mono">0 attached</span>
+                  </div>
+                  <div id="lab-extra-dropzone" class="border-2 border-dashed border-slate-800 hover:border-amber-500/50 rounded-xl p-3 text-center cursor-pointer transition bg-slate-950/40 group flex flex-col sm:flex-row items-center justify-between gap-2" onclick="document.getElementById('lab-extra-file-input').click()">
+                    <div class="flex items-center space-x-2.5 text-left">
+                      <i class="fa-solid fa-cloud-arrow-up text-amber-400 text-base"></i>
+                      <div>
+                        <p class="text-xs text-slate-300 font-medium group-hover:text-amber-300 transition">Click or drop reference images, sketches, or iPhone HEIC photos</p>
+                        <p class="text-[10px] text-slate-500">Visual traits, colors &amp; lighting are automatically extracted and fused into the AI generation.</p>
+                      </div>
+                    </div>
+                    <div class="flex items-center space-x-1.5 flex-shrink-0">
+                      <span class="px-2.5 py-1 bg-amber-950/40 border border-amber-500/30 rounded-lg text-[10px] text-amber-300 font-semibold">Browse</span>
+                      <button type="button" onclick="event.stopPropagation(); openHEICConverterModal();" class="px-2 py-1 bg-pink-950/40 hover:bg-pink-900/50 border border-pink-500/30 rounded-lg text-[10px] text-pink-300 font-semibold transition">HEIC</button>
+                    </div>
+                    <input type="file" id="lab-extra-file-input" accept="image/*,.heic,.heif,.HEIC,.HEIF" multiple class="hidden" onchange="handleLabExtraImageUpload(this)">
+                  </div>
+                  <div id="lab-extra-images-strip" class="flex items-center space-x-2 overflow-x-auto py-1 scrollbar-none"></div>
+                </div>
+
+                <!-- Collapsible Advanced Options (Fidelity, Brand Override & Negative Prompt) -->
+                <details class="pt-2 border-t border-slate-800/80 group">
+                  <summary class="text-[11px] font-semibold text-slate-400 hover:text-slate-200 cursor-pointer flex items-center justify-between select-none">
+                    <span>⚙️ Advanced Tuning (Fidelity Balance &amp; Negative Prompt)</span>
+                    <i class="fa-solid fa-chevron-down text-[10px] transition-transform group-open:rotate-180"></i>
+                  </summary>
+                  <div class="pt-3 space-y-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label class="text-[11px] font-semibold text-slate-300 block mb-1">SOT Fidelity vs. Creativity</label>
+                        <div class="grid grid-cols-3 gap-1.5">
+                          <button type="button" onclick="setLabFidelity('strict')" id="lab-fid-strict" class="lab-fid-btn py-1.5 px-2 rounded-xl text-[10.5px] font-medium border border-slate-800 bg-slate-950 text-slate-400 hover:text-white transition">Strict SOT</button>
+                          <button type="button" onclick="setLabFidelity('balanced')" id="lab-fid-balanced" class="lab-fid-btn active py-1.5 px-2 rounded-xl text-[10.5px] font-medium border border-fuchsia-500 bg-fuchsia-600/30 text-white shadow-sm transition">Balanced</button>
+                          <button type="button" onclick="setLabFidelity('creative')" id="lab-fid-creative" class="lab-fid-btn py-1.5 px-2 rounded-xl text-[10.5px] font-medium border border-slate-800 bg-slate-950 text-slate-400 hover:text-white transition">Creative</button>
+                        </div>
+                      </div>
+                      <div>
+                        <label class="text-[11px] font-semibold text-slate-300 block mb-1">Quick Primary SOT Character</label>
+                        <select id="lab-concept-brand-select" class="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 rounded-xl p-1.5 text-xs text-cyan-200 focus:outline-none transition">
+                          <option value="">🌟 Use Attached SOT Contextiles</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="text-[11px] font-semibold text-slate-400 block mb-1">Negative Constraints (Avoid in Image)</label>
+                      <input type="text" id="lab-negative-prompt" value="blurry, low resolution, distorted anatomy, photoreal human skin, pixelated edges, cluttered background" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-[11px] text-slate-400 focus:outline-none focus:border-amber-500">
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <!-- STEP 3: Generate Action Deck -->
+              <div class="glass p-5 rounded-2xl space-y-4 border border-fuchsia-500/40 bg-gradient-to-r from-slate-950 via-fuchsia-950/20 to-indigo-950/20 shadow-lg">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2.5">
+                    <span class="w-6 h-6 rounded-full bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40 text-xs flex items-center justify-center font-bold">3</span>
+                    <div>
+                      <h3 class="text-sm font-bold text-white">Generate Your Asset</h3>
+                      <p class="text-[11px] text-slate-400">Generate the finished AI cutout image directly, or brainstorm 3 concept directions first.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                  <!-- Primary Action: Direct AI Generation + Auto Cutout -->
+                  <button type="button" onclick="synthesizeAndGenerateLabAsset()" id="btn-synthesize-lab" class="sm:col-span-8 py-3.5 px-5 bg-gradient-to-r from-fuchsia-600 via-indigo-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-fuchsia-600/30 transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-200"></i>
+                    <span>Generate AI Asset (Cutout PNG + SVG)</span>
+                  </button>
+
+                  <!-- Optional Secondary Action: Brainstorm 3 Concept Previews -->
+                  <button type="button" id="btn-brainstorm-concepts" onclick="brainstormLabConcepts()" class="sm:col-span-4 py-3.5 px-3 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 hover:border-amber-400 font-semibold text-xs rounded-xl transition flex items-center justify-center space-x-1.5" title="Not sure yet? Preview 3 AI concept directions before rendering">
+                    <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                    <span>Brainstorm 3 Ideas</span>
+                  </button>
+                </div>
+
+                <!-- Optional Brainstormed Concepts Tray (appears only when 'Brainstorm 3 Ideas' is clicked) -->
+                <div id="lab-concepts-results-container" class="hidden pt-4 border-t border-slate-800/80 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center space-x-2">
+                      <i class="fa-solid fa-cubes"></i>
+                      <span>3 Brainstormed Concept Directions</span>
                     </span>
-                    <button type="button" onclick="event.stopPropagation(); openHEICConverterModal();" class="px-2 py-0.5 bg-pink-950/40 hover:bg-pink-900/50 border border-pink-500/30 rounded text-[10px] text-pink-300 font-medium transition flex items-center space-x-1">
-                      <i class="fa-solid fa-camera-retro text-[10px] text-pink-400"></i>
-                      <span>HEIC Studio</span>
+                    <button type="button" onclick="document.getElementById('lab-concepts-results-container').classList.add('hidden')" class="text-[11px] text-slate-400 hover:text-white">
+                      <i class="fa-solid fa-xmark mr-1"></i>Hide
                     </button>
                   </div>
-                  <input type="file" id="lab-extra-file-input" accept="image/*,.heic,.heif,.HEIC,.HEIF" multiple class="hidden" onchange="handleLabExtraImageUpload(this)">
-                </div>
-                <div id="lab-extra-images-strip" class="flex items-center space-x-2 overflow-x-auto py-1 scrollbar-none"></div>
-              </div>
-
-              <!-- Negative Directives -->
-              <div>
-                <label class="text-[11px] font-semibold text-slate-400 block mb-1">Negative Constraints</label>
-                <input type="text" id="lab-negative-prompt" value="blurry, low resolution, distorted anatomy, photoreal human skin, pixelated edges, cluttered background" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-[11px] text-slate-400 focus:outline-none focus:border-amber-500">
-              </div>
-            </div>
-          </div>
-
-          <!-- Deck 3: Synthesis Matrix & Output Bay (lg:col-span-4) -->
-          <div class="lg:col-span-4 space-y-4">
-            <div class="glass p-5 rounded-2xl space-y-4 border border-fuchsia-500/30">
-              <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <div class="flex items-center space-x-2">
-                  <span class="w-5 h-5 rounded-full bg-fuchsia-500/20 text-fuchsia-400 text-xs flex items-center justify-center font-bold">3</span>
-                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">Synthesis Matrix</h3>
-                </div>
-                <span class="text-[10px] text-fuchsia-400 font-mono">Output Bay</span>
-              </div>
-
-              <!-- Format & Aspect Ratio Grid -->
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="text-[11px] font-semibold text-slate-300 block mb-1">Target Format</label>
-                  <select id="lab-target-format" onchange="onLabFormatChanged(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-slate-200 focus:outline-none focus:border-fuchsia-500">
-                    <option value="app_icon">🎨 App Icon (1:1)</option>
-                    <option value="trading_card">⚾ Vintage Trading Card (2.5:3.5)</option>
-                    <option value="banner_hero">🚀 Launch Hero (16:9)</option>
-                    <option value="social_story">📱 Social Story (9:16)</option>
-                    <option value="ui_component">🧩 UI Card (4:3)</option>
-                    <option value="avatar">👤 Character Avatar (1:1)</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="text-[11px] font-semibold text-slate-300 block mb-1">Aspect Ratio</label>
-                  <select id="lab-aspect-ratio" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-slate-200 focus:outline-none focus:border-fuchsia-500">
-                    <option value="1:1">1:1 Square</option>
-                    <option value="2.5:3.5">2.5:3.5 Retro Card</option>
-                    <option value="16:9">16:9 Landscape</option>
-                    <option value="9:16">9:16 Portrait</option>
-                    <option value="4:3">4:3 Card</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Fidelity / Blend Balance -->
-              <div>
-                <label class="text-[11px] font-semibold text-slate-300 block mb-1">Fidelity &amp; Creativity Balance</label>
-                <div class="grid grid-cols-3 gap-1.5">
-                  <button type="button" onclick="setLabFidelity('strict')" id="lab-fid-strict" class="lab-fid-btn py-1.5 px-2 rounded-xl text-[10.5px] font-medium border border-slate-800 bg-slate-950 text-slate-400 hover:text-white transition">Strict SOT</button>
-                  <button type="button" onclick="setLabFidelity('balanced')" id="lab-fid-balanced" class="lab-fid-btn active py-1.5 px-2 rounded-xl text-[10.5px] font-medium border border-fuchsia-500 bg-fuchsia-600/30 text-white shadow-sm transition">Balanced</button>
-                  <button type="button" onclick="setLabFidelity('creative')" id="lab-fid-creative" class="lab-fid-btn py-1.5 px-2 rounded-xl text-[10.5px] font-medium border border-slate-800 bg-slate-950 text-slate-400 hover:text-white transition">Creative</button>
-                </div>
-              </div>
-
-              <!-- Action Trigger Button -->
-              <button type="button" onclick="synthesizeAndGenerateLabAsset()" id="btn-synthesize-lab" class="w-full py-3 bg-gradient-to-r from-fuchsia-600 via-indigo-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-fuchsia-600/30 transition flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-wand-magic-sparkles text-amber-200"></i>
-                <span>Synthesize &amp; Generate Asset</span>
-              </button>
-
-              <!-- Live Synthesized Preview Box -->
-              <div id="lab-preview-bay" class="space-y-3 pt-2 border-t border-slate-800">
-                <div class="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
-                  <span>Synthesized Output</span>
-                  <span id="lab-status-pill" class="text-[9.5px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Ready</span>
-                </div>
-
-                <!-- Preview Canvas Container -->
-                <div id="lab-output-frame" class="w-full h-48 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden relative flex items-center justify-center">
-                  <div id="lab-output-placeholder" class="text-center p-4 space-y-1.5 text-slate-500">
-                    <i class="fa-solid fa-dna text-2xl text-slate-600"></i>
-                    <p class="text-xs">No asset synthesized yet.</p>
-                    <p class="text-[10px] text-slate-600">Configure ingredients and click Synthesize above.</p>
+                  <div id="lab-concepts-cards-grid" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <!-- Dynamically populated concept cards -->
                   </div>
-                  <img id="lab-output-image" src="" alt="Synthesized Output" class="w-full h-full object-contain hidden">
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Right Column: Live Output Canvas & Finishing Bay (5 cols) -->
+            <div class="lg:col-span-5 space-y-4 lg:sticky lg:top-6">
+              <div id="lab-preview-bay" class="glass p-5 rounded-2xl space-y-4 border border-fuchsia-500/30 shadow-xl">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-sparkles text-fuchsia-400 text-xs"></i>
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider">Generated Asset Output</h3>
+                  </div>
+                  <span id="lab-status-pill" class="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Ready</span>
+                </div>
+
+                <!-- View Mode Switcher (Cutout PNG vs Uncut Studio AI vs Vector SVG) -->
+                <div id="lab-output-view-tabs" class="grid grid-cols-3 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 hidden">
+                  <button type="button" id="tab-lab-view-cutout" onclick="switchLabOutputView('cutout')" class="py-1.5 px-2 rounded-lg text-[11px] font-bold bg-fuchsia-600/30 text-white border border-fuchsia-500/50 transition">
+                    ✂️ Cutout PNG
+                  </button>
+                  <button type="button" id="tab-lab-view-raw" onclick="switchLabOutputView('raw')" class="py-1.5 px-2 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white border border-transparent transition">
+                    🖼️ Raw AI Image
+                  </button>
+                  <button type="button" id="tab-lab-view-svg" onclick="switchLabOutputView('svg')" class="py-1.5 px-2 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white border border-transparent transition">
+                    📐 Vector SVG
+                  </button>
+                </div>
+
+                <!-- Large Checkerboard Preview Canvas Container -->
+                <div id="lab-output-frame" class="w-full min-h-[340px] h-80 rounded-xl border border-slate-800 overflow-hidden relative flex items-center justify-center p-4" style="background-image: linear-gradient(45deg, #1e293b 25%, transparent 25%), linear-gradient(-45deg, #1e293b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1e293b 75%), linear-gradient(-45deg, transparent 75%, #1e293b 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; background-color: #0f172a;">
+                  <div id="lab-output-placeholder" class="text-center p-6 space-y-2 text-slate-400">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-center mx-auto text-fuchsia-400 text-xl shadow-inner">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <p class="text-xs font-semibold text-slate-300">Ready to Generate</p>
+                    <p class="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+                      Fill in Step 1 &amp; Step 2 on the left, then click <strong>Generate AI Asset</strong>. Your transparent cutout PNG and vector SVG will appear here.
+                    </p>
+                  </div>
+                  <img id="lab-output-image" src="" alt="Synthesized Output" class="max-w-full max-h-full object-contain hidden drop-shadow-2xl transition-all duration-200">
                 </div>
 
                 <!-- Action Toolbar on Output Asset -->
-                <div id="lab-output-actions" class="grid grid-cols-2 gap-2 hidden">
-                  <button type="button" onclick="openOutputDesignerForCurrentLabAsset()" class="col-span-2 py-2 px-3 bg-gradient-to-r from-cyan-600 via-indigo-600 to-fuchsia-600 hover:from-cyan-500 hover:to-fuchsia-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-cyan-950/40">
-                    <i class="fa-solid fa-print text-amber-200"></i>
-                    <span>Finish in Output Studio (Stickers &amp; 300 DPI PDF)</span>
-                  </button>
-                  <button type="button" onclick="startSeriesFromCurrentLabAsset()" class="col-span-2 py-2 px-3 bg-gradient-to-r from-fuchsia-600 via-indigo-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-fuchsia-950/40">
-                    <i class="fa-solid fa-dna text-amber-200"></i>
-                    <span>Generate Multi-Image Series from This Asset</span>
-                  </button>
-                  <button type="button" onclick="applyCurrentLabAssetAsIcon()" class="px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-medium transition flex items-center justify-center space-x-1">
-                    <i class="fa-solid fa-star text-[10px]"></i>
-                    <span>Set App Icon</span>
-                  </button>
-                  <button type="button" onclick="exportCurrentLabAssetToSOT()" class="px-2.5 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-medium transition flex items-center justify-center space-x-1">
-                    <i class="fa-solid fa-ring text-[10px]"></i>
-                    <span>Save to SOT</span>
-                  </button>
-                  <button type="button" onclick="downloadCurrentLabAsset()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition flex items-center justify-center space-x-1">
-                    <i class="fa-solid fa-download text-[10px]"></i>
-                    <span>Download</span>
-                  </button>
-                  <button type="button" onclick="testCurrentLabAssetInChat()" class="px-2.5 py-1.5 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white rounded-xl text-xs font-medium transition flex items-center justify-center space-x-1">
-                    <i class="fa-solid fa-user-astronaut text-[10px]"></i>
-                    <span>Chat Test</span>
-                  </button>
+                <div id="lab-output-actions" class="space-y-2.5 hidden">
+                  <!-- Primary Downloads & App Actions -->
+                  <div class="grid grid-cols-2 gap-2">
+                    <button type="button" onclick="downloadCurrentLabAsset()" class="py-2.5 px-3 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/40 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5" title="Download Transparent Cutout PNG">
+                      <i class="fa-solid fa-download"></i>
+                      <span>Download PNG</span>
+                    </button>
+                    <button type="button" id="lab-download-svg-btn" onclick="downloadCurrentLabSvg()" class="py-2.5 px-3 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white border border-indigo-500/40 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5" title="Download Scalable Vector SVG">
+                      <i class="fa-solid fa-file-code"></i>
+                      <span>Download SVG</span>
+                    </button>
+                    <button type="button" onclick="applyCurrentLabAssetAsIcon()" class="py-2 px-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5">
+                      <i class="fa-solid fa-star text-[10px]"></i>
+                      <span>Set as App Icon</span>
+                    </button>
+                    <button type="button" onclick="exportCurrentLabAssetToSOT()" class="py-2 px-3 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5">
+                      <i class="fa-solid fa-ring text-[10px]"></i>
+                      <span>Save to SOT Fleet</span>
+                    </button>
+                  </div>
+
+                  <!-- Next-Step Studio Tools -->
+                  <div class="pt-2 border-t border-slate-800/80 grid grid-cols-1 gap-2">
+                    <button type="button" onclick="openOutputDesignerForCurrentLabAsset()" class="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5">
+                      <i class="fa-solid fa-print text-cyan-400"></i>
+                      <span>Sticker Contour Rim &amp; 300 DPI Print Studio</span>
+                    </button>
+                    <button type="button" onclick="startSeriesFromCurrentLabAsset()" class="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-fuchsia-300 border border-fuchsia-500/30 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5">
+                      <i class="fa-solid fa-dna text-fuchsia-400"></i>
+                      <span>Make Matching Multi-Image Series from This Asset</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Collapsible Master Recipe & Blueprint Details -->
+                <div id="lab-blueprint-card" class="pt-3 border-t border-slate-800 space-y-2.5 hidden">
+                  <div class="flex justify-between items-center">
+                    <span class="text-[11px] font-bold text-slate-300 flex items-center space-x-1.5">
+                      <i class="fa-solid fa-microchip text-fuchsia-400"></i>
+                      <span>Compiled AI Recipe</span>
+                    </span>
+                    <button type="button" onclick="copyLabMasterPrompt()" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono rounded border border-slate-700">
+                      <span id="btn-copy-lab-prompt"><i class="fa-regular fa-copy mr-1"></i>Copy Prompt</span>
+                    </button>
+                  </div>
+                  <div id="lab-master-prompt-view" class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-300 max-h-24 overflow-y-auto leading-relaxed select-all"></div>
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div id="lab-palette-container" class="flex flex-wrap gap-1"></div>
+                    <p id="lab-fusion-notes" class="text-[10.5px] text-slate-400 italic"></p>
+                  </div>
+                  <div id="lab-variables-applied-box" class="hidden">
+                    <div id="lab-variables-applied-container" class="flex flex-wrap gap-1"></div>
+                  </div>
                 </div>
               </div>
-
             </div>
+
           </div>
 
-        </div>
-
-        <!-- Master Recipe & Blueprint Details -->
-        <div id="lab-blueprint-card" class="glass p-5 rounded-2xl space-y-3 border border-slate-800 hidden">
-          <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
-            <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-              <i class="fa-solid fa-microchip text-fuchsia-400"></i>
-              <span>Master Recipe &amp; Synthesis Blueprint</span>
-            </h3>
-            <button type="button" onclick="copyLabMasterPrompt()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono rounded border border-slate-700">
-              <span id="btn-copy-lab-prompt"><i class="fa-regular fa-copy mr-1"></i>Copy Master Prompt</span>
-            </button>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="md:col-span-2 space-y-2">
-              <div class="text-[11px] font-semibold text-slate-300">Compiled Master Generation Prompt:</div>
-              <div id="lab-master-prompt-view" class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono text-slate-300 max-h-36 overflow-y-auto leading-relaxed select-all"></div>
-            </div>
-            <div class="space-y-3">
-              <div>
-                <div class="text-[11px] font-semibold text-slate-300 mb-1">Color Palette Synthesis:</div>
-                <div id="lab-palette-container" class="flex flex-wrap gap-1.5"></div>
+          <!-- The Asset Lab Vault / History -->
+          <div class="glass p-6 rounded-2xl space-y-4 border border-slate-800">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div class="flex items-center space-x-2.5">
+                <span class="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-vault"></i>
+                </span>
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider">Recent Generated Assets (History)</h3>
               </div>
-              <div>
-                <div class="text-[11px] font-semibold text-slate-300 mb-1">Style Fusion Notes:</div>
-                <p id="lab-fusion-notes" class="text-xs text-slate-400 italic leading-relaxed"></p>
-              </div>
-              <div id="lab-variables-applied-box" class="hidden">
-                <div class="text-[11px] font-semibold text-pink-300 mb-1 flex items-center space-x-1">
-                  <i class="fa-solid fa-sliders text-[9px]"></i>
-                  <span>Dynamic Slots Applied:</span>
-                </div>
-                <div id="lab-variables-applied-container" class="flex flex-wrap gap-1.5"></div>
-              </div>
+              <span id="lab-history-count" class="text-xs font-mono text-slate-400">0 Assets</span>
+            </div>
+
+            <div id="lab-history-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div class="col-span-full py-6 text-center text-xs text-slate-500">Loading lab history...</div>
             </div>
           </div>
-        </div>
-
-        <!-- The Asset Lab Vault / History -->
-        <div class="glass p-6 rounded-2xl space-y-4 border border-slate-800">
-          <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-            <div class="flex items-center space-x-2.5">
-              <span class="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs">
-                <i class="fa-solid fa-vault"></i>
-              </span>
-              <h3 class="text-sm font-bold text-white uppercase tracking-wider">Asset Lab Vault (History)</h3>
-            </div>
-            <span id="lab-history-count" class="text-xs font-mono text-slate-400">0 Assets</span>
-          </div>
-
-          <div id="lab-history-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <div class="col-span-full py-6 text-center text-xs text-slate-500">Loading lab history...</div>
-          </div>
-        </div>
-      </div> <!-- Close #lab-pane-mixer -->
+        </div> <!-- Close #lab-pane-mixer -->
 
       <!-- Pane 2: Asset Series Generator Workstation -->
       <div id="lab-pane-series" class="space-y-6 hidden">
@@ -2692,11 +2918,31 @@
           <p class="text-[10px] text-slate-400 mt-1">Directory on your computer where your apps are kept. Repos from GitHub will be cloned into this folder.</p>
         </div>
 
-        <div>
-          <label class="text-xs font-semibold text-slate-300 block mb-1">Google Gemini API Key</label>
-          <input type="password" id="setting-gemini-key-input" placeholder="AIzaSy... (needed for AI Assistant Chat)" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono">
-          <p class="text-[10px] text-slate-400 mt-1">Enables Gemini 2.0 Flash live chat assistant across Geppy's App Universe. Saved to local .env.</p>
+        <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="text-xs font-semibold text-slate-200 flex items-center space-x-1.5">
+              <i class="fa-solid fa-key text-cyan-400"></i>
+              <span>Central Google Gemini API Key (Universal Vault)</span>
+            </label>
+            <span id="badge-gemini-vault-status" class="px-2 py-0.5 text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">Vault Active</span>
+          </div>
+          <input type="password" id="setting-gemini-key-input" placeholder="AIzaSy... (Single key shared across all apps)" class="w-full bg-slate-900 border border-slate-700/80 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+          <div class="flex justify-between items-center pt-0.5">
+            <p class="text-[10px] text-slate-400">1 central key automatically shared across all apps in d:\Geppy_Apps.</p>
+            <div class="flex space-x-1.5">
+              <button type="button" onclick="testCentralKeyInDashboard()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 text-[10px] font-medium rounded border border-slate-700 transition flex items-center space-x-1">
+                <i class="fa-solid fa-bolt text-amber-400 text-[9px]"></i>
+                <span id="btn-test-key-text">Test Key</span>
+              </button>
+              <button type="button" onclick="syncCentralKeyInDashboard()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 text-[10px] font-medium rounded border border-slate-700 transition flex items-center space-x-1">
+                <i class="fa-solid fa-arrows-rotate text-emerald-400 text-[9px]"></i>
+                <span id="btn-sync-key-text">Sync 20 Apps</span>
+              </button>
+            </div>
+          </div>
+          <div id="setting-key-feedback" class="text-[11px] hidden p-2 rounded bg-slate-900 border border-slate-800"></div>
         </div>
+
 
         <div>
           <label class="text-xs font-semibold text-slate-300 block mb-1">GitHub Personal Access Token (PAT)</label>
@@ -2959,6 +3205,24 @@
         if (data.github_username) document.getElementById('setting-username-input').value = data.github_username;
         if (data.github_token_masked) document.getElementById('setting-token-input').placeholder = `Configured (${data.github_token_masked})`;
         if (data.gemini_api_key_masked) document.getElementById('setting-gemini-key-input').placeholder = `Configured (${data.gemini_api_key_masked})`;
+        
+        // Update Central Key badge in top bar
+        const keyBadgeText = document.getElementById('badge-key-text');
+        const vaultBadge = document.getElementById('badge-gemini-vault-status');
+        if (data.gemini_api_key_configured) {
+          if (keyBadgeText) keyBadgeText.innerText = `Key: Active (${data.gemini_api_key_masked || 'Vault'})`;
+          if (vaultBadge) {
+            vaultBadge.className = "px-2 py-0.5 text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full";
+            vaultBadge.innerText = "Vault Active";
+          }
+        } else {
+          if (keyBadgeText) keyBadgeText.innerText = "Key: Missing";
+          if (vaultBadge) {
+            vaultBadge.className = "px-2 py-0.5 text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full";
+            vaultBadge.innerText = "Vault Missing";
+          }
+        }
+
         if (data.geppy_apps_dir) {
           currentWorkspaceDir = data.geppy_apps_dir;
           document.getElementById('setting-workspace-input').value = data.geppy_apps_dir;
@@ -2967,6 +3231,66 @@
         }
       } catch (e) {}
     }
+
+    async function testCentralKeyInDashboard() {
+      const btn = document.getElementById('btn-test-key-text');
+      const feedback = document.getElementById('setting-key-feedback');
+      if (btn) btn.innerText = 'Testing...';
+      if (feedback) {
+        feedback.className = 'text-[11px] p-2 rounded bg-slate-900 border border-slate-800 text-cyan-300 flex items-center space-x-1.5';
+        feedback.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i><span>Pinging Google Gemini API...</span>';
+        feedback.classList.remove('hidden');
+      }
+      try {
+        const res = await fetch('/api/keys/test', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          feedback.className = 'text-[11px] p-2 rounded bg-emerald-950/40 border border-emerald-800/50 text-emerald-300 flex items-center space-x-1.5';
+          feedback.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i><span>Connected in <strong>${data.latency_ms}ms</strong> via <code>${data.model}</code>. Central key is responsive!</span>`;
+        } else {
+          feedback.className = 'text-[11px] p-2 rounded bg-rose-950/40 border border-rose-800/50 text-rose-300 flex items-center space-x-1.5';
+          feedback.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-400"></i><span>Connection failed: ${data.message || 'Error'}</span>`;
+        }
+      } catch (err) {
+        if (feedback) {
+          feedback.className = 'text-[11px] p-2 rounded bg-rose-950/40 border border-rose-800/50 text-rose-300';
+          feedback.innerText = 'Error testing connection: ' + err;
+        }
+      } finally {
+        if (btn) btn.innerText = 'Test Key';
+        loadSettings();
+      }
+    }
+
+    async function syncCentralKeyInDashboard() {
+      const btn = document.getElementById('btn-sync-key-text');
+      const feedback = document.getElementById('setting-key-feedback');
+      if (btn) btn.innerText = 'Syncing...';
+      if (feedback) {
+        feedback.className = 'text-[11px] p-2 rounded bg-slate-900 border border-slate-800 text-cyan-300 flex items-center space-x-1.5';
+        feedback.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i><span>Propagating .env to all workspace apps...</span>';
+        feedback.classList.remove('hidden');
+      }
+      try {
+        const res = await fetch('/api/keys/sync-all-apps', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          feedback.className = 'text-[11px] p-2 rounded bg-emerald-950/40 border border-emerald-800/50 text-emerald-300 flex items-center space-x-1.5';
+          feedback.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i><span>Synchronized Central Gemini Key to <strong>${data.apps_updated} apps</strong> across your workspace!</span>`;
+        } else {
+          feedback.className = 'text-[11px] p-2 rounded bg-rose-950/40 border border-rose-800/50 text-rose-300 flex items-center space-x-1.5';
+          feedback.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-400"></i><span>Sync failed: ${data.message}</span>`;
+        }
+      } catch (err) {
+        if (feedback) {
+          feedback.className = 'text-[11px] p-2 rounded bg-rose-950/40 border border-rose-800/50 text-rose-300';
+          feedback.innerText = 'Error syncing apps: ' + err;
+        }
+      } finally {
+        if (btn) btn.innerText = 'Sync 20 Apps';
+      }
+    }
+
 
     function openTokenModal() { document.getElementById('modal-token').classList.remove('hidden'); }
     function closeTokenModal() { document.getElementById('modal-token').classList.add('hidden'); }
@@ -3089,7 +3413,11 @@
         if (andScan) {
           await triggerWorkspaceScan();
         } else {
-          alert(result.message || 'Settings saved successfully!');
+          let msg = result.message || 'Settings saved successfully!';
+          if (result.sync_result && result.sync_result.apps_updated > 0) {
+            msg += `\nPropagated Central Gemini Key to ${result.sync_result.apps_updated} apps across your workspace!`;
+          }
+          alert(msg);
           fetchCatalog();
         }
       } catch (e) {
@@ -4492,12 +4820,22 @@
           })
         });
         const data = await res.json();
-        appendChatMessage('ws-chat-messages', 'ai', data.text);
-        projectChatHistory.push({ sender: 'ai', text: data.text });
+        appendChatMessage('ws-chat-messages', 'ai', data.text, data.image_data);
+        projectChatHistory.push({ sender: 'ai', text: data.text, image_data: data.image_data });
       } catch (e) {
         appendChatMessage('ws-chat-messages', 'ai', `Error getting response: ${e}`);
       } finally {
         sendBtn.disabled = false;
+      }
+    }
+
+    function insertImageCommandIntoChat() {
+      const input = document.getElementById('global-chat-input');
+      if (input) {
+        if (!input.value.startsWith('/image')) {
+          input.value = `/image ${input.value}`.trim() + ' ';
+        }
+        input.focus();
       }
     }
 
@@ -4523,8 +4861,8 @@
           })
         });
         const data = await res.json();
-        appendChatMessage('global-chat-messages', 'ai', data.text);
-        globalChatHistory.push({ sender: 'ai', text: data.text });
+        appendChatMessage('global-chat-messages', 'ai', data.text, data.image_data);
+        globalChatHistory.push({ sender: 'ai', text: data.text, image_data: data.image_data });
       } catch (e) {
         appendChatMessage('global-chat-messages', 'ai', `Error getting response: ${e}`);
       } finally {
@@ -4537,7 +4875,7 @@
       submitProjectChat();
     }
 
-    function appendChatMessage(containerId, sender, text) {
+    function appendChatMessage(containerId, sender, text, imageData = null) {
       const container = document.getElementById(containerId);
       if (!container) return;
       
@@ -4557,6 +4895,28 @@
           </div>
           ${marked.parse(text)}
         `;
+
+        // Interactive Generated Image Preview in Web Chat
+        if (imageData && imageData.image_url) {
+          const fullSrc = imageData.image_url.startsWith('http') ? imageData.image_url : imageData.image_url;
+          const imgCard = document.createElement('div');
+          imgCard.className = 'mt-3 p-3 bg-slate-950 rounded-xl border border-amber-500/30 flex flex-col gap-2 not-prose';
+          imgCard.innerHTML = `
+            <div class="w-full h-44 rounded-lg overflow-hidden flex items-center justify-center border border-slate-800 cursor-pointer" style="background: repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 16px 16px;" onclick="window.open('${fullSrc}', '_blank')">
+              <img src="${fullSrc}" alt="${escapeHtml(imageData.title || 'Generated Asset')}" class="max-h-40 max-w-full object-contain filter drop-shadow-md hover:scale-105 transition-transform" />
+            </div>
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-200">
+              <span>${escapeHtml(imageData.title || 'Visual Asset')}</span>
+              <span class="text-amber-400 font-mono text-[10px]">${escapeHtml(imageData.filename || 'asset.png')}</span>
+            </div>
+            <div class="flex items-center space-x-2 pt-1">
+              <button type="button" onclick="window.open('${fullSrc}', '_blank')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg transition">🔍 Full Res</button>
+              <a href="${fullSrc}" download="${escapeHtml(imageData.filename || 'asset.png')}" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-semibold text-xs rounded-lg transition">⬇️ Download</a>
+              <button type="button" onclick="switchTab('asset-lab')" class="px-2.5 py-1 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white text-xs rounded-lg transition">🧪 In Asset Lab</button>
+            </div>
+          `;
+          msgDiv.appendChild(imgCard);
+        }
       }
       container.appendChild(msgDiv);
       container.scrollTop = container.scrollHeight;
@@ -4602,6 +4962,7 @@
           renderContextileGallery(globalContextiles);
           renderChatContextilePills(globalContextiles);
           renderContextilePicker(globalContextiles);
+          populateConceptBrandDropdown();
           const countEl = document.getElementById('nav-sot-count');
           if (countEl) countEl.innerText = globalContextiles.length;
           const galCount = document.getElementById('sot-gallery-count');
@@ -5558,30 +5919,16 @@
     function openAssetLabWithContextile(name, role = 'style') {
       switchTab('asset-lab');
       if (typeof addContextileToLabMixer === 'function') {
+        // Replace any existing ingredient with the same role so previous selections don't stack
+        labSelectedIngredients = (labSelectedIngredients || []).filter(i => i.role !== role && i.name !== name);
         addContextileToLabMixer(name, role);
-        
-        if (role === 'style') {
-          const capt = (globalContextiles || []).find(c => c.name === 'captain-geppy' || c.archetype === 'character');
-          if (capt && !labSelectedIngredients.some(i => i.name === capt.name)) {
-            addContextileToLabMixer(capt.name, 'subject');
-          }
-          if (name.includes('baseball') || name.includes('card')) {
-            const fmtSelect = document.getElementById('lab-target-format');
-            if (fmtSelect) fmtSelect.value = 'trading_card';
-            const aspSelect = document.getElementById('lab-aspect-ratio');
-            if (aspSelect) aspSelect.value = '2.5:3.5';
-            const promptEl = document.getElementById('lab-custom-prompt');
-            if (promptEl) promptEl.value = 'Captain Geppy depicted as a 1970s vintage baseball card MVP commander';
-          }
-        } else if (role === 'subject') {
-          const cardStyle = (globalContextiles || []).find(c => c.name === '70s-baseball-card' || c.archetype === 'style');
-          if (cardStyle && !labSelectedIngredients.some(i => i.name === cardStyle.name)) {
-            addContextileToLabMixer(cardStyle.name, 'style');
-            const fmtSelect = document.getElementById('lab-target-format');
-            if (fmtSelect) fmtSelect.value = 'trading_card';
-            const aspSelect = document.getElementById('lab-aspect-ratio');
-            if (aspSelect) aspSelect.value = '2.5:3.5';
-          }
+
+        const isCardCtx = name.includes('baseball') || name.includes('sport-card') || name.includes('tradingcard');
+        if (isCardCtx) {
+          const fmtSelect = document.getElementById('lab-target-format');
+          if (fmtSelect) fmtSelect.value = 'trading_card';
+          const aspSelect = document.getElementById('lab-aspect-ratio');
+          if (aspSelect) aspSelect.value = '2.5:3.5';
         }
       }
     }
@@ -5768,12 +6115,371 @@
     let labFidelityMode = 'balanced'; // 'strict' | 'balanced' | 'creative'
     let currentSynthesizedRecord = null; // Last synthesized asset record
     let currentSynthesizedRecipe = null; // Last synthesized recipe details
+    let currentBrainstormedConcepts = []; // 3-way brainstormed concepts
+
+    function setConceptPurposeQuick(val) {
+      const el = document.getElementById('lab-concept-purpose');
+      if (el) el.value = val;
+      const promptEl = document.getElementById('lab-custom-prompt');
+      if (promptEl) {
+        promptEl.value = val;
+      }
+      const sel = document.getElementById('lab-concept-purpose-select');
+      if (sel) {
+        for (let i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].value === val || sel.options[i].value.startsWith(val)) {
+            sel.selectedIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
+    function setConceptStyleQuick(val) {
+      const el = document.getElementById('lab-concept-style');
+      if (el) el.value = val;
+      const sel = document.getElementById('lab-concept-style-select');
+      if (sel) {
+        for (let i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].value === val || sel.options[i].value.startsWith(val)) {
+            sel.selectedIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
+    function onConceptPurposeDropdown(val) {
+      if (!val) return;
+      const el = document.getElementById('lab-concept-purpose');
+      if (el) el.value = val;
+      const promptEl = document.getElementById('lab-custom-prompt');
+      if (promptEl && !promptEl.value.trim()) {
+        promptEl.value = val;
+      }
+    }
+
+    function onConceptStyleDropdown(val) {
+      if (!val) return;
+      const el = document.getElementById('lab-concept-style');
+      if (el) el.value = val;
+    }
+
+    function setConceptBrandQuick(val) {
+      const sel = document.getElementById('lab-concept-brand-select');
+      if (!sel) return;
+      if (!val) {
+        sel.value = '';
+        return;
+      }
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === val || sel.options[i].value.toLowerCase().includes(val.toLowerCase())) {
+          sel.selectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    function populateConceptBrandDropdown() {
+      const select = document.getElementById('lab-concept-brand-select');
+      if (!select) return;
+
+      const prev = select.value;
+      select.innerHTML = '<option value="">🌟 Use Attached SOT Contextiles</option>';
+
+      if (globalContextiles && globalContextiles.length > 0) {
+        const charGroup = document.createElement('optgroup');
+        charGroup.label = '👤 Characters & Brand Contextiles';
+        globalContextiles.forEach(ctx => {
+          const opt = document.createElement('option');
+          opt.value = ctx.name;
+          opt.innerText = `@${ctx.name} - ${ctx.title}`;
+          charGroup.appendChild(opt);
+        });
+        select.appendChild(charGroup);
+      }
+
+      if (globalApps && globalApps.length > 0) {
+        const appGroup = document.createElement('optgroup');
+        appGroup.label = '📱 Installed Apps';
+        globalApps.forEach(app => {
+          const opt = document.createElement('option');
+          opt.value = 'app:' + app.slug;
+          opt.innerText = `${app.name} (${app.slug})`;
+          appGroup.appendChild(opt);
+        });
+        select.appendChild(appGroup);
+      }
+
+      if (prev) select.value = prev;
+    }
+
+    async function brainstormLabConcepts() {
+      const promptInput = document.getElementById('lab-custom-prompt');
+      const purposeSelect = document.getElementById('lab-concept-purpose-select');
+      const purposeInput = document.getElementById('lab-concept-purpose');
+      const styleInput = document.getElementById('lab-concept-style');
+      const styleSelect = document.getElementById('lab-concept-style-select');
+      const brandSelect = document.getElementById('lab-concept-brand-select');
+      const btn = document.getElementById('btn-brainstorm-concepts');
+
+      const customPromptVal = promptInput ? promptInput.value.trim() : '';
+      const presetPurposeVal = (purposeSelect && purposeSelect.value) ? purposeSelect.value.trim() : (purposeInput ? purposeInput.value.trim() : '');
+      let purpose = [presetPurposeVal, customPromptVal].filter(Boolean).join(' — ');
+      if (presetPurposeVal && customPromptVal && customPromptVal.includes(presetPurposeVal)) {
+        purpose = customPromptVal;
+      }
+
+      let style = (styleInput && styleInput.value.trim()) ? styleInput.value.trim() : (styleSelect ? styleSelect.value.trim() : '');
+      let brandVal = brandSelect ? brandSelect.value : '';
+
+      if (!brandVal && labSelectedIngredients.length > 0) {
+        const subjIng = labSelectedIngredients.find(i => i.role === 'subject') || labSelectedIngredients[0];
+        if (subjIng) brandVal = subjIng.name;
+      }
+
+      if (!purpose) {
+        purpose = prompt('What is this asset for? (e.g. "3D Hexagonal App Icon", "Geppy\'s Cash transaction badge", "Golden Trophy")', 'App Launcher Squircle Icon');
+        if (!purpose) return;
+        if (promptInput) promptInput.value = purpose;
+        if (purposeInput) purposeInput.value = purpose;
+      }
+
+      let appSlug = document.getElementById('lab-app-slug')?.value || currentAppSlug || (globalApps && globalApps.length > 0 ? globalApps[0].slug : null);
+      let brandContextile = brandVal;
+      if (brandVal && brandVal.startsWith('app:')) {
+        appSlug = brandVal.replace('app:', '');
+        brandContextile = null;
+      }
+
+      const origHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin text-amber-300 mr-1.5"></i><span>Brainstorming...</span>';
+      }
+
+      try {
+        const res = await fetch('/api/asset-lab/brainstorm-concepts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            purpose: purpose,
+            style_directive: style,
+            app_slug: appSlug,
+            brand_contextile: brandContextile
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Failed to brainstorm concepts');
+        }
+
+        currentBrainstormedConcepts = data.concepts || [];
+        renderBrainstormedConcepts(currentBrainstormedConcepts);
+
+        const container = document.getElementById('lab-concepts-results-container');
+        if (container) {
+          container.classList.remove('hidden');
+          container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      } catch (e) {
+        alert('Brainstorming error: ' + e);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+        }
+      }
+    }
+
+    function renderBrainstormedConcepts(concepts) {
+      const grid = document.getElementById('lab-concepts-cards-grid');
+      if (!grid) return;
+
+      if (!concepts || concepts.length === 0) {
+        grid.innerHTML = '<div class="col-span-full py-4 text-center text-slate-500 text-xs">No concepts brainstormed.</div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      concepts.forEach((c, idx) => {
+        const card = document.createElement('div');
+        card.className = 'glass p-4 rounded-xl border border-slate-800 hover:border-fuchsia-500/50 bg-slate-950/70 flex flex-col justify-between space-y-3.5 transition group shadow-lg';
+
+        const palette = c.color_palette || ['#0f172a', '#38bdf8', '#fbbf24', '#f43f5e'];
+
+        card.innerHTML = `
+          <div class="space-y-2">
+            <div class="flex items-start justify-between gap-1.5">
+              <div>
+                <span class="px-2 py-0.5 rounded-md text-[9px] font-mono bg-fuchsia-950/80 text-fuchsia-300 border border-fuchsia-500/30 uppercase tracking-wider inline-block">
+                  Concept ${idx + 1} &bull; ${escapeHtml(c.style_tag || '3D SQUIRCLE')}
+                </span>
+                <h4 class="text-xs font-bold text-white mt-1 group-hover:text-amber-300 transition line-clamp-1" title="${escapeHtml(c.title)}">
+                  ${escapeHtml(c.title || `Concept ${idx + 1}`)}
+                </h4>
+              </div>
+              ${c.character_grounding ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-500/30 flex-shrink-0" title="Grounded in ${escapeHtml(c.character_grounding)}">SOT Likeness</span>` : ''}
+            </div>
+
+            <!-- Live SVG Visual Box -->
+            <div class="w-full h-40 bg-slate-950/90 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden p-2 relative shadow-inner">
+              ${c.svg_preview ? c.svg_preview : `
+                <div class="text-center text-slate-500 text-xs p-2">
+                  <i class="fa-solid fa-cube text-xl text-slate-600 block mb-1"></i>
+                  <span>Visual Blueprint</span>
+                </div>
+              `}
+            </div>
+
+            <!-- Pitch & Blueprint -->
+            <div class="space-y-1">
+              <p class="text-[11px] text-slate-300 leading-snug line-clamp-2" title="${escapeHtml(c.pitch || '')}">
+                ${escapeHtml(c.pitch || '')}
+              </p>
+              <p class="text-[10px] text-slate-400 font-mono line-clamp-1 italic" title="${escapeHtml(c.composition_blueprint || '')}">
+                Blueprint: ${escapeHtml(c.composition_blueprint || 'Balanced squircle framing')}
+              </p>
+            </div>
+
+            <!-- Palette Swatches -->
+            <div class="flex items-center space-x-1.5 pt-1">
+              <span class="text-[10px] text-slate-500 font-mono">Palette:</span>
+              <div class="flex items-center space-x-1">
+                ${palette.map(hex => `
+                  <span class="w-4 h-4 rounded-full border border-slate-700 shadow-sm inline-block cursor-help" style="background-color: ${escapeHtml(hex)}" title="${escapeHtml(hex)}"></span>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="pt-2 border-t border-slate-800/80 space-y-1.5">
+            <button type="button" onclick="useLabConcept(${idx})" class="w-full py-2 bg-gradient-to-r from-fuchsia-600 via-indigo-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 shadow-md shadow-fuchsia-950/40">
+              <i class="fa-solid fa-blender text-amber-200"></i>
+              <span>🚀 Use Concept &amp; Build</span>
+            </button>
+            <button type="button" onclick="instantGenerateFromConcept(${idx})" class="w-full py-1.5 bg-slate-900 hover:bg-emerald-950/70 text-slate-300 hover:text-emerald-300 border border-slate-800 hover:border-emerald-500/40 font-medium text-xs rounded-xl transition flex items-center justify-center space-x-1.5">
+              <i class="fa-solid fa-bolt text-emerald-400"></i>
+              <span>⚡ Instant Generate (PNG + SVG)</span>
+            </button>
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+    }
+
+    function useLabConcept(index) {
+      const concept = currentBrainstormedConcepts[index];
+      if (!concept) return;
+
+      const promptEl = document.getElementById('lab-custom-prompt');
+      if (promptEl) {
+        promptEl.value = concept.master_prompt || `${concept.title}: ${concept.composition_blueprint || concept.pitch || ''}\n\nAesthetic Directive: ${concept.pitch || ''}`;
+      }
+
+      const formatEl = document.getElementById('lab-target-format');
+      const targetFmt = concept.target_format || concept.suggested_format;
+      if (formatEl && targetFmt) {
+        formatEl.value = targetFmt;
+      }
+      const arEl = document.getElementById('lab-aspect-ratio');
+      const targetAr = concept.aspect_ratio || concept.suggested_aspect_ratio;
+      if (arEl && targetAr) {
+        arEl.value = targetAr;
+      }
+
+      // Reset mixer ingredients so previous runs do not stack
+      labSelectedIngredients = [];
+
+      // Brand grounding
+      const brandSelect = document.getElementById('lab-concept-brand-select');
+      let brandVal = brandSelect ? brandSelect.value : '';
+      if (brandVal && !brandVal.startsWith('app:')) {
+        addContextileToLabMixer(brandVal, 'subject');
+      } else if (concept.character_grounding) {
+        addContextileToLabMixer(concept.character_grounding, 'subject');
+      } else {
+        const captain = (globalContextiles || []).find(c => c.name === 'captain-geppy' || c.name === 'geppybrand');
+        if (captain) {
+          addContextileToLabMixer(captain.name, 'subject');
+        }
+      }
+
+      const iconGuide = (globalContextiles || []).find(c => c.name === 'galactic-icons');
+      if (iconGuide && !labSelectedIngredients.some(i => i.name === iconGuide.name)) {
+        addContextileToLabMixer(iconGuide.name, 'style');
+      }
+
+      renderLabIngredients();
+      promptEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function instantGenerateFromConcept(index) {
+      const concept = currentBrainstormedConcepts[index];
+      if (!concept) return;
+
+      const statusPill = document.getElementById('lab-status-pill');
+      if (statusPill) statusPill.innerText = 'Rendering Concept...';
+
+      let ings = [];
+      const brandSelect = document.getElementById('lab-concept-brand-select');
+      let brandVal = brandSelect ? brandSelect.value : '';
+      let chosenCtx = null;
+      if (brandVal && !brandVal.startsWith('app:')) {
+        chosenCtx = (globalContextiles || []).find(c => c.name === brandVal);
+      } else if (concept.character_grounding) {
+        chosenCtx = (globalContextiles || []).find(c => c.name === concept.character_grounding);
+      } else {
+        chosenCtx = (globalContextiles || []).find(c => c.name === 'captain-geppy' || c.name === 'geppybrand');
+      }
+
+      if (chosenCtx) {
+        ings.push(chosenCtx);
+      }
+
+      const targetApp = currentAppSlug || (brandVal && brandVal.startsWith('app:') ? brandVal.replace('app:', '') : null) || (globalApps && globalApps.length > 0 ? globalApps[0].slug : null);
+
+      try {
+        const res = await fetch('/api/asset-lab/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: concept.title,
+            master_prompt: concept.master_prompt || `${concept.title}: ${concept.composition_blueprint || concept.pitch || ''}`,
+            target_format: concept.target_format || concept.suggested_format || 'app_icon',
+            aspect_ratio: concept.aspect_ratio || concept.suggested_aspect_ratio || '1:1',
+            color_palette: concept.color_palette || [],
+            composition_blueprint: concept.composition_blueprint || '',
+            ingredients_summary: ings,
+            reference_images: [],
+            app_slug: targetApp
+          })
+        });
+
+        const record = await res.json();
+        if (!res.ok) throw new Error(record.detail || 'Generation failed');
+
+        currentSynthesizedRecord = record;
+        renderLabOutput(record, concept);
+        await fetchLabHistory();
+
+        if (statusPill) statusPill.innerText = 'Synthesized!';
+        document.getElementById('lab-preview-bay')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (e) {
+        alert('Instant generation error: ' + e);
+        if (statusPill) statusPill.innerText = 'Error';
+      }
+    }
 
     async function initAssetLab() {
       if (globalContextiles.length === 0) {
         await fetchSOTData();
       }
       populateLabAppDropdown();
+      populateConceptBrandDropdown();
       renderLabIngredients();
       fetchLabHistory();
     }
@@ -6153,33 +6859,83 @@
     }
 
     async function synthesizeAndGenerateLabAsset() {
-      const customPrompt = document.getElementById('lab-custom-prompt')?.value.trim() || '';
+      const rawCustomPrompt = document.getElementById('lab-custom-prompt')?.value.trim() || '';
+      const presetPurpose = document.getElementById('lab-concept-purpose-select')?.value.trim() || document.getElementById('lab-concept-purpose')?.value.trim() || '';
+      const styleDirective = document.getElementById('lab-concept-style')?.value.trim() || document.getElementById('lab-concept-style-select')?.value.trim() || '';
+      const negativePrompt = document.getElementById('lab-negative-prompt')?.value.trim() || '';
       const targetFormat = document.getElementById('lab-target-format')?.value || 'app_icon';
       const aspectRatio = document.getElementById('lab-aspect-ratio')?.value || '1:1';
-      const appSlug = document.getElementById('lab-app-slug')?.value || null;
+      const cutoutBg = document.getElementById('lab-cutout-bg') ? document.getElementById('lab-cutout-bg').checked : true;
+      let appSlug = document.getElementById('lab-app-slug')?.value || null;
+      const brandVal = document.getElementById('lab-concept-brand-select')?.value || '';
       const statusPill = document.getElementById('lab-status-pill');
+
+      // Combine Step 1 purpose, prompt, and Step 2 style directive into one complete directive
+      const promptParts = [];
+      if (presetPurpose && (!rawCustomPrompt || !rawCustomPrompt.toLowerCase().includes(presetPurpose.toLowerCase()))) {
+        promptParts.push(`Asset Role/Purpose: ${presetPurpose}`);
+      }
+      if (rawCustomPrompt) {
+        promptParts.push(rawCustomPrompt);
+      }
+      if (styleDirective) {
+        promptParts.push(`Visual Style & Materials: ${styleDirective}`);
+      }
+      if (negativePrompt) {
+        promptParts.push(`Avoid: ${negativePrompt}`);
+      }
+      const customPrompt = promptParts.join('. ');
+
+      // Ensure any Quick Primary SOT Character selection in Advanced Tuning is included in ingredients
+      let effectiveIngredients = [...labSelectedIngredients];
+      if (brandVal) {
+        if (brandVal.startsWith('app:')) {
+          if (!appSlug) appSlug = brandVal.replace('app:', '');
+        } else if (!effectiveIngredients.some(i => i.name === brandVal)) {
+          const brandCtx = (globalContextiles || []).find(c => c.name === brandVal);
+          if (brandCtx) {
+            effectiveIngredients.unshift({
+              name: brandCtx.name,
+              title: brandCtx.title,
+              archetype: brandCtx.archetype,
+              role: 'subject',
+              weight: 1.0,
+              primary_image_url: brandCtx.primary_image_url || brandCtx.reference_image_url,
+              reference_text: brandCtx.reference_text,
+              modifiers: brandCtx.modifiers,
+              variables: brandCtx.variables || []
+            });
+          }
+        }
+      }
 
       const btn1 = document.getElementById('btn-synthesize-lab');
       const btn2 = document.getElementById('btn-synthesize-lab-header');
       [btn1, btn2].forEach(b => {
         if (b) {
           b.disabled = true;
-          b.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1.5"></i><span>Synthesizing...</span>';
+          b.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1.5"></i><span>Generating AI Asset &amp; Cutout...</span>';
         }
       });
-      if (statusPill) statusPill.innerText = 'Blender Active...';
+      if (statusPill) statusPill.innerText = 'AI Rendering & Cutout...';
 
       try {
+        // Clear previous output image from canvas before generating new asset so outputs never stack
+        const prevImg = document.getElementById('lab-output-image');
+        const prevPlaceholder = document.getElementById('lab-output-placeholder');
+        if (prevImg) {
+          prevImg.removeAttribute('src');
+          prevImg.classList.add('hidden');
+        }
+        if (prevPlaceholder) {
+          prevPlaceholder.classList.remove('hidden');
+        }
+
         const allRefImages = [...labExtraImages];
-        labSelectedIngredients.forEach(ing => {
-          if (ing.primary_image_url && !allRefImages.includes(ing.primary_image_url)) {
-            allRefImages.unshift(ing.primary_image_url);
-          }
-        });
 
         // Collect dynamic template variables across loaded ingredients
         const activeVariables = {};
-        labSelectedIngredients.forEach(ing => {
+        effectiveIngredients.forEach(ing => {
           if (ing.variables && Array.isArray(ing.variables)) {
             ing.variables.forEach(v => {
               if (v.key) {
@@ -6194,7 +6950,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ingredients: labSelectedIngredients,
+            ingredients: effectiveIngredients,
             custom_prompt: customPrompt,
             target_format: targetFormat,
             fidelity_mode: labFidelityMode,
@@ -6207,21 +6963,24 @@
         const recipe = await resRecipe.json();
         currentSynthesizedRecipe = recipe;
 
-        // Step 2: Generate Visual Asset File
+        // Step 2: Generate AI Visual Asset + Automatic Neural Background Cutout
         const resGen = await fetch('/api/asset-lab/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: recipe.title || 'Fine-Tuned Asset',
+            title: recipe.title || rawCustomPrompt.slice(0, 48) || presetPurpose.slice(0, 48) || 'AI Cutout Asset',
             master_prompt: recipe.master_prompt || customPrompt,
+            style_preset: styleDirective,
             target_format: targetFormat,
             aspect_ratio: aspectRatio,
             color_palette: recipe.color_palette || [],
             composition_blueprint: recipe.composition_blueprint || '',
-            ingredients_summary: labSelectedIngredients,
+            ingredients_summary: effectiveIngredients,
+            contextile_ids: effectiveIngredients.map(i => i.name).filter(Boolean),
             reference_images: allRefImages,
             app_slug: appSlug,
-            variables: activeVariables
+            variables: activeVariables,
+            cutout_bg: cutoutBg
           })
         });
 
@@ -6232,25 +6991,63 @@
         renderLabOutput(record, recipe);
         await fetchLabHistory();
 
-        if (statusPill) statusPill.innerText = 'Synthesized!';
+        if (statusPill) statusPill.innerText = record.cutout_applied ? 'Cutout Ready!' : 'Generated!';
       } catch (e) {
-        alert('Synthesis failed: ' + e);
+        alert('Generation failed: ' + e);
         if (statusPill) statusPill.innerText = 'Error';
       } finally {
-        [btn1, btn2].forEach(b => {
-          if (b) {
-            b.disabled = false;
-            b.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-amber-200 mr-1.5"></i><span>Synthesize Asset</span>';
-          }
-        });
+        if (btn1) {
+          btn1.disabled = false;
+          btn1.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-amber-200 mr-1.5"></i><span>Generate AI Asset (Cutout PNG + SVG)</span>';
+        }
+        if (btn2) {
+          btn2.disabled = false;
+          btn2.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-amber-200 mr-1.5"></i><span>Generate AI Asset</span>';
+        }
       }
     }
 
+    function switchLabOutputView(mode) {
+      if (!currentSynthesizedRecord) return;
+      const img = document.getElementById('lab-output-image');
+      if (!img) return;
+
+      const ts = '?t=' + Date.now();
+      if (mode === 'raw' && currentSynthesizedRecord.raw_file_url) {
+        img.src = currentSynthesizedRecord.raw_file_url + ts;
+      } else if (mode === 'svg' && currentSynthesizedRecord.svg_url) {
+        img.src = currentSynthesizedRecord.svg_url + ts;
+      } else if (currentSynthesizedRecord.file_url) {
+        img.src = currentSynthesizedRecord.file_url + ts;
+      }
+
+      ['cutout', 'raw', 'svg'].forEach(k => {
+        const tab = document.getElementById(`tab-lab-view-${k}`);
+        if (!tab) return;
+        if (k === mode) {
+          tab.className = 'py-1.5 px-2 rounded-lg text-[11px] font-bold bg-fuchsia-600/30 text-white border border-fuchsia-500/50 transition';
+        } else {
+          tab.className = 'py-1.5 px-2 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white border border-transparent transition';
+        }
+      });
+    }
+
     function renderLabOutput(record, recipe) {
+      const frame = document.getElementById('lab-output-frame');
       const placeholder = document.getElementById('lab-output-placeholder');
       const img = document.getElementById('lab-output-image');
       const actions = document.getElementById('lab-output-actions');
       const bpCard = document.getElementById('lab-blueprint-card');
+      const viewTabs = document.getElementById('lab-output-view-tabs');
+
+      if (frame) {
+        // Remove any stray injected SVG/img children so only the active output is shown
+        Array.from(frame.children).forEach(child => {
+          if (child.id !== 'lab-output-placeholder' && child.id !== 'lab-output-image') {
+            child.remove();
+          }
+        });
+      }
 
       if (img && record.file_url) {
         img.src = record.file_url + '?t=' + Date.now();
@@ -6258,17 +7055,31 @@
         if (placeholder) placeholder.classList.add('hidden');
       }
 
+      if (viewTabs) {
+        viewTabs.classList.remove('hidden');
+        switchLabOutputView('cutout');
+      }
+
       if (actions) actions.classList.remove('hidden');
+
+      const svgBtn = document.getElementById('lab-download-svg-btn');
+      if (svgBtn) {
+        if (record && record.svg_url) {
+          svgBtn.classList.remove('hidden');
+        } else {
+          svgBtn.classList.add('hidden');
+        }
+      }
 
       if (bpCard) {
         bpCard.classList.remove('hidden');
         const promptView = document.getElementById('lab-master-prompt-view');
-        if (promptView) promptView.innerText = record.master_prompt || recipe.master_prompt;
+        if (promptView) promptView.innerText = record.master_prompt || recipe?.master_prompt || '';
         
         const paletteContainer = document.getElementById('lab-palette-container');
         if (paletteContainer) {
           paletteContainer.innerHTML = '';
-          (recipe.color_palette || []).forEach(c => {
+          (recipe?.color_palette || record.color_palette || []).forEach(c => {
             const pill = document.createElement('span');
             pill.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-medium border border-slate-800 bg-slate-900 text-slate-300';
             pill.innerText = c;
@@ -6278,7 +7089,7 @@
 
         const notesEl = document.getElementById('lab-fusion-notes');
         if (notesEl) {
-          notesEl.innerText = recipe.style_fusion_notes || recipe.composition_blueprint || 'Fine-tuned synthesis achieved.';
+          notesEl.innerText = recipe?.style_fusion_notes || recipe?.composition_blueprint || 'AI image generated & background cut out.';
         }
 
         const varsBox = document.getElementById('lab-variables-applied-box');
@@ -6369,6 +7180,16 @@
       const a = document.createElement('a');
       a.href = currentSynthesizedRecord.file_url;
       a.download = (currentSynthesizedRecord.title || 'asset').replace(/[^a-zA-Z0-9_\-]+/g, '_') + '.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function downloadCurrentLabSvg() {
+      if (!currentSynthesizedRecord || !currentSynthesizedRecord.svg_url) return;
+      const a = document.createElement('a');
+      a.href = currentSynthesizedRecord.svg_url;
+      a.download = (currentSynthesizedRecord.title || 'asset').replace(/[^a-zA-Z0-9_\-]+/g, '_') + '.svg';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -6499,9 +7320,27 @@
       renderLabIngredients();
       renderLabExtraImages();
       setLabFidelity('balanced');
-      document.getElementById('lab-custom-prompt').value = '';
+      const customPromptEl = document.getElementById('lab-custom-prompt');
+      if (customPromptEl) customPromptEl.value = '';
+      const purposeEl = document.getElementById('lab-concept-purpose');
+      if (purposeEl) purposeEl.value = '';
+      const purposeSel = document.getElementById('lab-concept-purpose-select');
+      if (purposeSel) purposeSel.value = '';
+      const styleEl = document.getElementById('lab-concept-style');
+      if (styleEl) styleEl.value = '';
+      const styleSel = document.getElementById('lab-concept-style-select');
+      if (styleSel) styleSel.value = '';
+      const brandSel = document.getElementById('lab-concept-brand-select');
+      if (brandSel) brandSel.value = '';
+      const conceptsTray = document.getElementById('lab-concepts-results-container');
+      if (conceptsTray) conceptsTray.classList.add('hidden');
+      const viewTabs = document.getElementById('lab-output-view-tabs');
+      if (viewTabs) viewTabs.classList.add('hidden');
       const img = document.getElementById('lab-output-image');
-      if (img) img.classList.add('hidden');
+      if (img) {
+        img.removeAttribute('src');
+        img.classList.add('hidden');
+      }
       const placeholder = document.getElementById('lab-output-placeholder');
       if (placeholder) placeholder.classList.remove('hidden');
       const actions = document.getElementById('lab-output-actions');

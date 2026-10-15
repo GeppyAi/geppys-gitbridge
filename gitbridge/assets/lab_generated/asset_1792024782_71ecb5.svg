@@ -1,0 +1,121 @@
+<svg viewBox="0 0 1024 1024" width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad_obsidian" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="50%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="grad_gold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+    <linearGradient id="grad_cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22D3EE" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+    <radialGradient id="grad_orb" cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
+      <stop offset="0%" stop-color="#CFFAFE" />
+      <stop offset="40%" stop-color="#06B6D4" />
+      <stop offset="100%" stop-color="#0891B2" />
+    </radialGradient>
+    <radialGradient id="grad_purple_glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0" />
+    </radialGradient>
+    <filter id="glow_cyan" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="glow_gold" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="bevel">
+      <feGaussianBlur stdDeviation="2" in="SourceAlpha" result="blur" />
+      <feSpecularLighting in="blur" surfaceScale="5" specularConstant="1" specularExponent="20" lightingColor="#F59E0B" result="spec">
+        <fePointLight x="-5000" y="-10000" z="20000" />
+      </feSpecularLighting>
+      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specOut" />
+      <feComposite in="SourceGraphic" in2="specOut" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" />
+    </filter>
+    <clipPath id="hex_clip">
+      <polygon points="512,60 900,286 900,738 512,964 124,738 124,286" />
+    </clipPath>
+  </defs>
+
+  <!-- Hexagonal Container -->
+  <g id="shield_container">
+    <!-- Outer Rim Glow -->
+    <polygon points="512,50 915,280 915,744 512,974 109,744 109,280" fill="none" stroke="#8B5CF6" stroke-width="8" opacity="0.5" filter="url(#glow_cyan)" />
+    <!-- Main Obsidian Hexagon -->
+    <polygon points="512,60 900,286 900,738 512,964 124,738 124,286" fill="url(#grad_obsidian)" stroke="#F59E0B" stroke-width="4" />
+    <!-- Inner Grid Pattern -->
+    <g clip-path="url(#hex_clip)" opacity="0.15">
+      <path d="M0 200 L1024 200 M0 300 L1024 300 M0 400 L1024 400 M0 500 L1024 500 M0 600 L1024 600 M0 700 L1024 700 M0 800 L1024 800" stroke="#06B6D4" stroke-width="1" />
+      <path d="M200 0 L200 1024 M300 0 L300 1024 M400 0 L400 1024 M500 0 L500 1024 M600 0 L600 1024 M700 0 L700 1024 M800 0 L800 1024" stroke="#06B6D4" stroke-width="1" />
+    </g>
+    <!-- Purple Ambient Glow -->
+    <circle cx="512" cy="512" r="400" fill="url(#grad_purple_glow)" />
+  </g>
+
+  <!-- Cybernetic Dragon Wings (Upper) -->
+  <g id="wings" filter="url(#bevel)">
+    <!-- Right Wing -->
+    <path d="M530 450 L850 250 L880 380 L750 480 L860 550 L700 580 Z" fill="url(#grad_gold)" stroke="#0F172A" stroke-width="2" />
+    <path d="M540 460 L820 280 L740 450 L830 520 L680 540" fill="none" stroke="#06B6D4" stroke-width="2" opacity="0.8" filter="url(#glow_cyan)" />
+    <!-- Left Wing -->
+    <path d="M494 450 L174 250 L144 380 L274 480 L164 550 L324 580 Z" fill="url(#grad_gold)" stroke="#0F172A" stroke-width="2" />
+    <path d="M484 460 L204 280 L284 450 L194 520 L344 540" fill="none" stroke="#06B6D4" stroke-width="2" opacity="0.8" filter="url(#glow_cyan)" />
+  </g>
+
+  <!-- Dragon Body Coil -->
+  <g id="dragon_body" filter="url(#glow_gold)">
+    <!-- Main Neck/Tail Coil -->
+    <path d="M512 350 C650 350 720 450 720 550 C720 700 550 780 400 700 C280 620 350 450 512 450" fill="none" stroke="url(#grad_gold)" stroke-width="45" stroke-linecap="round" />
+    <!-- Segment Dividers -->
+    <path d="M600 365 L610 335 M680 420 L710 410 M715 550 L745 550 M650 710 L670 740 M450 745 L440 775 M335 680 L305 690" stroke="#0F172A" stroke-width="3" />
+    <!-- Dragon Head -->
+    <path d="M512 350 L460 300 L512 240 L564 300 Z" fill="url(#grad_gold)" stroke="#0F172A" stroke-width="2" />
+    <path d="M490 280 L500 290 M534 280 L524 290" stroke="#06B6D4" stroke-width="3" filter="url(#glow_cyan)" /> <!-- Glowing Eyes -->
+    <path d="M512 240 L512 180" stroke="url(#grad_gold)" stroke-width="8" stroke-linecap="round" /> <!-- Horn -->
+  </g>
+
+  <!-- Core Orb -->
+  <g id="core_orb">
+    <circle cx="512" cy="512" r="100" fill="url(#grad_orb)" filter="url(#glow_cyan)" />
+    <!-- Orbiting Circuit Rings -->
+    <circle cx="512" cy="512" r="130" fill="none" stroke="#06B6D4" stroke-width="2" stroke-dasharray="80 40" opacity="0.6">
+      <animateTransform attributeName="transform" type="rotate" from="0 512 512" to="360 512 512" dur="10s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="512" cy="512" r="150" fill="none" stroke="#8B5CF6" stroke-width="1" stroke-dasharray="10 20" opacity="0.4">
+      <animateTransform attributeName="transform" type="rotate" from="360 512 512" to="0 512 512" dur="15s" repeatCount="indefinite" />
+    </circle>
+  </g>
+
+  <!-- UI Elements / Badges -->
+  <!-- SSR Badge (Top Left) -->
+  <g id="badge_ssr" transform="translate(180, 260)">
+    <path d="M0 0 L80 0 L100 20 L100 50 L20 50 L0 30 Z" fill="#0F172A" stroke="#F59E0B" stroke-width="2" />
+    <text x="50" y="35" font-family="Segoe UI, Arial, sans-serif" font-weight="bold" font-size="24" fill="#F59E0B" text-anchor="middle">SSR</text>
+  </g>
+
+  <!-- Power Level (Top Right) -->
+  <g id="badge_power" transform="translate(740, 260)">
+    <path d="M0 20 L20 0 L100 0 L100 30 L80 50 L0 50 Z" fill="#0F172A" stroke="#06B6D4" stroke-width="2" />
+    <text x="50" y="35" font-family="Segoe UI, Arial, sans-serif" font-weight="bold" font-size="20" fill="#06B6D4" text-anchor="middle">9999</text>
+  </g>
+
+  <!-- Bottom Title Banner -->
+  <g id="title_banner" transform="translate(312, 820)">
+    <path d="M0 0 L400 0 L430 30 L400 60 L0 60 L-30 30 Z" fill="#0F172A" stroke="#F59E0B" stroke-width="3" />
+    <path d="M10 10 L390 10" stroke="#8B5CF6" stroke-width="1" opacity="0.5" />
+    <text x="200" y="42" font-family="Segoe UI, Arial, sans-serif" font-weight="bold" font-size="32" fill="#F59E0B" text-anchor="middle" letter-spacing="4">DRAGON CORE</text>
+    <path d="M10 50 L390 50" stroke="#8B5CF6" stroke-width="1" opacity="0.5" />
+  </g>
+
+  <!-- Final Neon Accents -->
+  <g filter="url(#glow_cyan)">
+    <path d="M512 60 L512 120 M900 286 L840 320 M900 738 L840 704 M512 964 L512 904 M124 738 L184 704 M124 286 L184 320" stroke="#06B6D4" stroke-width="4" stroke-linecap="round" />
+  </g>
+</svg>

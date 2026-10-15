@@ -3,6 +3,8 @@ import requests
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from gitbridge.services.github_service import GitHubService
+from gitbridge.db.models import DocManualModel
+
 
 class AppAnalyzerService:
     def __init__(self):
@@ -84,12 +86,9 @@ class AppAnalyzerService:
         return health_card
 
     def _generate_ai_recommendations(self, name: str, description: str, tech_stack: List[str], priority_tier: str, issues: List[Dict[str, Any]], readme: Optional[str]) -> str:
-        """Call Gemini API for automated code review & strategic recommendations, or fall back to rule-based engine."""
-        api_key = os.getenv("GEMINI_API_KEY")
-        if api_key:
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-                prompt = f"""You are an AI CTO evaluating an app catalog entry for Geppy's App Universe.
+        """Call Gemini API via CentralKeyService for automated code review & strategic recommendations."""
+        from gitbridge.services.central_key_service import CentralKeyService
+        prompt = f"""You are an AI CTO evaluating an app catalog entry for Geppy's App Universe.
 Provide a concise, 2-3 sentence strategic recommendation focused on code quality, issue resolution, and commercial readiness.
 
 App Name: {name}
@@ -100,13 +99,10 @@ Open Issues Count: {len(issues)}
 Open Issue Titles: {[i.get('title') for i in issues[:5]]}
 README Excerpt: {readme[:500] if readme else 'None'}
 """
-                payload = {"contents": [{"parts": [{"text": prompt}]}]}
-                res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=12)
-                if res.status_code == 200:
-                    text = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                    return f"  - {text}"
-            except Exception as e:
-                print(f"[AnalyzerService] Gemini call fallback: {e}")
+        res_text = CentralKeyService.call_gemini([{"role": "user", "parts": [{"text": prompt}]}], "You are an AI CTO evaluating an app catalog entry.", timeout=15)
+        if res_text:
+            return f"  - {res_text.strip()}"
+
 
         # Rule-based fallback recommendation
         rec = f"Focus next sprint on clearing open issues ({len(issues)}) and enhancing documentation."
@@ -250,18 +246,25 @@ README Excerpt: {readme[:500] if readme else 'None'}
 
         file_tree_block = "\n".join(file_tree_list[:40]) if file_tree_list else "Directory tree not available."
 
-        # Call Gemini API if available to produce deep accurate analysis
-        api_key = os.getenv("GEMINI_API_KEY")
-        if api_key:
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-                prompt = f"""You are an expert AI Software Architect analyzing a software repository for Geppy's App Universe.
+        # Call Gemini API via CentralKeyService if available to produce deep accurate analysis
+        from gitbridge.services.central_key_service import CentralKeyService
+        prompt = f"""You are an expert AI Software Architect and Lead Technical Writer for Geppy's App Universe.
 Perform a deep technical analysis of the file tree, code entrypoints, and configuration files provided below.
 
 Generate a structured JSON response with these exact keys:
-1. "description": A clear, highly detailed, 2-4 sentence explanation of the app's exact purpose, capabilities, user workflow, and technical role based on the code files.
-2. "system_instructions": A comprehensive system prompt defining the AI persona, purpose, and operational instructions for this application.
-3. "architectural_summary": A detailed Markdown architectural breakdown detailing the file structure, main code entrypoints, framework features, and data/API models.
+1. "github_description": A crisp, high-impact 1-2 sentence description suitable for a GitHub repository 'About' section and search (max 220 characters). Focus on the core user problem solved and primary tech stack.
+2. "github_tagline": A memorable 5-8 word tagline or subtitle.
+3. "description": A clear, highly detailed, 2-4 sentence explanation of the app's exact purpose, capabilities, user workflow, and technical role based on the code files.
+4. "system_instructions": A comprehensive system prompt defining the AI persona, purpose, and operational instructions for Captain Geppy co-pilot.
+5. "architectural_summary": A detailed Markdown architectural breakdown detailing the file structure, main code entrypoints, framework features, and data/API models.
+6. "help_manual_markdown": A comprehensive, beginner-friendly Markdown User Guide & Help File containing:
+   # {app_obj.name} - Quickstart & User Guide
+   > [Short Tagline]
+   ## 🎯 Overview & What This App Does
+   ## 🚀 Key Features & Workflows
+   ## 🛠️ How to Run & Develop Locally
+   ## 🧭 User Navigation & Controls
+   ## 💡 Tips & Best Practices
 
 App Name: {app_obj.name}
 Directory Tree (Sample):
@@ -272,18 +275,42 @@ Code Entrypoint & Config Content Samples:
 
 GitHub README: {github_readme[:1000] if github_readme else 'None'}
 """
-                payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"responseMimeType": "application/json"}}
-                res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=15)
-                if res.status_code == 200:
-                    resp_json = json.loads(res.json()["candidates"][0]["content"]["parts"][0]["text"])
-                    if resp_json.get("description") and not WorkspaceService.is_boilerplate_description(resp_json["description"]):
-                        app_obj.description = resp_json["description"].strip()
-                    if resp_json.get("system_instructions"):
-                        app_obj.system_instructions = resp_json["system_instructions"].strip()
-                    if resp_json.get("architectural_summary"):
-                        app_obj.feature_breakdown = resp_json["architectural_summary"].strip()
+        generated_help_manual = None
+        github_desc = None
+        raw_res = CentralKeyService.call_gemini(
+            [{"role": "user", "parts": [{"text": prompt}]}],
+            "You are an expert AI Software Architect. Output strictly valid JSON matching the requested keys.",
+            timeout=30,
+            json_mode=True,
+            max_output_tokens=8192
+        )
+        if raw_res:
+            try:
+                clean_json = raw_res.strip()
+                if "```json" in clean_json:
+                    clean_json = clean_json.split("```json")[1].split("```")[0].strip()
+                elif "```" in clean_json:
+                    clean_json = clean_json.split("```")[1].split("```")[0].strip()
+                resp_json = json.loads(clean_json)
+
+                github_desc = resp_json.get("github_description")
+                if github_desc:
+                    app_obj.description = github_desc.strip()
+                elif resp_json.get("description") and not WorkspaceService.is_boilerplate_description(resp_json["description"]):
+                    app_obj.description = resp_json["description"].strip()
+
+                if resp_json.get("system_instructions"):
+                    app_obj.system_instructions = resp_json["system_instructions"].strip()
+                if resp_json.get("architectural_summary"):
+                    app_obj.feature_breakdown = resp_json["architectural_summary"].strip()
+
+                # Save Help Manual to DB and write HELP.md to local app folder
+                generated_help_manual = resp_json.get("help_manual_markdown")
+                if generated_help_manual:
+                    self._persist_help_manual(app_obj, generated_help_manual, github_desc or app_obj.description, db)
+
             except Exception as e:
-                print(f"[AnalyzerService] Deep auto-fill Gemini call notice: {e}")
+                print(f"[AnalyzerService] Deep auto-fill JSON parse notice: {e}")
 
         # If description or system_instructions are missing or boilerplate, synthesize locally from source files
         if not app_obj.description or WorkspaceService.is_boilerplate_description(app_obj.description) or not app_obj.system_instructions:
@@ -292,6 +319,11 @@ GitHub README: {github_readme[:1000] if github_readme else 'None'}
                 app_obj.description = synth["description"]
             if not app_obj.system_instructions:
                 app_obj.system_instructions = synth["system_instructions"]
+
+        # Ensure Help Manual is always created and saved (AI-generated or high-quality synthesized fallback)
+        if not generated_help_manual:
+            generated_help_manual = self._generate_fallback_help_manual(app_obj, deep_info)
+            self._persist_help_manual(app_obj, generated_help_manual, github_desc or app_obj.description, db)
 
         # If breakdown wasn't set by Gemini, generate standard health card
         if not app_obj.feature_breakdown or len(app_obj.feature_breakdown) < 50:
@@ -307,8 +339,110 @@ GitHub README: {github_readme[:1000] if github_readme else 'None'}
             "slug": app_obj.slug,
             "name": app_obj.name,
             "description": app_obj.description,
+            "github_description": github_desc or app_obj.description,
             "system_instructions": app_obj.system_instructions,
             "tech_stack": app_obj.tech_stack,
-            "feature_breakdown": app_obj.feature_breakdown
+            "feature_breakdown": app_obj.feature_breakdown,
+            "help_manual": generated_help_manual
         }
+
+    def _generate_fallback_help_manual(self, app_obj, deep_info: Dict[str, Any]) -> str:
+        """Create a comprehensive beginner-friendly Help Manual / User Guide locally from project inspection."""
+        name = app_obj.name or "Application"
+        desc = app_obj.description or "Software application in Geppy's App Universe."
+        tech_list = app_obj.tech_stack or deep_info.get("detected_tech", [])
+        tech_str = ", ".join(tech_list) if tech_list else "Web Stack"
+        file_tree = deep_info.get("file_tree", [])
+
+        dev_command = "npm run dev" if any("package.json" in f for f in file_tree) else ("python main.py" if any(".py" in f for f in file_tree) else "Open index.html in browser")
+
+        return f"""# {name} - Quickstart & User Guide
+
+> {desc[:140]}
+
+---
+
+## 🎯 Overview & What This App Does
+{desc}
+
+Built with **{tech_str}**, this application integrates into Geppy's App Universe and is managed via GitBridge.
+
+---
+
+## 🚀 Key Features & Workflows
+- **Core User Flow**: Specialized workflows with live state and local responsiveness.
+- **GitBridge Integration**: Live Designer mode, proactive AI suggestions, one-click Git commit & GitHub push.
+- **Central API Key Vault**: Centralized Gemini AI integration via `.env` configuration.
+
+---
+
+## 🛠️ How to Run & Develop Locally
+1. **Navigate to App Directory**:
+   ```bash
+   cd "{app_obj.local_path or f'd:\\Geppy_Apps\\{app_obj.slug}'}"
+   ```
+2. **Launch Application**:
+   ```bash
+   {dev_command}
+   ```
+3. **Open in Browser**:
+   Visit `{app_obj.live_url or 'http://localhost:3000'}` in your browser.
+
+---
+
+## 🧭 Galactic Extension Controls
+- **Live Designer**: Press `[Live Designer]` in Galactic Sidepanel to inspect, edit, and apply AI redesigns.
+- **Implement Now**: Click `Implement Now` on any brainstorm idea in your Backlog to automatically code, save, and reload.
+- **Sync to PC & GitHub**: Click `[Commit & Push]` in the top header to save files to PC disk and push to GitHub.
+
+---
+
+## 💡 Tips & Best Practices
+- Keep your `.env` synchronized using GitBridge's **Sync to All Apps** button in the Central API Key Vault.
+- Check this **HELP.md** and **README.md** file for ongoing updates as new features are added.
+"""
+
+    def _persist_help_manual(self, app_obj, manual_markdown: str, summary: Optional[str], db):
+        """Save synthesized User Guide to DocManualModel in DB and write HELP.md to app local path."""
+        try:
+            # 1. Save or update in database
+            existing_manual = db.query(DocManualModel).filter(
+                DocManualModel.app_id == app_obj.slug,
+                DocManualModel.title.like("%User Guide%")
+            ).first()
+
+            if existing_manual:
+                existing_manual.content_markdown = manual_markdown
+                existing_manual.summary = (summary or "")[:250]
+                existing_manual.file_path = "HELP.md"
+                existing_manual.updated_at = datetime.utcnow()
+            else:
+                new_manual = DocManualModel(
+                    app_id=app_obj.slug,
+                    title=f"{app_obj.name} - Quickstart & User Guide",
+                    summary=(summary or f"User guide and help manual for {app_obj.name}")[:250],
+                    content_markdown=manual_markdown,
+                    file_path="HELP.md"
+                )
+                db.add(new_manual)
+
+            # 2. Write HELP.md to local directory on disk
+            if app_obj.local_path and os.path.exists(app_obj.local_path):
+                help_file = os.path.join(app_obj.local_path, "HELP.md")
+                with open(help_file, "w", encoding="utf-8") as f:
+                    f.write(manual_markdown)
+
+                # Also write README.md if none exists or empty
+                readme_file = os.path.join(app_obj.local_path, "README.md")
+                if not os.path.exists(readme_file) or os.path.getsize(readme_file) < 30:
+                    readme_content = f"# {app_obj.name}\n\n> {summary or app_obj.description or ''}\n\n{manual_markdown}"
+                    with open(readme_file, "w", encoding="utf-8") as f:
+                        f.write(readme_content)
+        except Exception as e:
+            print(f"[AnalyzerService] Error persisting help manual for {app_obj.slug}: {e}")
+
+    def deep_analyze_and_generate_docs(self, app_obj, db) -> Dict[str, Any]:
+        """Convenience alias for full deep analysis and user guide generation."""
+        return self.analyze_and_autofill_app(app_obj, db)
+
 

@@ -520,11 +520,26 @@ class AppLauncherService:
         try:
             print(f"[Launcher] Launching '{slug}' headlessly in {exec_folder} with command: {command} (Allocated Port: {allocated_port})...")
 
-            creationflags = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
             env = os.environ.copy()
             env["PORT"] = str(allocated_port)
             env["FLASK_RUN_PORT"] = str(allocated_port)
 
+            # Central API Key & GitBridge Ecosystem Environment Injection
+            try:
+                from gitbridge.services.central_key_service import CentralKeyService
+                central_key = CentralKeyService.get_api_key()
+                if central_key:
+                    env["GEMINI_API_KEY"] = central_key
+                    env["GOOGLE_API_KEY"] = central_key
+                    env["VITE_GEMINI_API_KEY"] = central_key
+                    env["NEXT_PUBLIC_GEMINI_API_KEY"] = central_key
+                    env["REACT_APP_GEMINI_API_KEY"] = central_key
+                    env["GEPPY_CENTRAL_KEY"] = central_key
+                env["GITBRIDGE_URL"] = "http://127.0.0.1:8000"
+            except Exception as e:
+                print(f"[Launcher] Environment key injection notice: {e}")
+
+            creationflags = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
             proc = subprocess.Popen(
                 command,
                 cwd=exec_folder,

@@ -29,7 +29,7 @@ def init_db():
     if DATABASE_URL.startswith("sqlite"):
         with engine.connect() as conn:
             from sqlalchemy import text
-            for col in ["feature_breakdown", "local_path", "launch_command", "live_url", "icon_url", "priority_tier", "health_report_md", "last_commit_at", "open_issues_count", "backlog"]:
+            for col in ["feature_breakdown", "local_path", "launch_command", "live_url", "icon_url", "priority_tier", "health_report_md", "last_commit_at", "open_issues_count", "backlog", "chat_history"]:
                 try:
                     conn.execute(text(f"ALTER TABLE app_profiles ADD COLUMN {col} TEXT"))
                     conn.commit()

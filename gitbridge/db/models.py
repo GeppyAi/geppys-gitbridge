@@ -30,6 +30,7 @@ class AppProfileModel(Base):
     open_issues_count = Column(Integer, default=0)
     _tags = Column("tags", Text, default="[]")
     _backlog = Column("backlog", Text, default="[]")
+    _chat_history = Column("chat_history", Text, default="[]")
     version = Column(String, default="0.1.0")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -60,6 +61,14 @@ class AppProfileModel(Base):
     @backlog.setter
     def backlog(self, value):
         self._backlog = json.dumps(value or [])
+
+    @property
+    def chat_history(self):
+        return json.loads(self._chat_history or "[]")
+
+    @chat_history.setter
+    def chat_history(self, value):
+        self._chat_history = json.dumps(value or [])
 
 class MediaAssetModel(Base):
     __tablename__ = "media_assets"

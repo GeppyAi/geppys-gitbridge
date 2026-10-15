@@ -292,10 +292,8 @@ class SeriesService:
         into a structured list of distinct, cohesive variations.
         """
         count = max(2, min(count, 10))
-        api_key = os.getenv("GEMINI_API_KEY")
-
-        if api_key:
-            system_instruction = f"""You are the Series Director for Geppy's Galactic Asset Laboratory.
+        from gitbridge.services.central_key_service import CentralKeyService
+        system_instruction = f"""You are the Series Director for Geppy's Galactic Asset Laboratory.
 Given a Base Anchor Asset and a Series Theme Idea, generate exactly {count} distinct variations.
 Every variation must retain the core character/subject likeness and artistic format, but introduce a unique action, emotion, prop, role, or environmental difference.
 Respond ONLY with a JSON array of objects with keys: "title", "difference", "accent_color" (hex).
@@ -303,28 +301,22 @@ Example:
 [
   {{"title": "Space Navigator", "difference": "Plotting star course on 3D celestial astrolabe, brass compass badge", "accent_color": "#06B6D4"}}
 ]"""
-            prompt = f"Base Anchor Asset: {anchor_title} (Style: {anchor_style})\nSeries Theme Idea: {theme_idea}\nGenerate {count} variations in JSON format."
+        prompt = f"Base Anchor Asset: {anchor_title} (Style: {anchor_style})\nSeries Theme Idea: {theme_idea}\nGenerate {count} variations in JSON format."
 
-            for model in ["gemini-2.5-flash", "gemini-1.5-flash"]:
-                try:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-                    payload = {
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "systemInstruction": {"parts": [{"text": system_instruction}]}
-                    }
-                    res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=15)
-                    if res.status_code == 200:
-                        raw = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                        if "```json" in raw:
-                            raw = raw.split("```json")[1].split("```")[0].strip()
-                        elif "```" in raw:
-                            raw = raw.split("```")[1].split("```")[0].strip()
-                        parsed = json.loads(raw)
-                        if isinstance(parsed, list) and len(parsed) >= 2:
-                            return parsed[:count]
-                except Exception as e:
-                    print(f"[SeriesService] AI variation expansion failed: {e}")
-                    continue
+        raw = CentralKeyService.call_gemini([{"role": "user", "parts": [{"text": prompt}]}], system_instruction, timeout=15)
+        if raw:
+            try:
+                clean_raw = raw.strip()
+                if "```json" in clean_raw:
+                    clean_raw = clean_raw.split("```json")[1].split("```")[0].strip()
+                elif "```" in clean_raw:
+                    clean_raw = clean_raw.split("```")[1].split("```")[0].strip()
+                parsed = json.loads(clean_raw)
+                if isinstance(parsed, list) and len(parsed) >= 2:
+                    return parsed[:count]
+            except Exception as e:
+                print(f"[SeriesService] AI variation parsing failed: {e}")
+
 
         # Algorithmic fallback variations based on theme keywords
         lower_idea = theme_idea.lower()

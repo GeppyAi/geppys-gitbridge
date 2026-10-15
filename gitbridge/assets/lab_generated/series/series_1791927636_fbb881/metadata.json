@@ -1,0 +1,67 @@
+{
+  "id": "series_1791927636_fbb881",
+  "title": "Captain Geppy (Galactic Commander) \u2022 Cosmic Wardrobe & Outfits",
+  "created_at": "2026-10-13 17:40:38",
+  "anchor_title": "Geppy Brand",
+  "anchor_image_url": "/api/sot/reference-file/1791929177_Geppy.png",
+  "anchor_prompt": "[SOT Brand Identity - Strict brand color scheme and vector geometry] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images",
+  "target_format": "app_icon",
+  "aspect_ratio": "1:1",
+  "output_contextile": null,
+  "consistency_level": "high",
+  "app_slug": null,
+  "item_count": 4,
+  "items": [
+    {
+      "item_id": "series_1791927636_fbb881_item_1",
+      "item_num": 1,
+      "title": "Starfleet Captain Dress Uniform",
+      "difference": "Crisp navy and gold braided officer dress tunic with high standing collar, ceremonial shoulder epaulettes, medal ribbon bar",
+      "accent_color": "#1D4ED8",
+      "filename": "var_1_0609.png",
+      "image_url": "/api/asset-lab/series/series_1791927636_fbb881/file/var_1_0609.png",
+      "compiled_prompt": "[SOT Brand Identity - Strict brand color scheme and vector geometry] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #1 - STARFLEET CAPTAIN DRESS UNIFORM]: Crisp navy and gold braided officer dress tunic with high standing collar, ceremonial shoulder epaulettes, medal ribbon bar. Accent tone: #1D4ED8. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1791927636_fbb881_item_2",
+      "item_num": 2,
+      "title": "Cyberpunk Streetwear Hoodie",
+      "difference": "Oversized techwear matte black hoodie with luminous neon cyan circuit drawstrings, fingerless tactical gloves",
+      "accent_color": "#06B6D4",
+      "filename": "var_2_bc8d.png",
+      "image_url": "/api/asset-lab/series/series_1791927636_fbb881/file/var_2_bc8d.png",
+      "compiled_prompt": "[SOT Brand Identity - Strict brand color scheme and vector geometry] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #2 - CYBERPUNK STREETWEAR HOODIE]: Oversized techwear matte black hoodie with luminous neon cyan circuit drawstrings, fingerless tactical gloves. Accent tone: #06B6D4. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1791927636_fbb881_item_3",
+      "item_num": 3,
+      "title": "Heavy Exosuit Armor",
+      "difference": "Bulky titanium hazard plates with hydraulic arm servos, reinforced chest reactor, danger hazard yellow stripes",
+      "accent_color": "#EAB308",
+      "filename": "var_3_5b83.png",
+      "image_url": "/api/asset-lab/series/series_1791927636_fbb881/file/var_3_5b83.png",
+      "compiled_prompt": "[SOT Brand Identity - Strict brand color scheme and vector geometry] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #3 - HEAVY EXOSUIT ARMOR]: Bulky titanium hazard plates with hydraulic arm servos, reinforced chest reactor, danger hazard yellow stripes. Accent tone: #EAB308. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1791927636_fbb881_item_4",
+      "item_num": 4,
+      "title": "Retro 70s Tracksuit",
+      "difference": "Nostalgic retro velour athletic tracksuit with three red and white racing stripes, vintage athletic headband",
+      "accent_color": "#DC2626",
+      "filename": "var_4_3703.png",
+      "image_url": "/api/asset-lab/series/series_1791927636_fbb881/file/var_4_3703.png",
+      "compiled_prompt": "[SOT Brand Identity - Strict brand color scheme and vector geometry] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #4 - RETRO 70S TRACKSUIT]: Nostalgic retro velour athletic tracksuit with three red and white racing stripes, vintage athletic headband. Accent tone: #DC2626. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    }
+  ],
+  "contact_sheet_url": "/api/asset-lab/series/series_1791927636_fbb881/file/contact_sheet_series_1791927636_fbb881.png",
+  "zip_url": "/api/asset-lab/series/series_1791927636_fbb881/download-zip",
+  "zip_filename": "series_1791927636_fbb881_collection.zip"
+}
