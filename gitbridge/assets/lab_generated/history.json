@@ -1,5 +1,931 @@
 [
   {
+    "id": "asset_1792358674_cbd6df",
+    "title": "Geppy Hexagonal Galactic App Launcher Icon",
+    "filename": "asset_1792358674_cbd6df.png",
+    "filepath": "d:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792358674_cbd6df.png",
+    "file_path": "d:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792358674_cbd6df.png",
+    "file_url": "/api/asset-lab/file/asset_1792358674_cbd6df.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792358674_cbd6df_raw.png",
+    "sot_composite_url": null,
+    "ref_sheet_url": "/api/asset-lab/file/asset_1792358674_cbd6df_ref_sheet.png",
+    "scene_elements": [
+      {
+        "name": "3D Glossy App Icon Set",
+        "role": "contextile_sample",
+        "interaction": "themed_after",
+        "action": "",
+        "label": "REFERENCE SOURCE OF TRUTH - [3D GLOSSY APP ICON SET] - INTERACTION: THEMED AFTER",
+        "url": "/api/sot/reference-file/1791940068_Geppystechtoolbox4.ico"
+      },
+      {
+        "name": "3D Glossy App Icon Set",
+        "role": "icon",
+        "interaction": "themed_after",
+        "action": "",
+        "label": "CONTEXTILE TEMPLATE: ICON CONTAINER - [3D GLOSSY APP ICON SET] - INTERACTION: THEMED AFTER",
+        "url": "/api/sot/reference-file/1791940068_Geppystechtoolbox4.ico"
+      }
+    ],
+    "grid_mode": "single",
+    "grid_rows": 1,
+    "grid_cols": 1,
+    "sliced_assets": [],
+    "cutout_applied": true,
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "A high-end 8K Octane 3D render of a futuristic squircle app icon for the app 'Geppy's Galaxtic'. The center features a heroic, stylized 3D Captain Geppy character with iconic glasses and beard, perfectly centered. The container is a sleek, frosted translucent glass squircle with a vibrant electric orange (#F59E0B) rim and a deep navy (#0F172A) interior core. Subtle cyan (#06B6D4) rim lighting highlights the glass edges. The aesthetic is '1980s John Carpenter Atmospheric Horror' fused with modern Apple Glassmorphic design, utilizing volumetric studio lighting and a creamy shallow depth of field (85mm f/1.2 lens). Sharp, clean 3D geometry, high-gloss finish, polished surfaces.",
+    "color_palette": [
+      "#F59E0B",
+      "#06B6D4",
+      "#6366F1",
+      "#0F172A"
+    ],
+    "composition_blueprint": "The composition centers the 3D Captain Geppy head bust within the primary squircle icon frame. The icon is rendered with a 3D glass material, casting soft ambient glows. The background is a clean, neutral dark void to emphasize the glowing neon orange and cyan highlights on the glass squircle.",
+    "ingredients_summary": [
+      {
+        "name": "geppyicon",
+        "title": "3D Glossy App Icon Set",
+        "archetype": "icon_set",
+        "entity_kind": "contextile",
+        "role": "style",
+        "sot_role": "contextile_sample",
+        "interaction": "themed_after",
+        "action": "",
+        "weight": 1,
+        "primary_image_url": "/api/sot/reference-file/1791940068_Geppystechtoolbox4.ico",
+        "reference_text": "A cohesive set of modern 3D app icons set inside smooth iOS-style squircles with translucent glass surfaces, glowing core glyphs, and soft ambient drop shadows.",
+        "modifiers": {
+          "lighting": [
+            "Volumetric Studio Light",
+            "Bioluminescent Ambient Glow"
+          ],
+          "theme": [
+            "Apple Glassmorphic Clean",
+            "Minimalist Luxury Dark"
+          ],
+          "era": [
+            "2026 Next-Gen Frontier"
+          ],
+          "medium": [
+            "8K Octane 3D Render"
+          ],
+          "materials": [
+            "Frosted Translucent Glass",
+            "Polished Ceramic White"
+          ]
+        },
+        "variables": [
+          {
+            "key": "style",
+            "label": "Artistic & Visual Style",
+            "type": "dropdown",
+            "category_preset": "style",
+            "options": [
+              "1980s John Carpenter Atmospheric Horror",
+              "A24 Psychological Folk Thriller",
+              "1970s Topps Vintage Baseball Trading Card",
+              "1950s Classic Gum-Card Offset Lithograph",
+              "Saturday-Morning Cartoon Adventure (DuckTales / 90s Toon)",
+              "1930s Fleischer Rubber-Hose Vintage Animation",
+              "Studio Ghibli Hand-Painted Lush Anime",
+              "90s Cel-Shaded Sci-Fi OVA Anime",
+              "Cyberpunk Edgerunners High-Contrast Neon Anime",
+              "Spider-Verse Halftone Ben-Day Dot Comic Book",
+              "Silver Age Jack Kirby Cosmic Comic Book",
+              "Dark Horse Noir Graphic Novel Heavy Ink",
+              "Pixar / Disney Feature 3D Character Animation",
+              "Aardman Stop-Motion Sculpted Claymation",
+              "Wes Anderson Symmetrical Pastel Panavision",
+              "Classic 1940s High-Contrast Film Noir",
+              "1970s Grindhouse Drive-In Exploitation Cinema",
+              "Denis Villeneuve Brutalist Sci-Fi IMAX Epic",
+              "Tim Burton Gothic German Expressionist Stop-Motion",
+              "Apple VisionOS Glassmorphic Spatial UI",
+              "Y2K Frutiger Aero Translucent Aqua Gloss",
+              "1984 Synthwave Outrun Laser Grid",
+              "Vaporwave Mallsoft Pastel Glitch",
+              "Cyberpunk 2077 Night City Holographic",
+              "Steampunk Victorian Brass & Clockwork",
+              "Solarpunk Botanical Art Nouveau Utopia",
+              "Dark Fantasy Elden Ring Baroque Gothic",
+              "Ukiyo-e Japanese Woodblock Print",
+              "Art Deco 1920s Metropolis Geometric Poster",
+              "Bauhaus Constructivist Flat Vector",
+              "Andy Warhol Pop Art Silkscreen Halftone",
+              "Renaissance Chiaroscuro Oil Masterpiece",
+              "Impressionist Thick Impasto Brushwork",
+              "16-Bit SNES Pixel Art Sprite",
+              "Low-Poly PS1 Retro 32-Bit 3D",
+              "Isometric 3D Tech Diorama Cutaway",
+              "Die-Cut Holographic Prism Vinyl Sticker",
+              "Technical Cyanotype Blueprint Schematic"
+            ],
+            "default_value": "1980s John Carpenter Atmospheric Horror",
+            "value": "1980s John Carpenter Atmospheric Horror",
+            "description": "Extensive library of artistic, cinematic, illustration, and design styles"
+          },
+          {
+            "key": "medium",
+            "label": "Rendering Medium & Format",
+            "type": "dropdown",
+            "category_preset": "medium",
+            "options": [
+              "8K Octane / Redshift Ray-Traced 3D Render",
+              "Unreal Engine 5.5 Lumen & Nanite Real-Time 3D",
+              "Anamorphic 35mm Panavision Motion Picture Film",
+              "Kodachrome 64 Vintage 35mm Slide Photography",
+              "IMAX 70mm Large-Format Cinema Film",
+              "Polaroid SX-70 Instant Film with Soft Chemical Bleed",
+              "1880s Wet-Plate Collodion Silver Tintype",
+              "1980s VHS Magnetic Tape with Tracking Scanlines",
+              "Offset Lithography on Aged Matte Cardboard Stock",
+              "Risograph Soy-Ink Duotone Grain Print",
+              "Silkscreen Serigraph Hand-Pulled Poster Print",
+              "Glossy Die-Cut Vinyl Sticker with 4mm White Rim",
+              "Holographic Rainbow Diffraction Foil Stamping",
+              "Hard Enamel Cloisonn\u00e9 Pin with Polished Gold Dividers",
+              "Struck 24K Gold & Mint Emerald Medallion Coin Relief",
+              "3D iOS Frosted Glass Squircle App Icon",
+              "Clean Scalable Vector SVG Flat Illustration",
+              "Macro Studio Product Packaging Photography",
+              "ZBrush Digital Clay Sculpted Miniature",
+              "Translucent Designer Vinyl Art Toy Figure",
+              "Hand-Stitched Felt & Yarn Plushie Amigurumi",
+              "Watercolor & Gouache on Cold-Press Cotton Paper",
+              "Heavy Impasto Oil Paint on Stretched Linen",
+              "1980s Airbrush Acrylic Sci-Fi Poster Art",
+              "Pen, India Ink & Crosshatching on Bristol Board",
+              "Charcoal & White Conte Crayon on Toned Paper",
+              "Copic Marker Industrial Design Sketch",
+              "Laser-Cut Multi-Layer Paper Shadowbox",
+              "Leaded Stained-Glass Cathedral Window",
+              "Bent-Glass Gas Neon Sign Tubing",
+              "Intaglio Engraved Currency Banknote Print",
+              "300 DPI CMYK Commercial Print-Ready Sheet"
+            ],
+            "default_value": "8K Octane 3D Render",
+            "value": "8K Octane 3D Render",
+            "description": "Physical print stocks, film gauges, 3D engines, and traditional media"
+          },
+          {
+            "key": "lighting",
+            "label": "Lighting Rig & Illumination",
+            "type": "dropdown",
+            "category_preset": "lighting",
+            "options": [
+              "Volumetric Three-Point Studio Softbox",
+              "Cyberpunk Dual-Tone Neon Rim (Electric Cyan & Magenta)",
+              "Dramatic Chiaroscuro / Rembrandt Single Key Light",
+              "Cold Cyan-Blue Full Moonlight & Volumetric Fog Shafts",
+              "Flickering Warm Amber Lantern & Candlelight",
+              "Golden Hour Low Sunbeam & Warm Rim Glow",
+              "Twilight Blue-Hour Diffused Skylight",
+              "High-Key Pure White Commercial Studio Softbox",
+              "Moody Deep-Space Starlight & Nebula Backlight",
+              "Cinematic Anamorphic Horizontal Streak Lens Flare",
+              "Bioluminescent Alien Flora & Fauna Underglow",
+              "Forked Lightning Strike High-Contrast Flash Silhouette",
+              "Film Noir Venetian Blind Slatted Window Shadows",
+              "Vintage 1970s On-Camera Direct Flashbulb",
+              "Harsh Midday Sun with Crisp Cast Shadows",
+              "Crimson Darkroom / Emergency Klaxon Red Alert Light",
+              "Stage Concert Spotlight cutting through Haze",
+              "Warm Campfire / Hearth Upward Flicker",
+              "Rain-Slicked Asphalt Neon Street Reflections",
+              "Subsurface Scattering Translucent Backlight",
+              "Ray-Traced Global Illumination with Glass Caustics",
+              "Ultraviolet Blacklight Fluorescent Glow",
+              "Volumetric God-Rays Piercing Dusty Cathedral/Attic",
+              "Ring-Light Portrait with Circular Eye Catchlights",
+              "Total Solar Eclipse Corona Silhouette Rim",
+              "CRT Monitor Green/Amber Phosphor Face Glow",
+              "Prismatic Crystal Rainbow Light Dispersion",
+              "Overcast North-Facing Soft Painterly Window Light"
+            ],
+            "default_value": "Volumetric Studio Light",
+            "value": "Volumetric Studio Light",
+            "description": "Studio setups, atmospheric natural light, neon rigs, and cinema lighting"
+          },
+          {
+            "key": "camera_lens",
+            "label": "Camera Angle, Framing & Lens",
+            "type": "dropdown",
+            "category_preset": "camera_lens",
+            "options": [
+              "85mm f/1.2 Portrait Prime (Creamy Shallow Bokeh)",
+              "35mm f/1.4 Anamorphic Cinema Wide",
+              "50mm Standard Human-Eye Studio Framing",
+              "24mm Dynamic Low-Angle Heroic Perspective",
+              "14mm Ultra-Wide Dramatic Action Perspective",
+              "100mm f/2.8 Macro Extreme Detail Close-Up",
+              "200mm Telephoto Compressed Background",
+              "Isometric 45\u00b0 Orthographic 3D Diorama Angle",
+              "Top-Down 90\u00b0 Flat-Lay Knolling View",
+              "Dutch-Angle Tilted Suspense Horror Framing",
+              "Worm's-Eye Monumental Looking-Up Angle",
+              "Bird's-Eye High Aerial Overhead View",
+              "Extreme Close-Up (ECU) Eyes / Visor Reflection",
+              "Medium Bust Portrait (Chest-Up Trading Card Framing)",
+              "Medium Cowboy Shot (Waist-Up Action Stance)",
+              "Full-Body Heroic Standing Character Shot",
+              "Over-the-Shoulder Cinematic Narrative Framing",
+              "Centered Symmetrical Wes Anderson Composition",
+              "Tilt-Shift Miniature Toy-World Shallow Focus",
+              "Split-Diopter Dual Foreground/Background Sharp Focus",
+              "Vintage Helios 44-2 Swirly Bokeh Lens",
+              "1860s Petzval Brass Lens Radial Edge Blur",
+              "1:1 Centered App Icon Squircle Framing",
+              "2.5:3.5 Vertical Collector Trading Card Framing",
+              "16:9 Widescreen Cinema Scope Framing"
+            ],
+            "default_value": "85mm f/1.2 Portrait Prime (Creamy Shallow Bokeh)",
+            "value": "85mm f/1.2 Portrait Prime (Creamy Shallow Bokeh)",
+            "description": "Focal lengths, camera angles, shot framing, and optical characteristics"
+          },
+          {
+            "key": "materials",
+            "label": "Materials, Surfaces & Textures",
+            "type": "dropdown",
+            "category_preset": "materials",
+            "options": [
+              "Frosted Translucent Glass (Glassmorphism)",
+              "Brushed Anodized Titanium & Aerospace Aluminum",
+              "Matte Dark Obsidian & Woven Carbon Fiber",
+              "Iridescent Liquid Rainbow Hologram Foil",
+              "Aged Matte Buff Cardboard with Worn Corners",
+              "Glossy UV-Laminated Die-Cut Vinyl Sticker Stock",
+              "Polished 24K Gold & Mirror Chrome",
+              "Weathered 1890s Victorian Timber & Mansard Slate",
+              "Glowing Neon Wireframe & Soldermask Circuit Traces",
+              "Polished Ceramic White & Smooth Porcelain",
+              "Distressed Vintage Saddle Leather & Brass Rivets",
+              "Soft Cotton Jersey Fabric (Signature Blue Geppy Shirt)",
+              "Ballistic Nylon & Hexagonal Kevlar Space Suit",
+              "Hammered Antique Copper with Verdigris Patina",
+              "Chiseled Gothic Gargoyle Limestone & Moss",
+              "Translucent Subsurface Gummy / Resin Plastic",
+              "Hard Enamel Cloisonn\u00e9 with Raised Metal Outlines",
+              "Holographic Cracked-Ice Prismatic Foil",
+              "Halftone CMYK Dot-Matrix Newsprint Paper",
+              "Embossed Heavy Cotton Rag Archival Paper",
+              "Velvet & Embroidered Gold Bullion Thread",
+              "Iridescent Mother-of-Pearl & Abalone Inlay",
+              "Cracked Volcanic Basalt with Molten Lava Veins",
+              "Wet Cobblestone with Puddle Specular Reflections"
+            ],
+            "default_value": "Frosted Translucent Glass",
+            "value": "Frosted Translucent Glass",
+            "description": "Physical surface properties, metals, fabrics, paper stocks, and shaders"
+          },
+          {
+            "key": "color_grading",
+            "label": "Color Palette & Film Grading",
+            "type": "dropdown",
+            "category_preset": "color_grading",
+            "options": [
+              "Geppy Signature Palette (Electric Orange #F59E0B, Deep Navy #0F172A, Cyan #06B6D4)",
+              "Geppy's Cash Mint Emerald, Bullion Gold & Obsidian",
+              "Kodachrome 1970s Warm Nostalgic Vintage Grade",
+              "Gothic Horror Cold Moonlight Cyan-Blue & Blood Crimson",
+              "Cyberpunk Electric Magenta, Laser Cyan & Deep Violet",
+              "Blockbuster Cinema Teal & Orange Complementary LUT",
+              "3-Strip Technicolor Hyper-Saturated 1950s Palette",
+              "Bleach-Bypass Gritty Desaturated Silver & High Contrast",
+              "Sin City High-Contrast Black & White with Crimson Splash",
+              "Wes Anderson Pastel Mint, Millennial Pink & Mustard Gold",
+              "Synthwave Outrun Sunset Purple, Hot Pink & Chrome Gold",
+              "Vaporwave Pastel Lavender, Bubblegum Pink & Poolside Aqua",
+              "Minimalist Luxury Matte Black, Charcoal & Brushed Champagne Gold",
+              "Solarpunk Lush Emerald, Warm Sunlight Gold & Cream Ivory",
+              "Matrix Digital Phosphor Green & Pitch Black",
+              "Sepia Antique Daguerreotype Warm Monochrome",
+              "Cyanotype Prussian Blue & Crisp White Technical Print",
+              "CMYK Four-Color Vintage Comic Halftone Palette",
+              "Nordic Noir Desaturated Slate Grey & Glacial Blue",
+              "Infrared Aerochrome Surreal Magenta & Turquoise",
+              "Autumnal Halloween Pumpkin Orange, Deep Purple & Midnight Black",
+              "GameBoy Classic 4-Shade Olive Pixel Palette"
+            ],
+            "default_value": "Geppy Signature Palette (Electric Orange #F59E0B, Deep Navy #0F172A, Cyan #06B6D4)",
+            "value": "Geppy Signature Palette (Electric Orange #F59E0B, Deep Navy #0F172A, Cyan #06B6D4)",
+            "description": "Color harmonies, LUT film grades, and brand palettes"
+          }
+        ],
+        "option_toggles": [],
+        "embedded_sot_handles": [],
+        "blank_spec": null
+      }
+    ],
+    "variables": {
+      "style": "1980s John Carpenter Atmospheric Horror",
+      "medium": "8K Octane 3D Render",
+      "lighting": "Volumetric Studio Light",
+      "camera_lens": "85mm f/1.2 Portrait Prime (Creamy Shallow Bokeh)",
+      "materials": "Frosted Translucent Glass",
+      "color_grading": "Geppy Signature Palette (Electric Orange #F59E0B, Deep Navy #0F172A, Cyan #06B6D4)"
+    },
+    "app_slug": "geppy-s-apps-galaxtic",
+    "created_at": "2026-10-18 17:25:10"
+  },
+  {
+    "id": "asset_1792344041_9e31e0",
+    "title": "Captain Geppy Wood Plaque Stencil",
+    "filename": "asset_1792344041_9e31e0.png",
+    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792344041_9e31e0.png",
+    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792344041_9e31e0.png",
+    "file_url": "/api/asset-lab/file/asset_1792344041_9e31e0.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792344041_9e31e0_raw.png",
+    "sot_composite_url": "/api/asset-lab/file/asset_1792344041_9e31e0_sot_composite.png",
+    "ref_sheet_url": "/api/asset-lab/file/asset_1792344041_9e31e0_ref_sheet.png",
+    "scene_elements": [
+      {
+        "name": "6\"\u00d76\" Mylar Stencil Blank (Contextile of Truth)",
+        "role": "blank_substrate",
+        "interaction": "themed_after",
+        "action": "",
+        "label": "CONTEXTILE OF TRUTH: PHYSICAL BLANK & SIZING TEMPLATE (FIT TO SAFE ZONE) - [6\"\u00d76\" MYLAR STENCIL BLANK (CONTEXTILE OF TRUTH)] - INTERACTION: THEMED AFTER",
+        "url": "/sot-refs/template_wood-plaque-blank.png"
+      },
+      {
+        "name": "Captain Geppy (Galactic Commander)",
+        "role": "mascot",
+        "interaction": "none",
+        "action": "",
+        "label": "SOURCE OF TRUTH: CHARACTER / PERSON (LOCK IDENTITY) - [CAPTAIN GEPPY (GALACTIC COMMANDER)]",
+        "url": "/api/sot/reference-file/geppys_galactic_icon.png"
+      }
+    ],
+    "grid_mode": "single",
+    "grid_rows": 1,
+    "grid_cols": 1,
+    "sliced_assets": [],
+    "cutout_applied": false,
+    "target_format": "ui_component",
+    "aspect_ratio": "4:3",
+    "master_prompt": "Cut a 1-bit black and white stencil of @captain-geppy with structural edge connection bridges calibrated to @wood-plaque-blank (6x4 inch rounded_rect natural_wood)",
+    "color_palette": [],
+    "composition_blueprint": "",
+    "ingredients_summary": [
+      {
+        "name": "wood-plaque-blank",
+        "title": "6\"\u00d76\" Mylar Stencil Blank (Contextile of Truth)",
+        "archetype": "blank_substrate",
+        "entity_kind": "contextile_of_truth",
+        "role": "style",
+        "sot_role": "blank_substrate",
+        "interaction": "themed_after",
+        "weight": 1.0,
+        "primary_image_url": "/sot-refs/template_wood-plaque-blank.png",
+        "modifiers": {
+          "entity_kind": "contextile_of_truth",
+          "blank_spec": {
+            "width_in": 6.0,
+            "height_in": 4.0,
+            "width_value": 6.0,
+            "height_value": 4.0,
+            "unit": "in",
+            "safe_margin_in": 0.25,
+            "safe_margin_pct": 6.2,
+            "safe_width_in": 5.5,
+            "safe_height_in": 3.5,
+            "dpi": 300,
+            "pixel_width": 1800,
+            "pixel_height": 1200,
+            "aspect_ratio": 1.5,
+            "shape": "rounded_rect",
+            "material": "natural_wood",
+            "fabrication_mode": "Laser Engraver: High-Contrast 1-Bit Black & White Wood/Slate Burn (Black = Burn, White = Unburned Blank)",
+            "color_mode": "1bit_bw",
+            "color_constraint": "bw_1bit",
+            "edge_connections": true,
+            "requires_edge_bridges": true,
+            "paired_contextile_handles": [
+              "laser-engrave-bw-burn",
+              "stencil-edge-connections"
+            ],
+            "raw_blank_image_url": "/sot-refs/blank_raw_wood-plaque-blank.png",
+            "template_image_url": "/sot-refs/template_wood-plaque-blank.png"
+          },
+          "embedded_sot_handles": [
+            "laser-engrave-bw-burn",
+            "stencil-edge-connections"
+          ],
+          "fabrication_mode": [
+            "Laser Engraver: High-Contrast 1-Bit Black & White Wood/Slate Burn (Black = Burn, White = Unburned Blank)"
+          ],
+          "width_in": 6.0,
+          "height_in": 4.0,
+          "dpi": 300,
+          "option_toggles": [
+            {
+              "key": "laser_bw_burn_only",
+              "label": "Laser Engraver 1-Bit Black & White Burn Only (No Grays/Colors)",
+              "prompt": "strictly 1-bit pure black and white high-contrast woodburn/laser engraving line art (#000000 burn on #FFFFFF white background, zero grayscale wash)",
+              "enabled": true
+            },
+            {
+              "key": "stencil_edge_bridges",
+              "label": "Stencil Edge Connections / Bridges (Connect All Inner Islands)",
+              "prompt": "designed as a cuttable physical stencil with thick structural edge bridges connecting every interior island and counter-space to the outer frame so nothing falls out",
+              "enabled": true
+            },
+            {
+              "key": "contour_safe_margin",
+              "label": "Enforce 0.25\" Safe Margin Inside 6.0\"\u00d74.0\" Rounded_Rect Boundary",
+              "prompt": "centered cleanly inside a 6.0\"x4.0\" rounded_rect boundary with a 0.25\" clear outer safe margin",
+              "enabled": true
+            }
+          ]
+        },
+        "blank_spec": {
+          "width_in": 6.0,
+          "height_in": 4.0,
+          "width_value": 6.0,
+          "height_value": 4.0,
+          "unit": "in",
+          "safe_margin_in": 0.25,
+          "safe_margin_pct": 6.2,
+          "safe_width_in": 5.5,
+          "safe_height_in": 3.5,
+          "dpi": 300,
+          "pixel_width": 1800,
+          "pixel_height": 1200,
+          "aspect_ratio": 1.5,
+          "shape": "rounded_rect",
+          "material": "natural_wood",
+          "fabrication_mode": "Laser Engraver: High-Contrast 1-Bit Black & White Wood/Slate Burn (Black = Burn, White = Unburned Blank)",
+          "color_mode": "1bit_bw",
+          "color_constraint": "bw_1bit",
+          "edge_connections": true,
+          "requires_edge_bridges": true,
+          "paired_contextile_handles": [
+            "laser-engrave-bw-burn",
+            "stencil-edge-connections"
+          ],
+          "raw_blank_image_url": "/sot-refs/blank_raw_wood-plaque-blank.png",
+          "template_image_url": "/sot-refs/template_wood-plaque-blank.png"
+        }
+      },
+      {
+        "name": "stencil-edge-connections",
+        "title": "Cut Stencil with Edge Connections (Bridged Islands)",
+        "archetype": "style",
+        "entity_kind": "contextile",
+        "role": "style",
+        "sot_role": "contextile_sample",
+        "interaction": "themed_after",
+        "weight": 1.0,
+        "modifiers": {
+          "entity_kind": "contextile",
+          "fabrication_mode": [
+            "Cut Stencil with Edge Connections: Bold Cutout Shapes + Structural Bridges Holding All Inner Islands"
+          ],
+          "lighting": [
+            "High-Contrast Rim Silhouette Only"
+          ],
+          "theme": [
+            "Cuttable Stencil & Vinyl Fabrication"
+          ],
+          "medium": [
+            "Clean Scalable Vector SVG Flat Illustration"
+          ],
+          "materials": [
+            "Laser-Cut Basswood & Birch Plywood"
+          ],
+          "option_toggles": [
+            {
+              "key": "structural_edge_bridges",
+              "label": "Connect all interior islands to outer frame with sturdy stencil bridges",
+              "prompt": "with thick structural stencil bridges and edge connections tying every interior island and enclosed shape to the outer border so zero pieces fall out when cut",
+              "enabled": true
+            },
+            {
+              "key": "outer_frame_ring",
+              "label": "Include solid outer stencil frame ring around the design",
+              "prompt": "enclosed inside a solid cuttable outer stencil border frame that anchors all edge connection bridges",
+              "enabled": true
+            },
+            {
+              "key": "weed_ready_minimum_thickness",
+              "label": "Enforce minimum 2.5mm weed-ready bridge & line thickness for vinyl/laser",
+              "prompt": "with bold minimum 2.5mm line and bridge thickness eliminating fragile hairlines",
+              "enabled": true
+            }
+          ]
+        }
+      },
+      {
+        "name": "captain-geppy",
+        "title": "Captain Geppy (Galactic Commander)",
+        "archetype": "character",
+        "entity_kind": "sot",
+        "role": "subject",
+        "sot_role": "mascot",
+        "interaction": "none",
+        "weight": 1.0,
+        "primary_image_url": "/api/sot/reference-file/geppys_galactic_icon.png",
+        "modifiers": {
+          "lighting": [
+            "Cyberpunk Neon Rim",
+            "Moody Starlight Backlight"
+          ],
+          "theme": [
+            "Cosmic Galactic & Nebula"
+          ],
+          "era": [
+            "2026 Next-Gen Frontier"
+          ],
+          "medium": [
+            "8K Octane 3D Render"
+          ],
+          "materials": [
+            "Brushed Titanium Metal",
+            "Glowing Neon Wireframe"
+          ]
+        }
+      }
+    ],
+    "variables": {},
+    "app_slug": null,
+    "created_at": "2026-10-18 13:21:10"
+  },
+  {
+    "id": "asset_1792287053_c7b029",
+    "title": "@Jon On The Wing Of A Biplane",
+    "filename": "asset_1792287053_c7b029.png",
+    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792287053_c7b029.png",
+    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792287053_c7b029.png",
+    "file_url": "/api/asset-lab/file/asset_1792287053_c7b029.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792287053_c7b029_raw.png",
+    "sot_composite_url": "/api/asset-lab/file/asset_1792287053_c7b029_sot_composite.png",
+    "ref_sheet_url": "/api/asset-lab/file/asset_1792287053_c7b029_ref_sheet.png",
+    "scene_elements": [
+      {
+        "name": "Geppy",
+        "role": "mascot",
+        "interaction": "none",
+        "action": "",
+        "label": "REFERENCE CHARACTER (SOURCE OF TRUTH) - [GEPPY]",
+        "url": "/api/sot/reference-file/1791929177_Geppy.png"
+      },
+      {
+        "name": "Uploaded Reference",
+        "role": "item",
+        "interaction": "holding",
+        "action": "",
+        "label": "REFERENCE ITEM/PROP (INTERACT WITH THIS) - [UPLOADED REFERENCE] - INTERACTION: HOLDING",
+        "url": "/api/sot/reference-file/1791929177_Geppy.png"
+      },
+      {
+        "name": "Uploaded Reference",
+        "role": "item",
+        "interaction": "holding",
+        "action": "",
+        "label": "REFERENCE ITEM/PROP (INTERACT WITH THIS) - [UPLOADED REFERENCE] - INTERACTION: HOLDING",
+        "url": "/api/sot/reference-file/1791922635_GeppysCash.png"
+      },
+      {
+        "name": "Uploaded Reference",
+        "role": "item",
+        "interaction": "holding",
+        "action": "",
+        "label": "REFERENCE ITEM/PROP (INTERACT WITH THIS) - [UPLOADED REFERENCE] - INTERACTION: HOLDING",
+        "url": "/api/sot/reference-file/geppys_galactic_icon.png"
+      }
+    ],
+    "grid_mode": "single",
+    "grid_rows": 1,
+    "grid_cols": 1,
+    "sliced_assets": [],
+    "cutout_applied": true,
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "@jon on the wing of a biplane",
+    "color_palette": [
+      "#F59E0B",
+      "#1E1B4B",
+      "#06B6D4",
+      "#0F172A"
+    ],
+    "composition_blueprint": "Visual asset for Geppy's Galactic",
+    "ingredients_summary": [
+      {
+        "name": "geppybrand",
+        "title": "Geppy",
+        "archetype": "character",
+        "primary_image_url": "/api/sot/reference-file/1791929177_Geppy.png",
+        "reference_images": [
+          "/api/sot/reference-file/1791929177_Geppy.png",
+          "/api/sot/reference-file/1791929177_Geppy.png",
+          "/api/sot/reference-file/1791922635_GeppysCash.png",
+          "/api/sot/reference-file/1791929177_Geppy.png",
+          "/api/sot/reference-file/geppys_galactic_icon.png"
+        ]
+      }
+    ],
+    "variables": {},
+    "app_slug": null,
+    "created_at": "2026-10-17 21:31:22"
+  },
+  {
+    "id": "asset_1792102201_b8e1d8",
+    "title": "Multi-Picture SOT + Grid Test",
+    "filename": "asset_1792102201_b8e1d8.png",
+    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792102201_b8e1d8.png",
+    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792102201_b8e1d8.png",
+    "file_url": "/api/asset-lab/file/asset_1792102201_b8e1d8.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792102201_b8e1d8_raw.png",
+    "sot_composite_url": "/api/asset-lab/file/asset_1792102201_b8e1d8_sot_composite.png",
+    "ref_sheet_url": "/api/asset-lab/file/asset_1792102201_b8e1d8_ref_sheet.png",
+    "scene_elements": [
+      {
+        "name": "Character SOT",
+        "role": "mascot",
+        "interaction": "none",
+        "action": "heroic commander pose",
+        "label": "REFERENCE CHARACTER (SOURCE OF TRUTH) - [CHARACTER SOT] - ACTION: HEROIC COMMANDER POSE",
+        "url": "1791922600_IMG_5900.JPG"
+      },
+      {
+        "name": "Prop SOT",
+        "role": "item",
+        "interaction": "holding",
+        "action": "glowing prop",
+        "label": "REFERENCE ITEM/PROP (INTERACT WITH THIS) - [PROP SOT] - INTERACTION: HOLDING - ACTION: GLOWING PROP",
+        "url": "1791922635_GeppysCash.png"
+      }
+    ],
+    "grid_mode": "multi_concept_grid",
+    "grid_rows": 2,
+    "grid_cols": 2,
+    "sliced_assets": [
+      {
+        "index": 1,
+        "label": "Holding Prop",
+        "prompt": "Holding prop",
+        "interaction": "holding",
+        "filename": "asset_1792102201_b8e1d8_cell_1.png",
+        "file_url": "/api/asset-lab/file/asset_1792102201_b8e1d8_cell_1.png"
+      },
+      {
+        "index": 2,
+        "label": "Logo Emblem",
+        "prompt": "Brand emblem",
+        "interaction": "logo_printed",
+        "filename": "asset_1792102201_b8e1d8_cell_2.png",
+        "file_url": "/api/asset-lab/file/asset_1792102201_b8e1d8_cell_2.png"
+      },
+      {
+        "index": 3,
+        "label": "Wearing Gear",
+        "prompt": "Wearing gear",
+        "interaction": "wearing",
+        "filename": "asset_1792102201_b8e1d8_cell_3.png",
+        "file_url": "/api/asset-lab/file/asset_1792102201_b8e1d8_cell_3.png"
+      },
+      {
+        "index": 4,
+        "label": "Victory Pose",
+        "prompt": "Victory salute",
+        "interaction": "themed_after",
+        "filename": "asset_1792102201_b8e1d8_cell_4.png",
+        "file_url": "/api/asset-lab/file/asset_1792102201_b8e1d8_cell_4.png"
+      }
+    ],
+    "svg_filename": "asset_1792102201_b8e1d8.svg",
+    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792102201_b8e1d8.svg",
+    "svg_url": "/api/asset-lab/file/asset_1792102201_b8e1d8.svg",
+    "cutout_applied": true,
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "Captain Geppy holding item with brand emblem",
+    "color_palette": [],
+    "composition_blueprint": "",
+    "ingredients_summary": [],
+    "variables": {},
+    "app_slug": null,
+    "created_at": "2026-10-15 18:10:22"
+  },
+  {
+    "id": "asset_1792102132_4f024a",
+    "title": "Captain Geppy Multi-Concept Sheet",
+    "filename": "asset_1792102132_4f024a.png",
+    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792102132_4f024a.png",
+    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792102132_4f024a.png",
+    "file_url": "/api/asset-lab/file/asset_1792102132_4f024a.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792102132_4f024a_raw.png",
+    "sot_composite_url": null,
+    "ref_sheet_url": null,
+    "scene_elements": [],
+    "grid_mode": "multi_concept_grid",
+    "grid_rows": 2,
+    "grid_cols": 2,
+    "sliced_assets": [
+      {
+        "index": 1,
+        "label": "Holding Prop",
+        "prompt": "Holding scanner",
+        "interaction": "holding",
+        "filename": "asset_1792102132_4f024a_cell_1.png",
+        "file_url": "/api/asset-lab/file/asset_1792102132_4f024a_cell_1.png"
+      },
+      {
+        "index": 2,
+        "label": "Logo Emblem",
+        "prompt": "With galactic emblem",
+        "interaction": "logo_printed",
+        "filename": "asset_1792102132_4f024a_cell_2.png",
+        "file_url": "/api/asset-lab/file/asset_1792102132_4f024a_cell_2.png"
+      },
+      {
+        "index": 3,
+        "label": "Wearing Gear",
+        "prompt": "Wearing visor",
+        "interaction": "wearing",
+        "filename": "asset_1792102132_4f024a_cell_3.png",
+        "file_url": "/api/asset-lab/file/asset_1792102132_4f024a_cell_3.png"
+      },
+      {
+        "index": 4,
+        "label": "Victory Pose",
+        "prompt": "Triumphant salute",
+        "interaction": "themed_after",
+        "filename": "asset_1792102132_4f024a_cell_4.png",
+        "file_url": "/api/asset-lab/file/asset_1792102132_4f024a_cell_4.png"
+      }
+    ],
+    "svg_filename": "asset_1792102132_4f024a.svg",
+    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792102132_4f024a.svg",
+    "svg_url": "/api/asset-lab/file/asset_1792102132_4f024a.svg",
+    "cutout_applied": true,
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "Captain Geppy 3D icon sheet holding prop and wearing emblem",
+    "color_palette": [],
+    "composition_blueprint": "",
+    "ingredients_summary": [],
+    "variables": {},
+    "app_slug": null,
+    "created_at": "2026-10-15 18:09:03"
+  },
+  {
+    "id": "asset_1792038992_49f892",
+    "title": "Captain Geppy (Galactic Commander) - Launch Thruster (Deploy)",
+    "filename": "asset_1792038992_49f892.png",
+    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038992_49f892.png",
+    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038992_49f892.png",
+    "file_url": "/api/asset-lab/file/asset_1792038992_49f892.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792038992_49f892_raw.png",
+    "svg_filename": "asset_1792038992_49f892.svg",
+    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038992_49f892.svg",
+    "svg_url": "/api/asset-lab/file/asset_1792038992_49f892.svg",
+    "cutout_applied": true,
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #6 - LAUNCH THRUSTER (DEPLOY)]: High-thrust rocket engine nozzle with roaring cyan plasma exhaust plume and particle trail. Accent tone: #EF4444. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+    "color_palette": [
+      "#EF4444",
+      "#0F172A",
+      "#FFFFFF"
+    ],
+    "composition_blueprint": "",
+    "ingredients_summary": [],
+    "variables": {},
+    "app_slug": null,
+    "created_at": "2026-10-15 00:37:02"
+  },
+  {
+    "id": "asset_1792038980_4d2345",
+    "title": "Captain Geppy (Galactic Commander) - Git Vault & Storage",
+    "filename": "asset_1792038980_4d2345.png",
+    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038980_4d2345.png",
+    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038980_4d2345.png",
+    "file_url": "/api/asset-lab/file/asset_1792038980_4d2345.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792038980_4d2345_raw.png",
+    "svg_filename": "asset_1792038980_4d2345.svg",
+    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038980_4d2345.svg",
+    "svg_url": "/api/asset-lab/file/asset_1792038980_4d2345.svg",
+    "cutout_applied": true,
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #5 - GIT VAULT & STORAGE]: Heavy orbital bank vault door with rotating combination wheel, glowing green security laser grids. Accent tone: #8B5CF6. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+    "color_palette": [
+      "#8B5CF6",
+      "#0F172A",
+      "#FFFFFF"
+    ],
+    "composition_blueprint": "",
+    "ingredients_summary": [],
+    "variables": {},
+    "app_slug": null,
+    "created_at": "2026-10-15 00:36:32"
+  },
+  {
+    "id": "asset_1792038961_e80d47",
+    "title": "Captain Geppy (Galactic Commander) - Comms & Subspace Chat",
+    "filename": "asset_1792038961_e80d47.png",
+    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038961_e80d47.png",
+    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038961_e80d47.png",
+    "file_url": "/api/asset-lab/file/asset_1792038961_e80d47.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792038961_e80d47_raw.png",
+    "svg_filename": "asset_1792038961_e80d47.svg",
+    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038961_e80d47.svg",
+    "svg_url": "/api/asset-lab/file/asset_1792038961_e80d47.svg",
+    "cutout_applied": true,
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #4 - COMMS & SUBSPACE CHAT]: Floating holographic speech beacon with undulating frequency soundwaves and glowing audio rings. Accent tone: #10B981. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+    "color_palette": [
+      "#10B981",
+      "#0F172A",
+      "#FFFFFF"
+    ],
+    "composition_blueprint": "",
+    "ingredients_summary": [],
+    "variables": {},
+    "app_slug": null,
+    "created_at": "2026-10-15 00:36:19"
+  },
+  {
+    "id": "asset_1792038938_23cfb6",
+    "title": "Captain Geppy (Galactic Commander) - Engine Core & Settings",
+    "filename": "asset_1792038938_23cfb6.png",
+    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038938_23cfb6.png",
+    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038938_23cfb6.png",
+    "file_url": "/api/asset-lab/file/asset_1792038938_23cfb6.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792038938_23cfb6_raw.png",
+    "svg_filename": "asset_1792038938_23cfb6.svg",
+    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038938_23cfb6.svg",
+    "svg_url": "/api/asset-lab/file/asset_1792038938_23cfb6.svg",
+    "cutout_applied": true,
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #3 - ENGINE CORE & SETTINGS]: Interlocking precision brass and obsidian clockwork gears revolving around an antimatter reactor chamber. Accent tone: #F59E0B. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+    "color_palette": [
+      "#F59E0B",
+      "#0F172A",
+      "#FFFFFF"
+    ],
+    "composition_blueprint": "",
+    "ingredients_summary": [],
+    "variables": {},
+    "app_slug": null,
+    "created_at": "2026-10-15 00:36:01"
+  },
+  {
+    "id": "asset_1792038908_e52603",
+    "title": "Captain Geppy (Galactic Commander) - Telemetry & Analytics",
+    "filename": "asset_1792038908_e52603.png",
+    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038908_e52603.png",
+    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038908_e52603.png",
+    "file_url": "/api/asset-lab/file/asset_1792038908_e52603.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792038908_e52603_raw.png",
+    "svg_filename": "asset_1792038908_e52603.svg",
+    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038908_e52603.svg",
+    "svg_url": "/api/asset-lab/file/asset_1792038908_e52603.svg",
+    "cutout_applied": true,
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #2 - TELEMETRY & ANALYTICS]: 3D rising holographic bar charts, glowing circular radar sweep, floating data pulse metrics. Accent tone: #06B6D4. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+    "color_palette": [
+      "#06B6D4",
+      "#0F172A",
+      "#FFFFFF"
+    ],
+    "composition_blueprint": "",
+    "ingredients_summary": [],
+    "variables": {},
+    "app_slug": null,
+    "created_at": "2026-10-15 00:35:38"
+  },
+  {
+    "id": "asset_1792038870_3296c7",
+    "title": "Captain Geppy (Galactic Commander) - Command Bridge (Home)",
+    "filename": "asset_1792038870_3296c7.png",
+    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038870_3296c7.png",
+    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038870_3296c7.png",
+    "file_url": "/api/asset-lab/file/asset_1792038870_3296c7.png",
+    "raw_file_url": "/api/asset-lab/file/asset_1792038870_3296c7_raw.png",
+    "svg_filename": "asset_1792038870_3296c7.svg",
+    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1792038870_3296c7.svg",
+    "svg_url": "/api/asset-lab/file/asset_1792038870_3296c7.svg",
+    "cutout_applied": true,
+    "target_format": "app_icon",
+    "aspect_ratio": "1:1",
+    "master_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #1 - COMMAND BRIDGE (HOME)]: Main bridge command console with holographic orbital overview, helm star-map projector, welcoming amber glow. Accent tone: #6366F1. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+    "color_palette": [
+      "#6366F1",
+      "#0F172A",
+      "#FFFFFF"
+    ],
+    "composition_blueprint": "",
+    "ingredients_summary": [],
+    "variables": {},
+    "app_slug": null,
+    "created_at": "2026-10-15 00:35:08"
+  },
+  {
     "id": "asset_1792030845_e8e448",
     "title": "Geppy Hexagonal App Launcher Icon",
     "filename": "asset_1792030845_e8e448.png",
@@ -2425,30 +3351,7 @@
     "svg_url": "/api/asset-lab/file/asset_1791921537_ec4c16.svg",
     "target_format": "app_icon",
     "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #6 - REACTOR TECHNICIAN]: Equipped with plasma socket wrench and tool belt, grease smudge on cheek, sparks flying from manifold. Accent tone: #EF4444. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#EF4444",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:58"
-  },
-  {
-    "id": "asset_1791921537_60d911",
-    "title": "Geppy Brand - Release Champion",
-    "filename": "asset_1791921537_60d911.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921537_60d911.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921537_60d911.png",
-    "file_url": "/api/asset-lab/file/asset_1791921537_60d911.png",
-    "svg_filename": "asset_1791921537_60d911.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921537_60d911.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921537_60d911.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #5 - RELEASE CHAMPION]: Proudly hoisting a shining gold star trophy with floating celebratory victory ribbons and confetti. Accent tone: #F59E0B. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe.",
     "color_palette": [
       "#F59E0B",
       "#0F172A",
@@ -2457,955 +3360,6 @@
     "composition_blueprint": "",
     "ingredients_summary": [],
     "app_slug": null,
-    "created_at": "2026-10-13 15:58:57"
-  },
-  {
-    "id": "asset_1791921536_855ded",
-    "title": "Geppy Brand - Deep Space Scanner",
-    "filename": "asset_1791921536_855ded.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921536_855ded.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921536_855ded.png",
-    "file_url": "/api/asset-lab/file/asset_1791921536_855ded.png",
-    "svg_filename": "asset_1791921536_855ded.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921536_855ded.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921536_855ded.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #4 - DEEP SPACE SCANNER]: Holding an omni-directional tactical antenna scanner receiving radar blips and alien transmission waveforms. Accent tone: #8B5CF6. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#8B5CF6",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:57"
-  },
-  {
-    "id": "asset_1791921536_75bfc3",
-    "title": "Geppy Brand - Git Shield Barrier",
-    "filename": "asset_1791921536_75bfc3.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921536_75bfc3.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921536_75bfc3.png",
-    "file_url": "/api/asset-lab/file/asset_1791921536_75bfc3.png",
-    "svg_filename": "asset_1791921536_75bfc3.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921536_75bfc3.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921536_75bfc3.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #3 - GIT SHIELD BARRIER]: Projecting a luminous hexagonal energy force-field shield deflecting bugs and server collisions. Accent tone: #3B82F6. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#3B82F6",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:56"
-  },
-  {
-    "id": "asset_1791921536_ad95b3",
-    "title": "Geppy Brand - Holo-Keyboard Coder",
-    "filename": "asset_1791921536_ad95b3.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921536_ad95b3.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921536_ad95b3.png",
-    "file_url": "/api/asset-lab/file/asset_1791921536_ad95b3.png",
-    "svg_filename": "asset_1791921536_ad95b3.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921536_ad95b3.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921536_ad95b3.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #2 - HOLO-KEYBOARD CODER]: Dual typing on floating translucent cyan code matrices, neon green binary code cascades, intense developer flow. Accent tone: #10B981. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#10B981",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:56"
-  },
-  {
-    "id": "asset_1791921535_95e97c",
-    "title": "Geppy Brand - Rocket Coffee Fuel",
-    "filename": "asset_1791921535_95e97c.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921535_95e97c.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921535_95e97c.png",
-    "file_url": "/api/asset-lab/file/asset_1791921535_95e97c.png",
-    "svg_filename": "asset_1791921535_95e97c.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921535_95e97c.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921535_95e97c.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #1 - ROCKET COFFEE FUEL]: Sipping steaming space espresso from a chrome titanium rocket mug, cozy morning sunrise atmosphere. Accent tone: #D97706. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#D97706",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:56"
-  },
-  {
-    "id": "asset_1791921507_30486a",
-    "title": "Geppy Brand - Reactor Technician",
-    "filename": "asset_1791921507_30486a.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921507_30486a.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921507_30486a.png",
-    "file_url": "/api/asset-lab/file/asset_1791921507_30486a.png",
-    "svg_filename": "asset_1791921507_30486a.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921507_30486a.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921507_30486a.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #6 - REACTOR TECHNICIAN]: Equipped with plasma socket wrench and tool belt, grease smudge on cheek, sparks flying from manifold. Accent tone: #EF4444. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#EF4444",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:27"
-  },
-  {
-    "id": "asset_1791921506_5c5bac",
-    "title": "Geppy Brand - Release Champion",
-    "filename": "asset_1791921506_5c5bac.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921506_5c5bac.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921506_5c5bac.png",
-    "file_url": "/api/asset-lab/file/asset_1791921506_5c5bac.png",
-    "svg_filename": "asset_1791921506_5c5bac.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921506_5c5bac.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921506_5c5bac.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #5 - RELEASE CHAMPION]: Proudly hoisting a shining gold star trophy with floating celebratory victory ribbons and confetti. Accent tone: #F59E0B. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#F59E0B",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:27"
-  },
-  {
-    "id": "asset_1791921506_95e2c3",
-    "title": "Geppy Brand - Deep Space Scanner",
-    "filename": "asset_1791921506_95e2c3.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921506_95e2c3.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921506_95e2c3.png",
-    "file_url": "/api/asset-lab/file/asset_1791921506_95e2c3.png",
-    "svg_filename": "asset_1791921506_95e2c3.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921506_95e2c3.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921506_95e2c3.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #4 - DEEP SPACE SCANNER]: Holding an omni-directional tactical antenna scanner receiving radar blips and alien transmission waveforms. Accent tone: #8B5CF6. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#8B5CF6",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:26"
-  },
-  {
-    "id": "asset_1791921505_784937",
-    "title": "Geppy Brand - Git Shield Barrier",
-    "filename": "asset_1791921505_784937.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921505_784937.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921505_784937.png",
-    "file_url": "/api/asset-lab/file/asset_1791921505_784937.png",
-    "svg_filename": "asset_1791921505_784937.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921505_784937.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921505_784937.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #3 - GIT SHIELD BARRIER]: Projecting a luminous hexagonal energy force-field shield deflecting bugs and server collisions. Accent tone: #3B82F6. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#3B82F6",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:26"
-  },
-  {
-    "id": "asset_1791921505_a75d9a",
-    "title": "Geppy Brand - Holo-Keyboard Coder",
-    "filename": "asset_1791921505_a75d9a.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921505_a75d9a.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921505_a75d9a.png",
-    "file_url": "/api/asset-lab/file/asset_1791921505_a75d9a.png",
-    "svg_filename": "asset_1791921505_a75d9a.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921505_a75d9a.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921505_a75d9a.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #2 - HOLO-KEYBOARD CODER]: Dual typing on floating translucent cyan code matrices, neon green binary code cascades, intense developer flow. Accent tone: #10B981. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#10B981",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:25"
-  },
-  {
-    "id": "asset_1791921504_0eed0b",
-    "title": "Geppy Brand - Rocket Coffee Fuel",
-    "filename": "asset_1791921504_0eed0b.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921504_0eed0b.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921504_0eed0b.png",
-    "file_url": "/api/asset-lab/file/asset_1791921504_0eed0b.png",
-    "svg_filename": "asset_1791921504_0eed0b.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921504_0eed0b.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921504_0eed0b.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #1 - ROCKET COFFEE FUEL]: Sipping steaming space espresso from a chrome titanium rocket mug, cozy morning sunrise atmosphere. Accent tone: #D97706. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#D97706",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:25"
-  },
-  {
-    "id": "asset_1791921493_43fb78",
-    "title": "Geppy Hexagonal Test Icon",
-    "filename": "asset_1791921493_43fb78.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921493_43fb78.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921493_43fb78.png",
-    "file_url": "/api/asset-lab/file/asset_1791921493_43fb78.png",
-    "svg_filename": "asset_1791921493_43fb78.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921493_43fb78.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921493_43fb78.svg",
-    "target_format": "transparent_png",
-    "aspect_ratio": "1:1",
-    "master_prompt": "Hexagonal app icon with bold orange border and metallic accents, isolated on clean transparent background (no background), transparent PNG output",
-    "color_palette": [
-      "#F59E0B",
-      "#1E1B4B",
-      "#06B6D4"
-    ],
-    "composition_blueprint": "Hexagonal icon with bold orange border and metallic accents",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:58:14"
-  },
-  {
-    "id": "asset_1791921461_738b66",
-    "title": "Geppy Brand - Reactor Technician",
-    "filename": "asset_1791921461_738b66.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921461_738b66.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921461_738b66.png",
-    "file_url": "/api/asset-lab/file/asset_1791921461_738b66.png",
-    "svg_filename": "asset_1791921461_738b66.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921461_738b66.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921461_738b66.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #6 - REACTOR TECHNICIAN]: Equipped with plasma socket wrench and tool belt, grease smudge on cheek, sparks flying from manifold. Accent tone: #EF4444. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#EF4444",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:57:42"
-  },
-  {
-    "id": "asset_1791921461_4a2117",
-    "title": "Geppy Brand - Release Champion",
-    "filename": "asset_1791921461_4a2117.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921461_4a2117.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921461_4a2117.png",
-    "file_url": "/api/asset-lab/file/asset_1791921461_4a2117.png",
-    "svg_filename": "asset_1791921461_4a2117.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921461_4a2117.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921461_4a2117.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #5 - RELEASE CHAMPION]: Proudly hoisting a shining gold star trophy with floating celebratory victory ribbons and confetti. Accent tone: #F59E0B. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#F59E0B",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:57:41"
-  },
-  {
-    "id": "asset_1791921460_08c7cd",
-    "title": "Geppy Brand - Deep Space Scanner",
-    "filename": "asset_1791921460_08c7cd.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921460_08c7cd.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921460_08c7cd.png",
-    "file_url": "/api/asset-lab/file/asset_1791921460_08c7cd.png",
-    "svg_filename": "asset_1791921460_08c7cd.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921460_08c7cd.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921460_08c7cd.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #4 - DEEP SPACE SCANNER]: Holding an omni-directional tactical antenna scanner receiving radar blips and alien transmission waveforms. Accent tone: #8B5CF6. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#8B5CF6",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:57:41"
-  },
-  {
-    "id": "asset_1791921460_59b8c8",
-    "title": "Geppy Brand - Git Shield Barrier",
-    "filename": "asset_1791921460_59b8c8.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921460_59b8c8.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921460_59b8c8.png",
-    "file_url": "/api/asset-lab/file/asset_1791921460_59b8c8.png",
-    "svg_filename": "asset_1791921460_59b8c8.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921460_59b8c8.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921460_59b8c8.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #3 - GIT SHIELD BARRIER]: Projecting a luminous hexagonal energy force-field shield deflecting bugs and server collisions. Accent tone: #3B82F6. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#3B82F6",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:57:40"
-  },
-  {
-    "id": "asset_1791921459_7417d5",
-    "title": "Geppy Brand - Holo-Keyboard Coder",
-    "filename": "asset_1791921459_7417d5.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921459_7417d5.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921459_7417d5.png",
-    "file_url": "/api/asset-lab/file/asset_1791921459_7417d5.png",
-    "svg_filename": "asset_1791921459_7417d5.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921459_7417d5.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921459_7417d5.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #2 - HOLO-KEYBOARD CODER]: Dual typing on floating translucent cyan code matrices, neon green binary code cascades, intense developer flow. Accent tone: #10B981. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#10B981",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:57:40"
-  },
-  {
-    "id": "asset_1791921459_7328d2",
-    "title": "Geppy Brand - Rocket Coffee Fuel",
-    "filename": "asset_1791921459_7328d2.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921459_7328d2.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921459_7328d2.png",
-    "file_url": "/api/asset-lab/file/asset_1791921459_7328d2.png",
-    "svg_filename": "asset_1791921459_7328d2.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921459_7328d2.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921459_7328d2.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #1 - ROCKET COFFEE FUEL]: Sipping steaming space espresso from a chrome titanium rocket mug, cozy morning sunrise atmosphere. Accent tone: #D97706. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#D97706",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:57:39"
-  },
-  {
-    "id": "asset_1791921412_df57b4",
-    "title": "Geppy Brand - Reactor Technician",
-    "filename": "asset_1791921412_df57b4.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921412_df57b4.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921412_df57b4.png",
-    "file_url": "/api/asset-lab/file/asset_1791921412_df57b4.png",
-    "svg_filename": "asset_1791921412_df57b4.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921412_df57b4.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921412_df57b4.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #6 - REACTOR TECHNICIAN]: Equipped with plasma socket wrench and tool belt, grease smudge on cheek, sparks flying from manifold. Accent tone: #EF4444. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#EF4444",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:56:53"
-  },
-  {
-    "id": "asset_1791921412_2a4bfb",
-    "title": "Geppy Brand - Release Champion",
-    "filename": "asset_1791921412_2a4bfb.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921412_2a4bfb.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921412_2a4bfb.png",
-    "file_url": "/api/asset-lab/file/asset_1791921412_2a4bfb.png",
-    "svg_filename": "asset_1791921412_2a4bfb.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921412_2a4bfb.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921412_2a4bfb.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #5 - RELEASE CHAMPION]: Proudly hoisting a shining gold star trophy with floating celebratory victory ribbons and confetti. Accent tone: #F59E0B. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#F59E0B",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:56:52"
-  },
-  {
-    "id": "asset_1791921411_549841",
-    "title": "Geppy Brand - Deep Space Scanner",
-    "filename": "asset_1791921411_549841.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921411_549841.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921411_549841.png",
-    "file_url": "/api/asset-lab/file/asset_1791921411_549841.png",
-    "svg_filename": "asset_1791921411_549841.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921411_549841.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921411_549841.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #4 - DEEP SPACE SCANNER]: Holding an omni-directional tactical antenna scanner receiving radar blips and alien transmission waveforms. Accent tone: #8B5CF6. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#8B5CF6",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:56:52"
-  },
-  {
-    "id": "asset_1791921411_22fdf9",
-    "title": "Geppy Brand - Git Shield Barrier",
-    "filename": "asset_1791921411_22fdf9.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921411_22fdf9.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921411_22fdf9.png",
-    "file_url": "/api/asset-lab/file/asset_1791921411_22fdf9.png",
-    "svg_filename": "asset_1791921411_22fdf9.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921411_22fdf9.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921411_22fdf9.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #3 - GIT SHIELD BARRIER]: Projecting a luminous hexagonal energy force-field shield deflecting bugs and server collisions. Accent tone: #3B82F6. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#3B82F6",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:56:51"
-  },
-  {
-    "id": "asset_1791921410_351f58",
-    "title": "Geppy Brand - Holo-Keyboard Coder",
-    "filename": "asset_1791921410_351f58.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921410_351f58.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921410_351f58.png",
-    "file_url": "/api/asset-lab/file/asset_1791921410_351f58.png",
-    "svg_filename": "asset_1791921410_351f58.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921410_351f58.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921410_351f58.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #2 - HOLO-KEYBOARD CODER]: Dual typing on floating translucent cyan code matrices, neon green binary code cascades, intense developer flow. Accent tone: #10B981. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#10B981",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:56:51"
-  },
-  {
-    "id": "asset_1791921410_6548dc",
-    "title": "Geppy Brand - Rocket Coffee Fuel",
-    "filename": "asset_1791921410_6548dc.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921410_6548dc.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921410_6548dc.png",
-    "file_url": "/api/asset-lab/file/asset_1791921410_6548dc.png",
-    "svg_filename": "asset_1791921410_6548dc.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791921410_6548dc.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791921410_6548dc.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SOT Character Anchor - Preserve facial likeness, suit design, and character identity] | The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct. | Primary Image Anchor: /api/sot/reference-file/1791929177_Geppy.png | Reference Gallery: 2 contextual reference images | [SERIES VARIATION #1 - ROCKET COFFEE FUEL]: Sipping steaming space espresso from a chrome titanium rocket mug, cozy morning sunrise atmosphere. Accent tone: #D97706. Maintain strict visual continuity with base asset likeness, style, and lighting.",
-    "color_palette": [
-      "#D97706",
-      "#0F172A",
-      "#FFFFFF"
-    ],
-    "composition_blueprint": "",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 15:56:50"
-  },
-  {
-    "id": "asset_1791918743_990be0",
-    "title": "Captain Geppy's Cosmic Command",
-    "filename": "asset_1791918743_990be0.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791918743_990be0.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791918743_990be0.png",
-    "file_url": "/api/asset-lab/file/asset_1791918743_990be0.png",
-    "svg_filename": "asset_1791918743_990be0.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791918743_990be0.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791918743_990be0.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "3D render of a Geppy's Cash transaction badge, styled as a glassy squircle with golden holographic trim. Centered within is Captain Geppy's iconic illuminated translucent cyan visor, reflecting swirling nebula galaxies. A miniature golden galactic crest is embossed on the lower edge of the visor. Subtle bevel shadows and a micro-radiance rim glow. Background is a deep cosmic slate gradient. High production value, app icon style.",
-    "color_palette": [
-      "#06B6D4",
-      "#F59E0B",
-      "#1E1B4B",
-      "#0F172A"
-    ],
-    "composition_blueprint": "Background: Subtle cosmic slate gradient. Midground: A highly detailed, translucent glassy squircle. Foreground: Captain Geppy's illuminated cyan visor, with a miniature holographic galaxy reflection, centered within the squircle. The golden galactic crest is subtly embossed on the visor's edge.",
-    "ingredients_summary": [
-      {
-        "name": "captain-geppy",
-        "title": "Captain Geppy (Galactic Commander)",
-        "archetype": "character",
-        "primary_image_url": null,
-        "reference_image_url": null,
-        "gallery_images": [],
-        "modifiers": {
-          "lighting": [
-            "Cyberpunk Neon Rim",
-            "Moody Starlight Backlight"
-          ],
-          "theme": [
-            "Cosmic Galactic & Nebula"
-          ],
-          "era": [
-            "2026 Next-Gen Frontier"
-          ],
-          "medium": [
-            "8K Octane 3D Render"
-          ],
-          "materials": [
-            "Brushed Titanium Metal",
-            "Glowing Neon Wireframe"
-          ]
-        },
-        "variables": []
-      }
-    ],
-    "app_slug": "geppyscash",
-    "created_at": "2026-10-13 15:12:23"
-  },
-  {
-    "id": "asset_1791918721_656d10",
-    "title": "Captain Geppy's Galactic Visor",
-    "filename": "asset_1791918721_656d10.png",
-    "filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791918721_656d10.png",
-    "file_path": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791918721_656d10.png",
-    "file_url": "/api/asset-lab/file/asset_1791918721_656d10.png",
-    "svg_filename": "asset_1791918721_656d10.svg",
-    "svg_filepath": "D:\\Geppy_Apps\\Geppy's GitBridge\\gitbridge\\assets\\lab_generated\\asset_1791918721_656d10.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791918721_656d10.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "A 3D, hyper-realistic app icon in the shape of a squircle. The icon features a centered, dominant element: Captain Geppy's obsidian-and-gold astronaut helmet. The helmet has a large, translucent cyan visor that glows internally, showing a detailed, swirling galaxy nebula. The flight suit material is a deep obsidian with subtle gold accents. A holographic, golden trim wraps around the edges of the helmet and visor. The overall mood is futuristic, cosmic, and trustworthy. The squircle has a subtle glass sheen and a gentle bevel shadow. The background is a gradient of deep space navy to obsidian. Micro-radiance rim glow on the main elements.",
-    "color_palette": [
-      "#06B6D4",
-      "#F59E0B",
-      "#1E1B4B",
-      "#0F172A"
-    ],
-    "composition_blueprint": "Background: Deep cosmic slate gradient. Midground: Subtle glass bevels and soft rim glow. Foreground: A prominent, centered 3D rendered obsidian-gold flight helmet featuring Captain Geppy's signature translucent cyan visor, which internally displays swirling galactic nebula patterns. Golden holographic trim outlines the visor and helmet.",
-    "ingredients_summary": [
-      {
-        "name": "captain-geppy",
-        "title": "Captain Geppy (Galactic Commander)",
-        "archetype": "character",
-        "primary_image_url": null,
-        "reference_image_url": null,
-        "gallery_images": [],
-        "modifiers": {
-          "lighting": [
-            "Cyberpunk Neon Rim",
-            "Moody Starlight Backlight"
-          ],
-          "theme": [
-            "Cosmic Galactic & Nebula"
-          ],
-          "era": [
-            "2026 Next-Gen Frontier"
-          ],
-          "medium": [
-            "8K Octane 3D Render"
-          ],
-          "materials": [
-            "Brushed Titanium Metal",
-            "Glowing Neon Wireframe"
-          ]
-        },
-        "variables": []
-      }
-    ],
-    "app_slug": "geppyscash",
-    "created_at": "2026-10-13 15:12:01"
-  },
-  {
-    "id": "asset_1791918686_972fdc",
-    "title": "Captain Geppy's Galactic Emblem",
-    "filename": "asset_1791918686_972fdc.png",
-    "file_url": "/api/asset-lab/file/asset_1791918686_972fdc.png",
-    "svg_filename": "asset_1791918686_972fdc.svg",
-    "svg_url": "/api/asset-lab/file/asset_1791918686_972fdc.svg",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "Create a 3D glassy squircle app icon with a golden holographic trim. The squircle contains a central obsidian shield glyph. Inside the shield, feature a prominent, illuminated translucent cyan visor element reflecting subtle nebula patterns. Above the visor, integrate a stylized, glowing golden holographic representation of a galactic commander crest. Apply a gentle bevel shadow to the glyph and a micro-radiance rim glow around the entire icon. The background is a dark cosmic slate gradient. Style: SOT Icon Style Guide, Apple Squircle Iconography.",
-    "color_palette": [
-      "#06B6D4",
-      "#F59E0B",
-      "#1E1B4B",
-      "#0F172A"
-    ],
-    "composition_blueprint": "Background: Deep cosmic slate gradient. Midground: Subtle bevel shadow. Foreground: A central, stylized obsidian shield shape. Within the shield, a luminous cyan visor element representing Captain Geppy's faceplate, with a faint golden holographic outline of his galactic crest shimmering above it. The entire glyph is framed by a golden holographic trim on the squircle's edge.",
-    "ingredients_summary": [
-      {
-        "name": "captain-geppy",
-        "title": "Captain Geppy (Galactic Commander)",
-        "archetype": "character",
-        "primary_image_url": null,
-        "reference_image_url": null,
-        "gallery_images": [],
-        "modifiers": {
-          "lighting": [
-            "Cyberpunk Neon Rim",
-            "Moody Starlight Backlight"
-          ],
-          "theme": [
-            "Cosmic Galactic & Nebula"
-          ],
-          "era": [
-            "2026 Next-Gen Frontier"
-          ],
-          "medium": [
-            "8K Octane 3D Render"
-          ],
-          "materials": [
-            "Brushed Titanium Metal",
-            "Glowing Neon Wireframe"
-          ]
-        },
-        "variables": []
-      }
-    ],
-    "app_slug": "geppyscash",
-    "created_at": "2026-10-13 15:11:27"
-  },
-  {
-    "id": "asset_1791917624_bfd9e1",
-    "title": "Geppy's GitBridge App Icon: Galactic IT Support",
-    "filename": "asset_1791917624_bfd9e1.png",
-    "file_url": "/api/asset-lab/file/asset_1791917624_bfd9e1.png",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "A stylized app icon for 'Geppy's GitBridge' embodying a friendly, space-themed IT support persona. The central figure is 'Geppy Brand', depicted as an approachable, upbeat character inspired by Saturday-morning cartoons. Geppy wears his signature plain blue shirt with white 'Geppy' text. He is positioned on a stylized, slightly curved 'bridge' console reminiscent of a Star Trek-esque starship command deck. Subtle holographic displays and glowing buttons emanate from the console, hinting at technology and data. The background is a deep space nebula with faint stars and a distant planet, reinforcing the galactic theme. The overall aesthetic is clean, friendly, and energetic, with vibrant colors suitable for an app icon. Use a slight rim lighting to make Geppy pop from the background.",
-    "color_palette": [
-      "#0077B6 (Geppy Blue)",
-      "#FFFFFF (Geppy Text/Highlights)",
-      "#FFD700 (Galactic Gold/Console Glow)",
-      "#483D8B (Deep Space Navy)",
-      "#8A2BE2 (Nebula Purple)"
-    ],
-    "composition_blueprint": "Circular app icon format. Central character 'Geppy' prominently featured. Stylized 'bridge' console acts as foreground/midground element. Galactic nebula background. Clean, vector-like illustration style.",
-    "ingredients_summary": [
-      {
-        "name": "geppybrand",
-        "title": "Geppy Brand",
-        "archetype": "character",
-        "role": "subject",
-        "weight": 1,
-        "primary_image_url": "/api/sot/reference-file/1791929177_Geppy.png",
-        "reference_text": "The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct.",
-        "modifiers": {
-          "lighting": [],
-          "theme": [],
-          "era": [],
-          "medium": [],
-          "materials": []
-        },
-        "variables": []
-      }
-    ],
-    "app_slug": "geppys-gitbridge",
-    "created_at": "2026-10-13 14:53:44"
-  },
-  {
-    "id": "asset_1791914982_d11371",
-    "title": "Captain Geppy: GitBridge Chat Sticker",
-    "filename": "asset_1791914982_d11371.png",
-    "file_url": "/api/asset-lab/file/asset_1791914982_d11371.png",
-    "target_format": "banner_hero",
-    "aspect_ratio": "16:9",
-    "master_prompt": "Full-body Captain Geppy character, rendered in an upbeat, energetic Saturday-morning cartoon style inspired by classic adventurous animation (like Duck Tales). Geppy wears his signature plain blue shirt with white 'Geppy' text. He is depicted as a friendly, approachable, and dependable galactic captain, confidently gesturing or giving a friendly salute, embodying his role as captain on the 'GitBridge' within the Geppy Galaxy. The image is specifically designed as a 512x512 transparent chat sticker, with the entire background completely removed, and featuring a crisp, clean 8px white contour edge outlining the character for optimal visibility on both dark and light mode chat apps. Clear, friendly branding, vector art, smooth lines, flat colors with subtle cel shading, high detail, no pixelation.",
-    "color_palette": [
-      "#2563EB (Geppy Blue)",
-      "#FFFFFF (White)",
-      "#FACC15 (Energetic Yellow)",
-      "#1E293B (Dark Accent)"
-    ],
-    "composition_blueprint": "Full-body cartoon character of Captain Geppy, centered and dynamically posed within a 512x512 transparent canvas, with a strong 8px white contour stroke outlining the entire figure.",
-    "ingredients_summary": [
-      {
-        "name": "geppybrand",
-        "title": "Geppy Brand",
-        "archetype": "character",
-        "role": "subject",
-        "weight": 1,
-        "primary_image_url": "/api/sot/reference-file/1791929177_Geppy.png",
-        "reference_text": "The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct.",
-        "modifiers": {
-          "lighting": [],
-          "theme": [],
-          "era": [],
-          "medium": [],
-          "materials": []
-        }
-      },
-      {
-        "name": "chat-sticker",
-        "title": "Transparent Chat Sticker (512px)",
-        "archetype": "output",
-        "role": "style",
-        "weight": 1,
-        "primary_image_url": "/api/sot/reference-file/preview_chat-sticker.png",
-        "reference_text": "Standard 512x512 transparent PNG chat sticker with background removed and crisp 8px white contour edge for dark & light mode chat apps (Discord, Slack, Telegram).",
-        "modifiers": {
-          "background_mode": "transparent",
-          "print_size": "chat_sticker_512",
-          "bg_tolerance": 35,
-          "edge_feather": 2,
-          "diecut_stroke_width": 8,
-          "diecut_stroke_color": "#FFFFFF",
-          "export_pdf": false,
-          "dpi": 300
-        }
-      }
-    ],
-    "app_slug": "geppys-gitbridge",
-    "created_at": "2026-10-13 14:09:42"
-  },
-  {
-    "id": "asset_1791914932_a4d373",
-    "title": "Fine-Tuned Asset (@geppybrand + @chat-sticker)",
-    "filename": "asset_1791914932_a4d373.png",
-    "file_url": "/api/asset-lab/file/asset_1791914932_a4d373.png",
-    "target_format": "banner_hero",
-    "aspect_ratio": "16:9",
-    "master_prompt": "[SUBJECT: The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct.] | [STYLE: Standard 512x512 transparent PNG chat sticker with background removed and crisp 8px white contour edge for dark & light mode chat apps (Discord, Slack, Telegram).] | This app is for managing apps in the Geppy Galaxy of apps. Where Geppy is the captain on the get bridge as a play on the bridge of the Enterprise | 8K Octane Render, volumetric rim lighting, frosted translucent glass, smooth squircle curvature, masterwork design.",
-    "color_palette": [
-      "#06B6D4 (Cyan Visor)",
-      "#6366F1 (Indigo Nebula)",
-      "#F59E0B (Amber Gold)",
-      "#0F172A (Obsidian)"
-    ],
-    "composition_blueprint": "Optimized for banner_hero (16:9) with centered focal subject, ambient depth lighting, and glassmorphic micro-bevels.",
-    "ingredients_summary": [
-      {
-        "name": "geppybrand",
-        "title": "Geppy Brand",
-        "archetype": "character",
-        "role": "subject",
-        "weight": 1,
-        "primary_image_url": "/api/sot/reference-file/1791929177_Geppy.png",
-        "reference_text": "The tone and style of Geppy AI (founded by Jon Gephart of Gephart's Tech Consulting) is rooted in a Saturday-morning cartoon, approachable, and dependable vibe\u2014embodying the ultimate friendly IT guy who is always there to help and teach.\n\nKey characteristics of Geppy's tone and style include:\n\nApproachable and Patient: Rather than relying on cold, highly technical jargon, Geppy breaks down IT problems so they are easy for everyday people to understand, focusing heavily on teaching and helping rather than just fixing behind the scenes.\n\nUpbeat and Energetic: Inspired by classic, adventurous animation styles (like Duck Tales), the persona is enthusiastic, proactive, and ready to tackle any gadget glitch with a positive attitude.\n\nReliable and 24/7: Positioned as a dependable, around-the-clock technical support specialist who bridges the gap between automated AI assistance and human backup (backed by Gephart's Tech Consulting).\n\nVisually Consistent: Defined by clean, friendly branding\u2014such as his signature plain blue shirt featuring the white \"Geppy\" text\u2014paired with a hard-G pronunciation (like \"Go\" or \"Ghost\") to keep his identity grounded, clear, and distinct.",
-        "modifiers": {
-          "lighting": [],
-          "theme": [],
-          "era": [],
-          "medium": [],
-          "materials": []
-        }
-      },
-      {
-        "name": "chat-sticker",
-        "title": "Transparent Chat Sticker (512px)",
-        "archetype": "output",
-        "role": "style",
-        "weight": 1,
-        "primary_image_url": "/api/sot/reference-file/preview_chat-sticker.png",
-        "reference_text": "Standard 512x512 transparent PNG chat sticker with background removed and crisp 8px white contour edge for dark & light mode chat apps (Discord, Slack, Telegram).",
-        "modifiers": {
-          "background_mode": "transparent",
-          "print_size": "chat_sticker_512",
-          "bg_tolerance": 35,
-          "edge_feather": 2,
-          "diecut_stroke_width": 8,
-          "diecut_stroke_color": "#FFFFFF",
-          "export_pdf": false,
-          "dpi": 300
-        }
-      }
-    ],
-    "app_slug": "geppys-gitbridge",
-    "created_at": "2026-10-13 14:08:52"
-  },
-  {
-    "id": "asset_1791912892_b84956",
-    "title": "1970s Vintage Baseball Card: Big Papi",
-    "filename": "asset_1791912892_b84956.png",
-    "file_url": "/api/asset-lab/file/asset_1791912892_b84956.png",
-    "target_format": "trading_card",
-    "aspect_ratio": "2.5:3.5",
-    "master_prompt": "Authentic 1970s Topps-style vintage baseball card featuring Big Papi as star DH",
-    "color_palette": [],
-    "composition_blueprint": "Authentic 1970s trading card layout",
-    "ingredients_summary": [],
-    "variables": {
-      "team_name": "BOSTON RED SOX",
-      "player_name": "BIG PAPI",
-      "position": "DH",
-      "stats": ".286 AVG \u2022 541 HR \u2022 1,768 RBI \u2022 3X WORLD SERIES CHAMP",
-      "card_number": "#34",
-      "year_era": "'04"
-    },
-    "app_slug": null,
-    "created_at": "2026-10-13 13:34:52"
-  },
-  {
-    "id": "asset_1791911039_50f13f",
-    "title": "Captain Geppy 70s Card",
-    "filename": "asset_1791911039_50f13f.png",
-    "file_url": "/api/asset-lab/file/asset_1791911039_50f13f.png",
-    "target_format": "trading_card",
-    "aspect_ratio": "2.5:3.5",
-    "master_prompt": "Authentic 1970s Topps-style vintage baseball card featuring Captain Geppy",
-    "color_palette": [],
-    "composition_blueprint": "Authentic 1970s trading card layout",
-    "ingredients_summary": [
-      {
-        "name": "captain-geppy",
-        "title": "Captain Geppy",
-        "role": "subject"
-      },
-      {
-        "name": "70s-baseball-card",
-        "title": "70s Baseball Card",
-        "role": "style"
-      }
-    ],
-    "app_slug": null,
-    "created_at": "2026-10-13 13:03:59"
-  },
-  {
-    "id": "asset_1791911023_d97a50",
-    "title": "Captain Geppy 70s Card",
-    "filename": "asset_1791911023_d97a50.png",
-    "file_url": "/api/asset-lab/file/asset_1791911023_d97a50.png",
-    "target_format": "trading_card",
-    "aspect_ratio": "2.5:3.5",
-    "master_prompt": "",
-    "color_palette": [],
-    "composition_blueprint": "Authentic 1970s trading card layout",
-    "ingredients_summary": [],
-    "app_slug": null,
-    "created_at": "2026-10-13 13:03:43"
-  },
-  {
-    "id": "asset_1791910736_458407",
-    "title": "1970s Vintage Baseball Card: Captain Geppy",
-    "filename": "asset_1791910736_458407.png",
-    "file_url": "/api/asset-lab/file/asset_1791910736_458407.png",
-    "target_format": "trading_card",
-    "aspect_ratio": "2.5:3.5",
-    "master_prompt": "Authentic 1970s Topps-style vintage baseball trading card featuring Captain Geppy as the star galactic commander. Captain Geppy wears an obsidian-and-gold flight suit with gleaming gold commander bars and a galactic crest, his face partially obscured by an illuminated translucent cyan visor reflecting swirling nebula galaxies. He is posed against a bright, sunlit cosmic backdrop. The card is rendered with the warm, slightly desaturated color grading and visible 35mm Kodachrome film grain characteristic of the era. It features a bold, primary color border, an arched team banner typography reading 'GALACTIC COMMANDER' or 'STAR COMMAND', and a round star position badge. Printed on thick, textured aged cardboard stock with a slightly glossy finish, showcasing subtle offset lithography print dots, minor color misregistration, and authentically worn, soft corners and edges, indicating time and handling. The overall aesthetic is nostalgic and iconic.",
-    "color_palette": [],
-    "composition_blueprint": "Authentic 1970s trading card layout",
-    "ingredients_summary": [
-      {
-        "name": "captain-geppy",
-        "title": "Captain Geppy (Galactic Commander)",
-        "role": "subject",
-        "reference_text": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies. Gold commander bars and galactic crest.",
-        "primary_image_url": null
-      },
-      {
-        "name": "70s-baseball-card",
-        "title": "Diamond Dreams '70s",
-        "role": "style",
-        "reference_text": "An authentic 1970s baseball trading card features a subject set against a bright, often sunlit backdrop or studio lighting. It is printed on thick, textured cardboard with a slightly glossy or matte finish. Borders are typically bold, often primary colors, sometimes with decorative elements or an arched team banner/nameplate. The color grading leans warm and slightly desaturated, reminiscent of Kodachrome 35mm film, with visible offset lithography print dots, subtle misregistration, and aged corners or edges indicating wear and time.",
-        "primary_image_url": "/api/sot/reference-file/preview_70s-baseball-card.png"
-      }
-    ],
-    "app_slug": null,
-    "created_at": "2026-10-13 12:58:56"
-  },
-  {
-    "id": "asset_1791910269_3385cb",
-    "title": "Fine-Tuned Asset (@captain-geppy + @galactic-icons)",
-    "filename": "asset_1791910269_3385cb.png",
-    "file_url": "/api/asset-lab/file/asset_1791910269_3385cb.png",
-    "target_format": "app_icon",
-    "aspect_ratio": "1:1",
-    "master_prompt": "[SUBJECT: Cosmic astronaut commander in obsidian-gold suit] | [STYLE: 3D squircle app icon collection with bevel shadows and glowing glyphs] | Captain Geppy heroic commander pose centered in a glossy 3D squircle app icon | 8K Octane Render, volumetric rim lighting, frosted translucent glass, smooth squircle curvature, masterwork design.",
-    "color_palette": [
-      "#06B6D4 (Cyan Visor)",
-      "#6366F1 (Indigo Nebula)",
-      "#F59E0B (Amber Gold)",
-      "#0F172A (Obsidian)"
-    ],
-    "composition_blueprint": "Optimized for app_icon (1:1) with centered focal subject, ambient depth lighting, and glassmorphic micro-bevels.",
-    "ingredients_summary": [
-      {
-        "name": "captain-geppy"
-      },
-      {
-        "name": "galactic-icons"
-      }
-    ],
-    "app_slug": null,
-    "created_at": "2026-10-13 12:51:09"
+    "created_at": "2026-10-13 16:00:00"
   }
 ]

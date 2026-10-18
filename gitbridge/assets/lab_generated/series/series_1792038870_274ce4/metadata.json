@@ -1,0 +1,91 @@
+{
+  "id": "series_1792038870_274ce4",
+  "title": "Captain Geppy (Galactic Commander) \u2022 App Navigation & Feature Icons",
+  "created_at": "2026-10-15 00:37:02",
+  "anchor_title": "Captain Geppy (Galactic Commander)",
+  "anchor_image_url": "/api/sot/reference-file/geppys_galactic_icon.png",
+  "anchor_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe",
+  "target_format": "app_icon",
+  "aspect_ratio": "1:1",
+  "output_contextile": null,
+  "consistency_level": "high",
+  "app_slug": null,
+  "item_count": 6,
+  "items": [
+    {
+      "item_id": "series_1792038870_274ce4_item_1",
+      "item_num": 1,
+      "title": "Command Bridge (Home)",
+      "difference": "Main bridge command console with holographic orbital overview, helm star-map projector, welcoming amber glow",
+      "accent_color": "#6366F1",
+      "filename": "var_1_37fb.png",
+      "image_url": "/api/asset-lab/series/series_1792038870_274ce4/file/var_1_37fb.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #1 - COMMAND BRIDGE (HOME)]: Main bridge command console with holographic orbital overview, helm star-map projector, welcoming amber glow. Accent tone: #6366F1. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1792038870_274ce4_item_2",
+      "item_num": 2,
+      "title": "Telemetry & Analytics",
+      "difference": "3D rising holographic bar charts, glowing circular radar sweep, floating data pulse metrics",
+      "accent_color": "#06B6D4",
+      "filename": "var_2_b468.png",
+      "image_url": "/api/asset-lab/series/series_1792038870_274ce4/file/var_2_b468.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #2 - TELEMETRY & ANALYTICS]: 3D rising holographic bar charts, glowing circular radar sweep, floating data pulse metrics. Accent tone: #06B6D4. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1792038870_274ce4_item_3",
+      "item_num": 3,
+      "title": "Engine Core & Settings",
+      "difference": "Interlocking precision brass and obsidian clockwork gears revolving around an antimatter reactor chamber",
+      "accent_color": "#F59E0B",
+      "filename": "var_3_9176.png",
+      "image_url": "/api/asset-lab/series/series_1792038870_274ce4/file/var_3_9176.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #3 - ENGINE CORE & SETTINGS]: Interlocking precision brass and obsidian clockwork gears revolving around an antimatter reactor chamber. Accent tone: #F59E0B. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1792038870_274ce4_item_4",
+      "item_num": 4,
+      "title": "Comms & Subspace Chat",
+      "difference": "Floating holographic speech beacon with undulating frequency soundwaves and glowing audio rings",
+      "accent_color": "#10B981",
+      "filename": "var_4_0d82.png",
+      "image_url": "/api/asset-lab/series/series_1792038870_274ce4/file/var_4_0d82.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #4 - COMMS & SUBSPACE CHAT]: Floating holographic speech beacon with undulating frequency soundwaves and glowing audio rings. Accent tone: #10B981. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1792038870_274ce4_item_5",
+      "item_num": 5,
+      "title": "Git Vault & Storage",
+      "difference": "Heavy orbital bank vault door with rotating combination wheel, glowing green security laser grids",
+      "accent_color": "#8B5CF6",
+      "filename": "var_5_d3b9.png",
+      "image_url": "/api/asset-lab/series/series_1792038870_274ce4/file/var_5_d3b9.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #5 - GIT VAULT & STORAGE]: Heavy orbital bank vault door with rotating combination wheel, glowing green security laser grids. Accent tone: #8B5CF6. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    },
+    {
+      "item_id": "series_1792038870_274ce4_item_6",
+      "item_num": 6,
+      "title": "Launch Thruster (Deploy)",
+      "difference": "High-thrust rocket engine nozzle with roaring cyan plasma exhaust plume and particle trail",
+      "accent_color": "#EF4444",
+      "filename": "var_6_821e.png",
+      "image_url": "/api/asset-lab/series/series_1792038870_274ce4/file/var_6_821e.png",
+      "compiled_prompt": "Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies | Visual Theme: Cosmic Galactic & Nebula | Lighting: Cyberpunk Neon Rim, Moody Starlight Backlight | Era/Mood: 2026 Next-Gen Frontier | Render Style: 8K Octane 3D Render | Materials: Brushed Titanium Metal, Glowing Neon Wireframe | [SERIES VARIATION #6 - LAUNCH THRUSTER (DEPLOY)]: High-thrust rocket engine nozzle with roaring cyan plasma exhaust plume and particle trail. Accent tone: #EF4444. Maintain strict visual continuity with base asset likeness, style, and lighting.",
+      "finished_png_url": null,
+      "finished_pdf_url": null
+    }
+  ],
+  "contact_sheet_url": "/api/asset-lab/series/series_1792038870_274ce4/file/contact_sheet_series_1792038870_274ce4.png",
+  "zip_url": "/api/asset-lab/series/series_1792038870_274ce4/download-zip",
+  "zip_filename": "series_1792038870_274ce4_collection.zip"
+}

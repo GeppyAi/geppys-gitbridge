@@ -1,0 +1,11 @@
+{
+  "sheet_url": "",
+  "spreadsheet_id": "",
+  "webhook_url": "",
+  "sheet_tab": "Sheet1",
+  "credentials_path": "credentials.json",
+  "last_synced_at": "2026-10-18T16:24:14.968172",
+  "last_sync_mode": "local_csv_and_tsv",
+  "last_row_count": 49,
+  "last_status_message": "Exported 49 apps to app_universe_export.csv & _Gemini_Bridge."
+}

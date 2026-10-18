@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Geppy Live Chat & Crew Companion</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #020617;
+      color: #f8fafc;
+      overflow: hidden;
+      user-select: text;
+    }
+    .glass {
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(14px);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #090d16; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+      70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+    .voice-pulse {
+      animation: pulseRing 1.6s infinite;
+    }
+    .prose pre {
+      background: #090d16 !important;
+      border: 1px solid #1e293b;
+      border-radius: 0.5rem;
+      padding: 0.65rem;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+    }
+    .prose code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #38bdf8;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-slate-950 text-slate-100">
+
+  <!-- Top Companion App Header -->
+  <header class="px-3.5 py-2.5 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-cyan-400 p-0.5 shadow-md shadow-indigo-500/20 shrink-0">
+        <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center text-amber-300 text-base">
+          👨‍🚀
+        </div>
+      </div>
+      <div class="min-w-0">
+        <div class="flex items-center gap-1.5">
+          <h1 class="text-sm font-extrabold text-white truncate">Geppy Live Chat</h1>
+          <span id="companion-live-badge" class="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Tray App</span>
+        </div>
+        <p class="text-[10px] text-slate-400 truncate">Live Screen Vision • Voice Chat • Crew & Antigravity Bridge</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5 shrink-0">
+      <select id="companion-app-select" onchange="onCompanionAppChange()" class="bg-slate-950 border border-slate-700 text-slate-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-cyan-400 max-w-[155px]" title="Select App Context">
+        <option value="">🌌 All Apps / Global</option>
+      </select>
+      <button type="button" onclick="window.open('http://127.0.0.1:8000', '_blank')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs" title="Open Full GitBridge Dashboard">
+        <i class="fa-solid fa-up-right-from-square"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Live Screen Stream & Voice Controls Bar -->
+  <div class="px-3 py-2 bg-slate-900/60 border-b border-slate-800/90 flex flex-col gap-2 shrink-0">
+    <div class="grid grid-cols-2 gap-2">
+      <button type="button" id="btn-comp-stream" onclick="toggleCompanionScreenStream()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 font-bold text-xs flex items-center justify-center gap-2 transition shadow-sm">
+        <i class="fa-solid fa-tv"></i>
+        <span id="lbl-comp-stream">Stream Screen</span>
+      </button>
+      <button type="button" id="btn-comp-voice" onclick="toggleCompanionVoiceChat()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 font-bold text-xs flex items-center justify-center gap-2 transition shadow-sm">
+        <i class="fa-solid fa-microphone-lines"></i>
+        <span id="lbl-comp-voice">Voice Chat</span>
+      </button>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
+      <div class="flex items-center gap-1.5">
+        <button type="button" id="btn-comp-consult" onclick="toggleCompanionConsultCrew()" class="px-2.5 py-1 rounded-lg bg-fuchsia-950/80 text-fuchsia-200 border border-fuchsia-500/40 font-semibold transition flex items-center gap-1" title="Automatically consult @design, @arch, @qa, @strategy on what you are working on">
+          <span>🤝</span>
+          <span id="lbl-comp-consult">Consult Crew: ON</span>
+        </button>
+        <button type="button" onclick="askCrewWhatTheySeeNow()" class="px-2.5 py-1 rounded-lg bg-indigo-950/80 hover:bg-indigo-900/80 text-indigo-200 border border-indigo-500/40 font-semibold transition flex items-center gap-1" title="Have Geppy & the Agent Crew inspect the current screen and advise right now">
+          <span>⚡</span>
+          <span>Ask Crew Now</span>
+        </button>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button type="button" id="btn-comp-tts" onclick="toggleCompanionTTS()" class="px-2 py-1 rounded-lg bg-slate-900 text-emerald-300 border border-emerald-500/30 font-semibold transition" title="Toggle Spoken Voice Output">
+          🔊 TTS: ON
+        </button>
+        <button type="button" onclick="stopCompanionSpeaking()" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-700 transition" title="Stop Speaking">
+          ⏹️
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Stream Mini Preview Bar -->
+    <div id="comp-stream-preview-bar" class="hidden items-center justify-between gap-2.5 p-2 rounded-xl bg-slate-950/90 border border-cyan-500/40">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <img id="comp-stream-img" src="" alt="Live Screen" class="w-16 h-10 object-cover rounded border border-cyan-400/60 shrink-0 bg-slate-900" />
+        <div class="min-w-0">
+          <div id="comp-stream-title" class="text-[11px] font-bold text-cyan-300 truncate">🟢 LIVE SCREEN VISION ACTIVE</div>
+          <div id="comp-stream-meta" class="text-[10px] text-slate-400 truncate">Geppy & Crew can see your screen</div>
+        </div>
+      </div>
+      <button type="button" onclick="askCrewWhatTheySeeNow()" class="px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-400/40 text-[10px] font-bold shrink-0">
+        👁️ Analyze Screen
+      </button>
+    </div>
+
+    <!-- Voice Status Bar -->
+    <div id="comp-voice-bar" class="flex items-center justify-between px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-[11px]">
+      <span id="comp-voice-status" class="text-slate-400 truncate">Ready • Click Voice Chat or Stream Screen anytime</span>
+      <span id="comp-ag-model-pill" class="text-[10px] font-mono text-indigo-300 shrink-0">Port 8001 Ready</span>
+    </div>
+  </div>
+
+  <!-- Specialist Crew Quick-Select Pills -->
+  <div class="px-3 py-1.5 bg-slate-950 border-b border-slate-900 flex items-center gap-1 overflow-x-auto shrink-0 text-[11px]">
+    <button type="button" onclick="selectCompanionAgent(null)" id="comp-agent-default" class="px-2 py-0.5 rounded-full font-bold bg-amber-500/25 text-amber-300 border border-amber-400/50 whitespace-nowrap">👨‍🚀 Geppy + Crew</button>
+    <button type="button" onclick="selectCompanionAgent('design-architect')" id="comp-agent-design-architect" class="px-2 py-0.5 rounded-full bg-slate-900 text-slate-300 border border-slate-800 whitespace-nowrap">🎨 @design</button>
+    <button type="button" onclick="selectCompanionAgent('system-architect')" id="comp-agent-system-architect" class="px-2 py-0.5 rounded-full bg-slate-900 text-slate-300 border border-slate-800 whitespace-nowrap">🏗️ @arch</button>
+    <button type="button" onclick="selectCompanionAgent('qa-reliability')" id="comp-agent-qa-reliability" class="px-2 py-0.5 rounded-full bg-slate-900 text-slate-300 border border-slate-800 whitespace-nowrap">🛡️ @qa</button>
+    <button type="button" onclick="selectCompanionAgent('product-strategy')" id="comp-agent-product-strategy" class="px-2 py-0.5 rounded-full bg-slate-900 text-slate-300 border border-slate-800 whitespace-nowrap">🚀 @strategy</button>
+    <button type="button" onclick="selectCompanionAgent('social-media')" id="comp-agent-social-media" class="px-2 py-0.5 rounded-full bg-slate-900 text-slate-300 border border-slate-800 whitespace-nowrap">📣 @social</button>
+    <button type="button" onclick="selectCompanionAgent('docs-manual')" id="comp-agent-docs-manual" class="px-2 py-0.5 rounded-full bg-slate-900 text-slate-300 border border-slate-800 whitespace-nowrap">📖 @docs</button>
+  </div>
+
+  <!-- Antigravity Error Diagnostic & In-Chat Reply Banner -->
+  <div id="comp-ag-error-banner" class="hidden mx-3 mt-2 p-2.5 rounded-xl border-2 border-rose-500/80 bg-gradient-to-b from-rose-950/90 to-slate-950 text-xs shrink-0 shadow-lg">
+    <div class="flex items-center justify-between gap-2 mb-1">
+      <div class="font-extrabold text-rose-300 flex items-center gap-1.5 truncate">
+        <span>⚠️</span>
+        <span id="comp-ag-err-title">Antigravity Error Detected</span>
+      </div>
+      <button type="button" onclick="dismissCompanionAgError()" class="px-1.5 py-0.5 rounded bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-[10px]">✕ Dismiss</button>
+    </div>
+    <div class="space-y-1.5 mb-2">
+      <div class="p-1.5 rounded bg-slate-950/80 border border-rose-500/30">
+        <div class="text-[9px] font-bold uppercase text-rose-300">What the Error Is:</div>
+        <div id="comp-ag-err-what" class="text-[11px] text-slate-200 leading-snug"></div>
+      </div>
+      <div class="p-1.5 rounded bg-emerald-950/50 border border-emerald-500/30">
+        <div class="text-[9px] font-bold uppercase text-emerald-300">What Needs to Be Done:</div>
+        <div id="comp-ag-err-todo" class="text-[11px] text-emerald-100 leading-snug"></div>
+      </div>
+    </div>
+    <div id="comp-ag-err-actions" class="flex flex-wrap gap-1 mb-2"></div>
+    <div class="flex items-center gap-1.5">
+      <input type="text" id="comp-ag-err-input" placeholder="Reply or instruct Antigravity how to fix..." class="flex-1 bg-slate-950 border border-rose-500/40 rounded-lg px-2.5 py-1 text-[11px] text-white focus:outline-none focus:border-amber-400" onkeydown="if(event.key==='Enter'){event.preventDefault();submitCompanionAgErrorReply();}" />
+      <button type="button" onclick="submitCompanionAgErrorReply()" class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-rose-600 text-white font-bold text-[11px] shrink-0">Reply to AG</button>
+    </div>
+  </div>
+
+  <!-- Chat Messages Stream -->
+  <main id="comp-chat-messages" class="flex-1 overflow-y-auto p-3 space-y-3 text-xs">
+    <div class="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-950/70 via-slate-900 to-amber-950/40 border border-indigo-500/30 space-y-2">
+      <div class="flex items-center gap-2">
+        <span class="text-base">👨‍🚀</span>
+        <span class="font-bold text-amber-300 text-xs">Geppy Standalone Tray Companion</span>
+      </div>
+      <p class="text-[11px] text-slate-300 leading-relaxed">
+        I'm running as your standalone companion app from the system tray! Keep this window beside whatever you're designing:
+      </p>
+      <ul class="text-[11px] text-slate-400 space-y-1 list-disc list-inside">
+        <li>Click <strong class="text-cyan-300">📺 Stream Screen</strong> so I can see GitBridge, Galactic, or any app you're working on.</li>
+        <li>Click <strong class="text-amber-300">🎙️ Voice Chat</strong> to talk hands-free — I'll consult <code class="text-fuchsia-300">@design</code>, <code class="text-cyan-300">@arch</code>, <code class="text-emerald-300">@qa</code>, and <code class="text-violet-300">@strategy</code> and speak back to you.</li>
+        <li>Any <strong class="text-rose-300">Antigravity errors</strong> appear right here with what happened, what needs to be done, and an in-chat reply box.</li>
+      </ul>
+    </div>
+  </main>
+
+  <!-- Bottom Input Bar -->
+  <footer class="p-2.5 bg-slate-900/95 border-t border-slate-800 shrink-0">
+    <form onsubmit="event.preventDefault(); sendCompanionChat();" class="flex items-center gap-2">
+      <div class="flex-1 relative">
+        <input type="text" id="comp-chat-input" placeholder="Talk or type to Geppy, @design, @arch, @crew, or Antigravity..." class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-3 pr-9 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400" />
+        <button type="button" onclick="toggleCompanionVoiceChat()" id="btn-input-mic" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-300 text-sm" title="Toggle Voice Microphone">
+          <i class="fa-solid fa-microphone"></i>
+        </button>
+      </div>
+      <button type="submit" id="btn-comp-send" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-indigo-600 to-cyan-600 hover:from-amber-400 hover:to-cyan-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 transition flex items-center gap-1.5 shrink-0">
+        <i class="fa-solid fa-paper-plane"></i>
+        <span>Send</span>
+      </button>
+    </form>
+  </footer>
+
+  <script>
+    let companionAppSlug = '';
+    let companionAgentId = null;
+    let companionHistory = [];
+
+    let compStreamActive = false;
+    let compMediaStream = null;
+    let compVideoEl = null;
+    let compCanvasEl = null;
+    let compStreamTimer = null;
+    let compFrameCount = 0;
+    let compLastFrameB64 = null;
+
+    let compVoiceActive = false;
+    let compConsultCrew = true;
+    let compTtsActive = true;
+    let compSpeechRec = null;
+    let compIsSpeaking = false;
+
+    let compActiveAgError = null;
+    const compSeenErrorIds = new Set();
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    async function loadCompanionApps() {
+      try {
+        const res = await fetch('/api/apps');
+        if (!res.ok) return;
+        const apps = await res.json();
+        const sel = document.getElementById('companion-app-select');
+        if (!sel || !Array.isArray(apps)) return;
+        const current = sel.value;
+        sel.innerHTML = '<option value="">🌌 All Apps / Global</option>' +
+          apps.filter(a => !a.is_hidden).map(a =>
+            `<option value="${escapeHtml(a.slug)}">${escapeHtml(a.name || a.slug)}</option>`
+          ).join('');
+        const params = new URLSearchParams(window.location.search);
+        const urlApp = params.get('app') || current;
+        if (urlApp) {
+          sel.value = urlApp;
+          companionAppSlug = urlApp;
+        }
+      } catch (e) {}
+    }
+
+    function onCompanionAppChange() {
+      const sel = document.getElementById('companion-app-select');
+      companionAppSlug = sel ? sel.value : '';
+    }
+
+    function selectCompanionAgent(agentId) {
+      companionAgentId = agentId || null;
+      const ids = ['default', 'design-architect', 'system-architect', 'qa-reliability', 'product-strategy', 'social-media', 'docs-manual'];
+      ids.forEach(id => {
+        const el = document.getElementById(`comp-agent-${id}`);
+        if (!el) return;
+        const active = (id === 'default' && !companionAgentId) || (id === companionAgentId);
+        el.className = active
+          ? 'px-2 py-0.5 rounded-full font-bold bg-amber-500/25 text-amber-300 border border-amber-400/50 whitespace-nowrap'
+          : 'px-2 py-0.5 rounded-full bg-slate-900 text-slate-300 border border-slate-800 whitespace-nowrap';
+      });
+    }
+
+    function updateCompanionUI() {
+      const btnStream = document.getElementById('btn-comp-stream');
+      const lblStream = document.getElementById('lbl-comp-stream');
+      const previewBar = document.getElementById('comp-stream-preview-bar');
+      if (compStreamActive) {
+        btnStream.className = 'px-3 py-2 rounded-xl bg-cyan-600/30 text-cyan-100 border-2 border-cyan-400 font-bold text-xs flex items-center justify-center gap-2 transition shadow-md shadow-cyan-500/20';
+        lblStream.textContent = 'Streaming Screen (LIVE)';
+        previewBar.classList.remove('hidden');
+        previewBar.classList.add('flex');
+      } else {
+        btnStream.className = 'px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 font-bold text-xs flex items-center justify-center gap-2 transition shadow-sm';
+        lblStream.textContent = 'Stream Screen';
+      }
+
+      const btnVoice = document.getElementById('btn-comp-voice');
+      const lblVoice = document.getElementById('lbl-comp-voice');
+      const btnInputMic = document.getElementById('btn-input-mic');
+      if (compVoiceActive) {
+        btnVoice.className = 'px-3 py-2 rounded-xl bg-amber-500/30 text-amber-100 border-2 border-amber-400 font-bold text-xs flex items-center justify-center gap-2 transition voice-pulse';
+        lblVoice.textContent = 'Listening (Voice ON)';
+        if (btnInputMic) btnInputMic.className = 'absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-400 animate-pulse text-sm';
+      } else {
+        btnVoice.className = 'px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 font-bold text-xs flex items-center justify-center gap-2 transition shadow-sm';
+        lblVoice.textContent = 'Voice Chat';
+        if (btnInputMic) btnInputMic.className = 'absolute right-2.5 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-300 text-sm';
+      }
+
+      const btnConsult = document.getElementById('btn-comp-consult');
+      const lblConsult = document.getElementById('lbl-comp-consult');
+      if (btnConsult && lblConsult) {
+        lblConsult.textContent = `Consult Crew: ${compConsultCrew ? 'ON' : 'OFF'}`;
+        btnConsult.className = compConsultCrew
+          ? 'px-2.5 py-1 rounded-lg bg-fuchsia-950/80 text-fuchsia-200 border border-fuchsia-500/40 font-semibold transition flex items-center gap-1'
+          : 'px-2.5 py-1 rounded-lg bg-slate-900 text-slate-400 border border-slate-800 font-semibold transition flex items-center gap-1';
+      }
+
+      const btnTts = document.getElementById('btn-comp-tts');
+      if (btnTts) {
+        btnTts.textContent = `🔊 TTS: ${compTtsActive ? 'ON' : 'OFF'}`;
+        btnTts.className = compTtsActive
+          ? 'px-2 py-1 rounded-lg bg-slate-900 text-emerald-300 border border-emerald-500/30 font-semibold transition'
+          : 'px-2 py-1 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 font-semibold transition';
+      }
+    }
+
+    // --- Live Screen Streaming ---
+    async function captureCompanionStreamFrame() {
+      if (!compStreamActive) return compLastFrameB64 || null;
+      if (compVideoEl && compVideoEl.readyState >= 2) {
+        try {
+          if (!compCanvasEl) compCanvasEl = document.createElement('canvas');
+          const vw = compVideoEl.videoWidth || 1280;
+          const vh = compVideoEl.videoHeight || 720;
+          const scale = Math.min(1, 1280 / Math.max(vw, 1));
+          compCanvasEl.width = Math.round(vw * scale);
+          compCanvasEl.height = Math.round(vh * scale);
+          const ctx = compCanvasEl.getContext('2d');
+          ctx.drawImage(compVideoEl, 0, 0, compCanvasEl.width, compCanvasEl.height);
+          const b64 = compCanvasEl.toDataURL('image/jpeg', 0.72);
+          compLastFrameB64 = b64;
+          return b64;
+        } catch (e) {}
+      }
+      return compLastFrameB64;
+    }
+
+    async function pushCompanionFrameTick() {
+      if (!compStreamActive) return;
+      const frameB64 = await captureCompanionStreamFrame();
+      if (!frameB64) return;
+      compFrameCount += 1;
+      const img = document.getElementById('comp-stream-img');
+      if (img) img.src = frameB64;
+      const meta = document.getElementById('comp-stream-meta');
+      if (meta) meta.textContent = `Frame #${compFrameCount} • Live Vision Connected`;
+      try {
+        await fetch('/api/live-stream/frame', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source: 'gitbridge',
+            frame_b64: frameB64,
+            app_slug: companionAppSlug || null,
+            page_title: `Geppy Companion Screen Stream (${companionAppSlug || 'Global'})`
+          })
+        });
+      } catch (e) {}
+    }
+
+    async function toggleCompanionScreenStream() {
+      if (compStreamActive) {
+        compStreamActive = false;
+        if (compStreamTimer) { clearInterval(compStreamTimer); compStreamTimer = null; }
+        if (compMediaStream) {
+          try { compMediaStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+          compMediaStream = null;
+        }
+        try {
+          await fetch('/api/live-stream/stop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'gitbridge' })
+          });
+        } catch (e) {}
+        document.getElementById('comp-voice-status').textContent = 'Screen stream stopped.';
+        updateCompanionUI();
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always', frameRate: { ideal: 2, max: 5 } },
+          audio: false
+        });
+        compMediaStream = stream;
+        if (!compVideoEl) {
+          compVideoEl = document.createElement('video');
+          compVideoEl.muted = true;
+          compVideoEl.playsInline = true;
+        }
+        compVideoEl.srcObject = stream;
+        await compVideoEl.play();
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          track.onended = () => { if (compStreamActive) toggleCompanionScreenStream(); };
+        }
+        compStreamActive = true;
+        compFrameCount = 0;
+        updateCompanionUI();
+        document.getElementById('comp-voice-status').textContent = '📺 Live streaming screen to Geppy & Crew!';
+        await pushCompanionFrameTick();
+        compStreamTimer = setInterval(pushCompanionFrameTick, 2500);
+      } catch (e) {
+        document.getElementById('comp-voice-status').textContent = 'Select a screen/window to share when prompted.';
+      }
+    }
+
+    // --- Voice Chat + Gemini AI Voice TTS ---
+    let compCurrentAudio = null;
+
+    function stopCompanionSpeaking() {
+      if (compCurrentAudio) {
+        try {
+          compCurrentAudio.pause();
+          compCurrentAudio.currentTime = 0;
+        } catch (e) {}
+        compCurrentAudio = null;
+      }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      compIsSpeaking = false;
+    }
+
+    async function speakCompanionText(text, precomputedAudioUrl = null) {
+      if (!text && !precomputedAudioUrl) return;
+      stopCompanionSpeaking();
+
+      const clean = String(text || '')
+        .replace(/```[\s\S]*?```/g, 'I have placed the code details in the chat window.')
+        .replace(/[*#_`~>-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 620);
+
+      const statusEl = document.getElementById('comp-voice-status');
+      let wavUrl = precomputedAudioUrl || null;
+
+      if (!wavUrl && clean) {
+        try {
+          if (statusEl) statusEl.textContent = '🎙️ Synthesizing Captain Geppy AI Voice...';
+          const res = await fetch('/api/geppy/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: clean, voice_name: 'Puck', persona: 'Captain Geppy' })
+          });
+          if (res.ok) {
+            const ttsData = await res.json();
+            if (ttsData && ttsData.audio_data_url) {
+              wavUrl = ttsData.audio_data_url;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (wavUrl) {
+        try {
+          const audio = new Audio(wavUrl);
+          compCurrentAudio = audio;
+          compIsSpeaking = true;
+          if (statusEl) statusEl.textContent = '🔊 Captain Geppy speaking (AI Voice)...';
+          audio.onended = () => {
+            compIsSpeaking = false;
+            compCurrentAudio = null;
+            if (statusEl) statusEl.textContent = compVoiceActive ? '🎙️ Listening for your voice...' : 'Ready';
+          };
+          audio.onerror = () => {
+            compIsSpeaking = false;
+            compCurrentAudio = null;
+          };
+          await audio.play();
+          return;
+        } catch (e) {
+          compIsSpeaking = false;
+          compCurrentAudio = null;
+        }
+      }
+
+      if (!clean || !('speechSynthesis' in window)) return;
+      try {
+        const utter = new SpeechSynthesisUtterance(clean);
+        utter.rate = 1.04;
+        utter.onstart = () => {
+          compIsSpeaking = true;
+          if (statusEl) statusEl.textContent = '🔊 Geppy speaking...';
+        };
+        utter.onend = () => {
+          compIsSpeaking = false;
+          if (statusEl) statusEl.textContent = compVoiceActive ? '🎙️ Listening for your voice...' : 'Ready';
+        };
+        utter.onerror = () => { compIsSpeaking = false; };
+        window.speechSynthesis.speak(utter);
+      } catch (e) {}
+    }
+
+    function toggleCompanionConsultCrew() {
+      compConsultCrew = !compConsultCrew;
+      updateCompanionUI();
+    }
+
+    function toggleCompanionTTS() {
+      compTtsActive = !compTtsActive;
+      if (!compTtsActive) stopCompanionSpeaking();
+      updateCompanionUI();
+    }
+
+    function toggleCompanionVoiceChat() {
+      if (compVoiceActive) {
+        compVoiceActive = false;
+        if (compSpeechRec) {
+          try { compSpeechRec.stop(); } catch (e) {}
+          compSpeechRec = null;
+        }
+        document.getElementById('comp-voice-status').textContent = 'Voice chat paused.';
+        updateCompanionUI();
+        return;
+      }
+
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        appendCompanionMessage('ai', '⚠️ Browser speech recognition is unavailable in this window. You can type below and I will still speak replies aloud!');
+        return;
+      }
+
+      const rec = new SpeechRec();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+      const statusEl = document.getElementById('comp-voice-status');
+
+      rec.onstart = () => {
+        if (statusEl) statusEl.textContent = '🎙️ Listening... Talk to Geppy & Crew!';
+      };
+      rec.onresult = (event) => {
+        if (compIsSpeaking) return;
+        let interim = '';
+        let finalText = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const t = event.results[i][0].transcript;
+          if (event.results[i].isFinal) finalText += t;
+          else interim += t;
+        }
+        if (interim && statusEl) {
+          statusEl.textContent = `🎙️ "${interim.slice(0, 55)}..."`;
+        }
+        if (finalText && finalText.trim()) {
+          const spoken = finalText.trim();
+          if (statusEl) statusEl.textContent = `🤝 Consulting Crew on: "${spoken.slice(0, 45)}..."`;
+          sendCompanionChat(spoken, true);
+        }
+      };
+      rec.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          compVoiceActive = false;
+          updateCompanionUI();
+          if (statusEl) statusEl.textContent = '⚠️ Microphone permission denied.';
+        }
+      };
+      rec.onend = () => {
+        if (compVoiceActive) {
+          setTimeout(() => {
+            if (compVoiceActive && compSpeechRec) {
+              try { compSpeechRec.start(); } catch (e) {}
+            }
+          }, 300);
+        }
+      };
+
+      compSpeechRec = rec;
+      compVoiceActive = true;
+      updateCompanionUI();
+      try { rec.start(); } catch (e) {}
+    }
+
+    // --- Chat & Crew Consultation ---
+    function appendCompanionMessage(sender, text, meta = null) {
+      const container = document.getElementById('comp-chat-messages');
+      if (!container) return;
+      const div = document.createElement('div');
+      if (sender === 'user') {
+        div.className = 'p-3 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-100 ml-8 text-right text-xs';
+        div.innerHTML = escapeHtml(text);
+      } else {
+        const agent = meta && meta.agent ? meta.agent : null;
+        const name = agent ? agent.name : 'Captain Geppy';
+        const role = agent ? (agent.role || agent.handle || 'Specialist') : (compConsultCrew ? 'Commander + Crew' : 'Galactic Commander');
+        const icon = agent ? (agent.icon || '🤖') : '👨‍🚀';
+
+        let badges = '';
+        if (meta && meta.watchdog_healed) {
+          badges += `<div class="mb-2"><span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-500/40">🛡️ Aegis Watchdog Self-Healed</span></div>`;
+        }
+        if (meta && Array.isArray(meta.consulted_agents) && meta.consulted_agents.length > 0) {
+          badges += `<div class="flex flex-wrap gap-1 mb-2">${meta.consulted_agents.map(a => `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-fuchsia-950/90 text-fuchsia-200 border border-fuchsia-500/40">${escapeHtml(a.icon || '🤖')} ${escapeHtml(a.name || a.handle || '')}</span>`).join('')}</div>`;
+        }
+        if (meta && meta.live_stream_seen && (meta.live_stream_seen.is_streaming || meta.live_stream_seen.streaming)) {
+          badges += `<div class="mb-2"><span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-cyan-950/90 text-cyan-300 border border-cyan-500/40">📺 Live Screen Seen (${(meta.live_stream_seen.active_sources || []).join(' + ') || 'Active'})</span></div>`;
+        }
+
+        const spokenPayload = JSON.stringify((meta && meta.spoken_reply) || text || '').replace(/"/g, '&quot;');
+        const audioUrlPayload = JSON.stringify((meta && meta.audio_data_url) || null).replace(/"/g, '&quot;');
+        div.className = 'p-3.5 rounded-2xl bg-slate-900/95 border border-slate-800 text-slate-200 mr-4 prose prose-invert max-w-none text-xs';
+        div.innerHTML = `
+          <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-800 not-prose">
+            <div class="flex items-center gap-1.5">
+              <span>${icon}</span>
+              <span class="font-bold text-amber-300 text-xs">${escapeHtml(name)}</span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">${escapeHtml(role)}</span>
+            </div>
+            <button type="button" onclick="speakCompanionText(${spokenPayload}, ${audioUrlPayload})" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 text-[10px] border border-amber-500/30">🔊 Speak (AI Voice)</button>
+          </div>
+          ${badges}
+          ${marked.parse(text || '')}
+        `;
+      }
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    async function sendCompanionChat(overrideText = null, fromVoice = false) {
+      const input = document.getElementById('comp-chat-input');
+      const prompt = (overrideText !== null ? overrideText : (input ? input.value : '')).trim();
+      if (!prompt) return;
+      if (input && overrideText === null) input.value = '';
+
+      appendCompanionMessage('user', fromVoice ? `🎙️ ${prompt}` : prompt);
+      companionHistory.push({ sender: 'user', text: prompt });
+
+      const sendBtn = document.getElementById('btn-comp-send');
+      if (sendBtn) sendBtn.disabled = true;
+
+      try {
+        const frameB64 = await captureCompanionStreamFrame();
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: prompt,
+            app_slug: companionAppSlug || null,
+            agent_id: companionAgentId || null,
+            history: companionHistory,
+            screen_frame_b64: frameB64 || null,
+            voice_mode: Boolean(fromVoice || compVoiceActive),
+            include_audio: Boolean(compTtsActive || fromVoice || compVoiceActive),
+            consult_crew: Boolean(compConsultCrew)
+          })
+        });
+        const rawText = await res.text();
+        let data = null;
+        try {
+          data = JSON.parse(rawText);
+        } catch (parseErr) {
+          try {
+            const reportRes = await fetch('/api/extension/antigravity/report-error', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                source: 'companion_chat_watchdog',
+                slug: companionAppSlug || 'global',
+                error_message: `Non-JSON HTTP ${res.status}: ${rawText.slice(0, 240)}`,
+                instruction: prompt
+              })
+            });
+            const repData = await reportRes.json();
+            if (repData && repData.error) showCompanionAgError(repData.error, false);
+          } catch (e2) {}
+          data = {
+            text: `👨‍🚀 **Captain Geppy online!** The Aegis Watchdog intercepted a server hiccup (\`HTTP ${res.status}\`) and self-healed the channel. How can the Crew and I help you right now?`,
+            spoken_reply: 'Captain Geppy online! Watchdog self-healed a brief server hiccup. How can the Crew and I help you right now?',
+            watchdog_healed: true
+          };
+        }
+        appendCompanionMessage('ai', data.text || 'Ready.', data);
+        companionHistory.push({ sender: 'ai', text: data.text || '' });
+
+        if (compTtsActive || fromVoice || compVoiceActive || data.audio_data_url) {
+          speakCompanionText(data.spoken_reply || data.text || '', data.audio_data_url || null);
+        }
+        if (data.watchdog_error) {
+          showCompanionAgError(data.watchdog_error, false);
+        } else if (data.antigravity_error) {
+          showCompanionAgError(data.antigravity_error, false);
+        }
+      } catch (e) {
+        appendCompanionMessage('ai', `🛡️ **Aegis Watchdog Notice:** Connection interrupted (${e.message || e}). Click Retry or speak again.`);
+      } finally {
+        if (sendBtn) sendBtn.disabled = false;
+      }
+    }
+
+    async function askCrewWhatTheySeeNow() {
+      const prompt = 'Look at our live screen stream across GitBridge and Galactic (and any active Antigravity status). Consult with the relevant specialists (@design, @arch, @qa, @strategy) and tell me what you see and what we should do next.';
+      await sendCompanionChat(prompt, compVoiceActive);
+    }
+
+    // --- Antigravity Error Receiver & Responder ---
+    function showCompanionAgError(err, postInChat = true) {
+      if (!err) return;
+      compActiveAgError = err;
+      const banner = document.getElementById('comp-ag-error-banner');
+      if (banner) {
+        banner.classList.remove('hidden');
+        document.getElementById('comp-ag-err-title').textContent = err.title || 'Antigravity Issue';
+        document.getElementById('comp-ag-err-what').textContent = err.what_is_the_error || err.raw_error || '';
+        document.getElementById('comp-ag-err-todo').textContent = err.what_needs_done || '';
+        const actionsEl = document.getElementById('comp-ag-err-actions');
+        const replies = Array.isArray(err.suggested_replies) ? err.suggested_replies : [];
+        actionsEl.innerHTML = replies.map(r => {
+          const repText = JSON.stringify(r.reply || r.response || r.label || 'Retry').replace(/"/g, '&quot;');
+          const actText = JSON.stringify(r.action || 'rotate_and_retry').replace(/"/g, '&quot;');
+          return `<button type="button" onclick="sendCompanionAgReply(${repText}, ${actText})" class="px-2 py-1 rounded-lg bg-rose-900/70 hover:bg-amber-500 text-rose-100 hover:text-slate-950 font-bold text-[10px] border border-rose-400/50 transition">⚡ ${escapeHtml(r.label || 'Retry')}</button>`;
+        }).join('');
+      }
+      if (postInChat) {
+        const md = `**⚠️ ${err.title || 'Antigravity Error'}**\n\n- **What the error is:** ${err.what_is_the_error || err.raw_error}\n- **What needs to be done:** ${err.what_needs_done || 'Reply below to guide Antigravity.'}`;
+        const spoken = `Heads up! Antigravity reported an issue: ${err.title || ''}. ${err.what_is_the_error || ''} ${err.what_needs_done || ''}`;
+        appendCompanionMessage('ai', md, {
+          agent: { name: 'Antigravity Sentinel', role: 'Port 8001 Error Bridge', icon: '⚛️' },
+          spoken_reply: spoken
+        });
+        if (compTtsActive || compVoiceActive) {
+          speakCompanionText(spoken);
+        }
+      }
+    }
+
+    async function dismissCompanionAgError() {
+      document.getElementById('comp-ag-error-banner').classList.add('hidden');
+      try {
+        await fetch('/api/extension/antigravity/errors/clear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+      } catch (e) {}
+    }
+
+    async function sendCompanionAgReply(replyText, action = 'rotate_and_retry') {
+      const err = compActiveAgError || {};
+      const text = (replyText || '').trim();
+      if (!text) return;
+      appendCompanionMessage('user', `↩️ [To Antigravity]: ${text}`);
+      try {
+        const res = await fetch('/api/extension/antigravity/respond', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            error_id: err.id || null,
+            user_response: text,
+            response_text: text,
+            action: action,
+            slug: err.slug || companionAppSlug || null,
+            file_path: err.target_file || null,
+            original_instruction: err.instruction || ''
+          })
+        });
+        const data = await res.json();
+        const msg = data.message || data.text || 'Antigravity processed your instruction.';
+        appendCompanionMessage('ai', msg, {
+          agent: { name: 'Antigravity Recovery', role: data.rotated_to_model || 'Port 8001', icon: '🛠️' },
+          spoken_reply: data.spoken_reply || msg
+        });
+        if (data.ok || data.status === 'success') {
+          document.getElementById('comp-ag-error-banner').classList.add('hidden');
+        }
+        if (compTtsActive || compVoiceActive) {
+          speakCompanionText(data.spoken_reply || msg);
+        }
+      } catch (e) {
+        appendCompanionMessage('ai', `Failed to send reply to Antigravity: ${e}`);
+      }
+    }
+
+    function submitCompanionAgErrorReply() {
+      const inp = document.getElementById('comp-ag-err-input');
+      if (!inp || !inp.value.trim()) return;
+      const val = inp.value.trim();
+      inp.value = '';
+      sendCompanionAgReply(val, 'reply');
+    }
+
+    // Poll Antigravity errors & shared stream status
+    setInterval(async () => {
+      try {
+        const [errRes, streamRes] = await Promise.all([
+          fetch('/api/extension/antigravity/errors?unresolved_only=true&limit=3'),
+          fetch('/api/live-stream/status')
+        ]);
+        if (errRes.ok) {
+          const errData = await errRes.json();
+          const latest = errData && (errData.latest_unresolved || errData.latest_error);
+          if (latest && latest.status === 'open' && latest.id && !compSeenErrorIds.has(latest.id)) {
+            compSeenErrorIds.add(latest.id);
+            showCompanionAgError(latest, true);
+          }
+        }
+        if (streamRes.ok) {
+          const st = await streamRes.json();
+          const previewBar = document.getElementById('comp-stream-preview-bar');
+          const titleEl = document.getElementById('comp-stream-title');
+          const metaEl = document.getElementById('comp-stream-meta');
+          if (st && (st.is_streaming || st.streaming)) {
+            previewBar.classList.remove('hidden');
+            previewBar.classList.add('flex');
+            const sources = (st.active_sources || []).join(' + ').toUpperCase();
+            if (titleEl) titleEl.textContent = `🟢 LIVE VISION: ${sources || 'ACTIVE'}`;
+            if (!compStreamActive && st.streams) {
+              const gal = st.streams.galactic || st.streams.gitbridge;
+              if (gal && gal.frame_b64) {
+                const img = document.getElementById('comp-stream-img');
+                if (img) img.src = gal.frame_b64;
+              }
+              if (metaEl) metaEl.textContent = 'Receiving live stream from ' + (sources || 'Galactic');
+            }
+          } else if (!compStreamActive) {
+            previewBar.classList.add('hidden');
+            previewBar.classList.remove('flex');
+          }
+        }
+      } catch (e) {}
+    }, 2800);
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadCompanionApps();
+      updateCompanionUI();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('voice') === '1') {
+        setTimeout(() => toggleCompanionVoiceChat(), 400);
+      }
+      if (params.get('stream') === '1') {
+        setTimeout(() => toggleCompanionScreenStream(), 500);
+      }
+    });
+  </script>
+</body>
+</html>

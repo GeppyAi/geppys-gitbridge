@@ -148,22 +148,61 @@ class CentralKeyService:
         }
 
     @staticmethod
+    def _parse_b64_image_part(b64_or_data_url: str) -> Optional[Dict[str, Any]]:
+        """Convert a base64 string or data:image/...;base64,... URL into a Gemini inlineData part."""
+        if not b64_or_data_url or not isinstance(b64_or_data_url, str):
+            return None
+        raw = b64_or_data_url.strip()
+        mime_type = "image/jpeg"
+        if raw.startswith("data:"):
+            try:
+                header, b64_data = raw.split(",", 1)
+                if "image/png" in header:
+                    mime_type = "image/png"
+                elif "image/webp" in header:
+                    mime_type = "image/webp"
+                raw = b64_data.strip()
+            except ValueError:
+                return None
+        if len(raw) < 32:
+            return None
+        return {
+            "inlineData": {
+                "mimeType": mime_type,
+                "data": raw
+            }
+        }
+
+    @staticmethod
     def call_gemini(
         messages: List[Dict[str, Any]],
         system_instruction: str,
         timeout: int = 25,
         model_preference: Optional[str] = None,
         json_mode: bool = False,
-        max_output_tokens: int = 8192
+        max_output_tokens: int = 8192,
+        images_b64: Optional[List[str]] = None
     ) -> Optional[str]:
         """
         Execute a Gemini generation call using the central key with automatic model fallback.
-        Supports structured JSON mode and configurable token limits.
+        Supports structured JSON mode, configurable token limits, and multimodal image attachments (e.g. live screen streams).
         """
         api_key = CentralKeyService.get_api_key()
         if not api_key:
             print("[CentralKeyService] call_gemini aborted: No central API key available.")
             return None
+
+        # Deep-copy messages if we are attaching multimodal images so caller list is not mutated
+        prepared_messages = []
+        for m in messages:
+            parts_copy = list(m.get("parts", []))
+            prepared_messages.append({"role": m.get("role", "user"), "parts": parts_copy})
+
+        if images_b64 and prepared_messages:
+            for img_str in images_b64[:4]:
+                part = CentralKeyService._parse_b64_image_part(img_str)
+                if part:
+                    prepared_messages[-1]["parts"].append(part)
 
         models_to_try = [model_preference] if model_preference and model_preference in SUPPORTED_GEMINI_MODELS else []
         for m in SUPPORTED_GEMINI_MODELS:
@@ -180,7 +219,7 @@ class CentralKeyService:
                     generation_config["responseMimeType"] = "application/json"
 
                 payload = {
-                    "contents": messages,
+                    "contents": prepared_messages,
                     "systemInstruction": {"parts": [{"text": system_instruction}]},
                     "generationConfig": generation_config
                 }
@@ -199,6 +238,119 @@ class CentralKeyService:
                 continue
 
         return None
+
+    _tts_cache: Dict[str, str] = {}
+
+    @classmethod
+    def synthesize_speech_wav_b64(
+        cls,
+        text: str,
+        voice_name: str = "Puck",
+        persona: str = "Captain Geppy",
+        timeout: int = 14,
+    ) -> Dict[str, Any]:
+        """
+        Synthesize expressive natural AI voice audio for Captain Geppy / Geppy using
+        Gemini's native TTS model (`gemini-2.5-flash-preview-tts`).
+        Converts the returned 24kHz 16-bit mono PCM stream into a standard WAV data URL
+        (`data:audio/wav;base64,...`) ready for immediate `<audio>` playback in the browser.
+        """
+        import base64
+        import io
+        import wave
+
+        api_key = cls.get_api_key()
+        if not api_key:
+            return {"ok": False, "error": "No Gemini API key configured in Central Vault."}
+
+        clean = str(text or "")
+        clean = re.sub(r"```[\s\S]*?```", " I've shared the code details in the chat window. ", clean)
+        clean = re.sub(r"`([^`]+)`", r"\1", clean)
+        clean = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", clean)
+        clean = re.sub(r"(?m)^\s*#{1,6}\s*", "", clean)
+        clean = re.sub(r"[\*_~]{1,3}", "", clean)
+        clean = re.sub(r"[\U00010000-\U0010ffff]", "", clean)
+        clean = re.sub(r"[\u2600-\u27BF]", "", clean)
+        clean = re.sub(r"\s+", " ", clean).strip()[:580]
+
+        if not clean:
+            return {"ok": False, "error": "Empty text for speech synthesis."}
+
+        voice = (voice_name or "Puck").strip()
+        cache_key = f"{voice}::{clean}"
+        if cache_key in cls._tts_cache:
+            return {
+                "ok": True,
+                "audio_data_url": cls._tts_cache[cache_key],
+                "voice": voice,
+                "model": "gemini-2.5-flash-preview-tts",
+                "cached": True,
+            }
+
+        tts_models = ["gemini-2.5-flash-preview-tts", "gemini-2.5-flash-tts"]
+        prompt_text = f"Say in an upbeat, warm, confident, friendly {persona} voice: {clean}"
+
+        for tts_model in tts_models:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{tts_model}:generateContent?key={api_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt_text}]}],
+                    "generationConfig": {
+                        "responseModalities": ["AUDIO"],
+                        "speechConfig": {
+                            "voiceConfig": {
+                                "prebuiltVoiceConfig": {
+                                    "voiceName": voice
+                                }
+                            }
+                        }
+                    }
+                }
+                res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=timeout)
+                if res.status_code == 200:
+                    data = res.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        for p in parts:
+                            inline = p.get("inlineData") or p.get("inline_data")
+                            if inline and inline.get("data"):
+                                raw_b64 = inline["data"]
+                                mime = (inline.get("mimeType") or inline.get("mime_type") or "").lower()
+                                if "wav" in mime or "mp3" in mime or "ogg" in mime:
+                                    data_url = f"data:{mime};base64,{raw_b64}"
+                                else:
+                                    pcm_bytes = base64.b64decode(raw_b64)
+                                    rate = 24000
+                                    m_rate = re.search(r"rate=(\d+)", mime)
+                                    if m_rate:
+                                        rate = int(m_rate.group(1))
+                                    buf = io.BytesIO()
+                                    with wave.open(buf, "wb") as wf:
+                                        wf.setnchannels(1)
+                                        wf.setsampwidth(2)
+                                        wf.setframerate(rate)
+                                        wf.writeframes(pcm_bytes)
+                                    wav_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+                                    data_url = f"data:audio/wav;base64,{wav_b64}"
+
+                                if len(cls._tts_cache) > 60:
+                                    cls._tts_cache.pop(next(iter(cls._tts_cache)), None)
+                                cls._tts_cache[cache_key] = data_url
+                                return {
+                                    "ok": True,
+                                    "audio_data_url": data_url,
+                                    "voice": voice,
+                                    "model": tts_model,
+                                    "cached": False,
+                                }
+                else:
+                    print(f"[CentralKeyService] TTS model {tts_model} HTTP {res.status_code}: {res.text[:180]}")
+            except Exception as e:
+                print(f"[CentralKeyService] TTS exception on {tts_model}: {e}")
+                continue
+
+        return {"ok": False, "error": "AI voice synthesis unavailable; using browser voice fallback."}
 
     @staticmethod
     def sync_all_apps(api_key: Optional[str] = None) -> Dict[str, Any]:

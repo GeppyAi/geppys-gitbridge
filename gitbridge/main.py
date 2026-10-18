@@ -1,12 +1,14 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
 import re
 import time
+import asyncio
+import traceback
 
 from gitbridge.db.database import get_db, init_db
 from gitbridge.db.models import AppProfileModel, MediaAssetModel, DocManualModel
@@ -35,6 +37,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(Exception)
+async def global_watchdog_exception_handler(request: Request, exc: Exception):
+    """
+    Aegis Watchdog Global Exception Guard:
+    Ensures unhandled backend exceptions NEVER return plain-text 'Internal Server Error'
+    (which causes 'SyntaxError: Unexpected token I, "Internal S"... is not valid JSON' in the frontend),
+    and instead records the diagnosis in AntigravityDaemonPool and returns structured JSON with a correction offer.
+    """
+    tb_str = traceback.format_exc()
+    path = request.url.path
+    err_entry = None
+    try:
+        from gitbridge.services.antigravity_service import AntigravityDaemonPool
+        err_entry = AntigravityDaemonPool.diagnose_and_record_error(
+            raw_error=f"Unhandled exception at {request.method} {path}: {type(exc).__name__}: {str(exc)}\n{tb_str[-800:]}",
+            source=f"watchdog-global-guard:{path}",
+            slug="geppys-gitbridge",
+            file_path="gitbridge/main.py",
+            instruction=f"{request.method} {path}",
+            model="Aegis Watchdog",
+        )
+    except Exception as log_err:
+        print(f"[WatchdogExceptionHandler] Failed to record error: {log_err}")
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": True,
+            "watchdog_caught": True,
+            "detail": f"Watchdog intercepted {type(exc).__name__}: {str(exc)}",
+            "message": f"Watchdog intercepted {type(exc).__name__}: {str(exc)}",
+            "reply": (
+                f"🛡️ **Aegis Watchdog Intercepted an Internal Error (`{type(exc).__name__}`)**:\n\n"
+                f"Captain Geppy here! The Watchdog caught an unexpected server error on `{path}` (`{str(exc)[:180]}`) "
+                f"before it could break your session with an invalid JSON response.\n\n"
+                f"Use the **Watchdog Correction Panel** below to apply a self-healing fix or retry cleanly."
+            ),
+            "antigravity_error": err_entry,
+        },
+    )
+
+
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -50,6 +95,43 @@ def read_root():
         "version": "0.1.0",
         "docs_url": "/docs"
     }
+
+
+@app.get("/geppy-chat")
+def read_geppy_chat_companion():
+    """Serve the standalone Geppy Live Chat & Crew Companion app."""
+    chat_path = os.path.join(static_dir, "geppy_chat.html")
+    if os.path.exists(chat_path):
+        return FileResponse(chat_path)
+    return FileResponse(os.path.join(static_dir, "index.html"))
+
+
+@app.get("/geppy-voice")
+def read_geppy_voice_app():
+    """Serve the standalone Geppy's Voice Chat app from D:\\Geppy_Apps\\Geppy's Voice Chat."""
+    voice_path = r"D:\Geppy_Apps\Geppy's Voice Chat\index.html"
+    if os.path.exists(voice_path):
+        return FileResponse(voice_path)
+    return FileResponse(os.path.join(static_dir, "geppy_chat.html"))
+
+
+@app.get("/geppy-stream")
+def read_geppy_stream_app():
+    """Serve the standalone Geppy's Screen Stream app from D:\\Geppy_Apps\\Geppy's Screen Stream."""
+    stream_path = r"D:\Geppy_Apps\Geppy's Screen Stream\index.html"
+    if os.path.exists(stream_path):
+        return FileResponse(stream_path)
+    return FileResponse(os.path.join(static_dir, "geppy_chat.html"))
+
+
+@app.post("/api/geppy-chat/launch")
+def launch_geppy_chat_companion_endpoint(payload: dict = {}):
+    """Launch the standalone Geppy Live Chat, Voice Chat, or Screen Stream desktop window."""
+    from gitbridge.tray_app import launch_geppy_chat_app
+    mode = (payload.get("mode") or "default").strip()
+    app_slug = (payload.get("app_slug") or payload.get("slug") or "").strip()
+    return launch_geppy_chat_app(mode=mode, app_slug=app_slug)
+
 
 @app.get("/api/settings")
 def get_settings():
@@ -193,15 +275,15 @@ def serialize_app_profile(app_obj: AppProfileModel, db: Session) -> dict:
         app_obj.local_path = sync_info["local_path"]
         db.commit()
 
-    is_live = app_obj.slug in ACTIVE_SERVERS
-    live_url = ACTIVE_SERVERS[app_obj.slug]["url"] if is_live else app_obj.live_url
+    is_gb = app_obj.slug in ("geppys-gitbridge", "geppy-s-gitbridge", "gitbridge")
+    is_live = True if is_gb else (app_obj.slug in ACTIVE_SERVERS)
+    live_url = "http://127.0.0.1:8000" if is_gb else (ACTIVE_SERVERS[app_obj.slug]["url"] if is_live else app_obj.live_url)
 
     icon_url = app_obj.icon_url
     if icon_url and icon_url.startswith("/api/apps/"):
         fname = icon_url.split("/")[-1]
-        from gitbridge.services.workspace_service import WorkspaceService
-        assets_dir = WorkspaceService.ensure_app_assets_dir(app_obj)
-        fpath = os.path.join(assets_dir, fname) if assets_dir else None
+        base_local = sync_info.get("local_path") or app_obj.local_path
+        fpath = os.path.join(base_local, "assets", fname) if base_local else None
         if not fpath or not os.path.exists(fpath):
             icon_url = None
 
@@ -351,24 +433,57 @@ def analyze_app_endpoint(slug: str, db: Session = Depends(get_db)):
     result = analyzer.analyze_and_autofill_app(app_obj, db)
     return result
 
+@app.post("/api/tray/ensure")
+def ensure_tray_menu_endpoint():
+    """Ensure the Windows System Tray menu is active and running."""
+    try:
+        from gitbridge.tray_app import ensure_tray_running
+        return ensure_tray_running()
+    except Exception as e:
+        return {"tray_running": False, "error": str(e)}
+
 @app.post("/api/apps/{slug}/launch")
 def launch_app_endpoint(slug: str, db: Session = Depends(get_db)):
+    # Always ensure the Windows System Tray Menu is running when launching an app
+    tray_status = {}
+    try:
+        from gitbridge.tray_app import ensure_tray_running
+        tray_status = ensure_tray_running()
+    except Exception:
+        pass
+
     app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
     if not app_obj:
         raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
 
     from gitbridge.services.launcher_service import AppLauncherService
     result = AppLauncherService.launch_localhost(app_obj)
-    
+    result["tray_status"] = tray_status
+
     # Save detected live_url to database profile if launched
     if result.get("launched") and result.get("target"):
         app_obj.live_url = result["target"]
         db.commit()
 
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
+
     return result
 
+async def _update_icon_async(app_obj, icon_url, db):
+    """Internal helper to avoid main-thread blocking."""
+    try:
+        app_obj.icon_url = icon_url
+        db.commit()
+        db.refresh(app_obj)
+    except Exception as e:
+        print(f"Error in background update: {e}")
+
 @app.post("/api/apps/{slug}/set-icon")
-def set_app_icon_endpoint(slug: str, payload: dict = {}, db: Session = Depends(get_db)):
+async def set_app_icon_endpoint(slug: str, payload: dict = {}, background_tasks: BackgroundTasks = BackgroundTasks(), db: Session = Depends(get_db)):
     app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
     if not app_obj:
         raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
@@ -377,11 +492,9 @@ def set_app_icon_endpoint(slug: str, payload: dict = {}, db: Session = Depends(g
     if not icon_url:
         raise HTTPException(status_code=400, detail="icon_url parameter is required")
 
-    app_obj.icon_url = icon_url
-    db.commit()
-    db.refresh(app_obj)
-
-    return serialize_app_profile(app_obj, db)
+    # Run DB update in background to prevent UI freeze
+    background_tasks.add_task(_update_icon_async, app_obj, icon_url, db)
+    return {"message": "Update queued", "slug": slug}
 
 @app.get("/api/servers")
 def get_active_servers():
@@ -392,12 +505,22 @@ def get_active_servers():
 def stop_active_server(slug: str):
     from gitbridge.services.launcher_service import AppLauncherService
     stopped = AppLauncherService.stop_localhost_server(slug)
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
     return {"slug": slug, "stopped": stopped}
 
 @app.post("/api/servers/{slug}/stop")
 def stop_server_post(slug: str):
     from gitbridge.services.launcher_service import AppLauncherService
     stopped = AppLauncherService.stop_localhost_server(slug)
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
     return {"slug": slug, "stopped": stopped}
 
 @app.post("/api/servers/{slug}/restart")
@@ -414,12 +537,23 @@ def restart_server_endpoint(slug: str, db: Session = Depends(get_db)):
     if res.get("launched") and res.get("target"):
         app_obj.live_url = res["target"]
         db.commit()
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
     return res
 
+@app.delete("/api/servers")
 @app.post("/api/servers/stop-all")
 def stop_all_servers_endpoint():
     from gitbridge.services.launcher_service import AppLauncherService
     count = AppLauncherService.stop_all_servers()
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
     return {"message": f"Stopped {count} active servers", "stopped_count": count}
 
 @app.get("/api/monitor/status")
@@ -481,14 +615,36 @@ def save_app_file_content_endpoint(slug: str, payload: dict = {}, db: Session = 
 
     file_path = payload.get("file_path")
     content = payload.get("content", "")
+    is_preview_revert = bool(payload.get("is_preview_revert", False))
 
     if not file_path:
         raise HTTPException(status_code=400, detail="file_path is required")
 
     from gitbridge.services.workspace_service import WorkspaceService
-    res = WorkspaceService.save_app_file(app_obj, file_path, content)
+    res = WorkspaceService.save_app_file(app_obj, file_path, content, is_preview_revert=is_preview_revert)
     if not res.get("success"):
         raise HTTPException(status_code=400, detail=res.get("message", "Could not save file"))
+    return res
+
+@app.post("/api/apps/{slug}/files/preview-mode")
+def set_app_preview_mode_endpoint(slug: str, payload: dict = {}, db: Session = Depends(get_db)):
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+    if not app_obj:
+        raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
+
+    enabled = bool(payload.get("enabled", True))
+    file_path = payload.get("file_path")
+    edited_content = payload.get("edited_content")
+    baseline_content = payload.get("baseline_content")
+
+    from gitbridge.services.workspace_service import WorkspaceService
+    res = WorkspaceService.set_app_preview_mode(
+        app_obj,
+        enabled=enabled,
+        file_path=file_path,
+        edited_content=edited_content,
+        baseline_content=baseline_content
+    )
     return res
 
 @app.post("/api/chat")
@@ -501,6 +657,12 @@ def chat_api_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
     file_path = payload.get("file_path")
     history = payload.get("history", [])
     is_image = payload.get("is_image", False)
+    agent_id = payload.get("agent_id")
+    screen_frame_b64 = payload.get("screen_frame_b64")
+    voice_mode = bool(payload.get("voice_mode", False))
+    include_audio = bool(payload.get("include_audio", False) or voice_mode)
+    consult_crew = bool(payload.get("consult_crew", False))
+    consult_agents = payload.get("consult_agents")
 
     from gitbridge.services.chat_service import ChatService
     return ChatService.process_chat(
@@ -509,8 +671,41 @@ def chat_api_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
         file_path=file_path,
         history=history,
         is_image=is_image,
+        agent_id=agent_id,
+        screen_frame_b64=screen_frame_b64,
+        voice_mode=voice_mode,
+        include_audio=include_audio,
+        consult_crew=consult_crew,
+        consult_agents=consult_agents,
         db=db
     )
+
+
+@app.post("/api/geppy/tts")
+def geppy_ai_tts_endpoint(payload: dict = {}):
+    """
+    Synthesize natural AI Voice audio for Captain Geppy (or any specialist crew member)
+    using Gemini 2.5 Flash Native Audio TTS ('gemini-2.5-flash-preview-tts'), returning a WAV data URL.
+    """
+    text = (payload.get("text") or payload.get("message") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required for AI voice synthesis")
+    voice_name = (payload.get("voice_name") or payload.get("voice") or "Puck").strip()
+    persona = (payload.get("persona") or "Captain Geppy").strip()
+
+    from gitbridge.services.central_key_service import CentralKeyService
+    audio_data_url = CentralKeyService.synthesize_speech_wav_b64(
+        text=text,
+        voice_name=voice_name,
+        persona=persona
+    )
+    return {
+        "success": bool(audio_data_url),
+        "audio_data_url": audio_data_url,
+        "voice_name": voice_name,
+        "voice_engine": "gemini-2.5-flash-preview-tts" if audio_data_url else "browser-fallback"
+    }
+
 
 # --- Chrome Extension Companion API Endpoints ---
 @app.get("/api/extension/detect-app")
@@ -642,7 +837,7 @@ def deep_analyze_app_endpoint(slug: str, db: Session = Depends(get_db)):
 
 @app.post("/api/extension/brainstorm")
 def extension_brainstorm_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
-    """Conversational brainstorming endpoint that outputs inspiring concepts, real-time task backlog, and visual asset generation."""
+    """Conversational brainstorming endpoint that outputs inspiring concepts, live screen co-design, crew consultation, real-time task backlog, and visual asset generation."""
     message = (payload.get("message") or payload.get("prompt") or "").strip()
     if not message:
         raise HTTPException(status_code=400, detail="Message is required")
@@ -650,9 +845,26 @@ def extension_brainstorm_endpoint(payload: dict = {}, db: Session = Depends(get_
     file_path = payload.get("file_path")
     history = payload.get("history", [])
     is_image = payload.get("is_image", False)
+    agent_id = payload.get("agent_id")
+    screen_frame_b64 = payload.get("screen_frame_b64")
+    voice_mode = bool(payload.get("voice_mode", False))
+    consult_crew = bool(payload.get("consult_crew", False))
+    consult_agents = payload.get("consult_agents")
 
     from gitbridge.services.extension_service import ExtensionService
-    result = ExtensionService.brainstorm(slug=slug, message=message, history=history, file_path=file_path, is_image=is_image, db=db)
+    result = ExtensionService.brainstorm(
+        slug=slug,
+        message=message,
+        history=history,
+        file_path=file_path,
+        is_image=is_image,
+        agent_id=agent_id,
+        screen_frame_b64=screen_frame_b64,
+        voice_mode=voice_mode,
+        consult_crew=consult_crew,
+        consult_agents=consult_agents,
+        db=db
+    )
     return result
 
 @app.post("/api/extension/proactive-suggestions")
@@ -674,20 +886,203 @@ def extension_proactive_suggestions_endpoint(payload: dict = {}, db: Session = D
     suggestions = ExtensionService.get_proactive_suggestions(slug=slug, file_path=file_path, content=content, db=db)
     return {"slug": slug, "file_path": file_path, "suggestions": suggestions}
 
+@app.post("/api/extension/execute")
 @app.post("/api/extension/apply-design")
 def extension_apply_design_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
-    """Apply an AI design suggestion, brainstorm task, or user prompt to code."""
-    slug = payload.get("slug", "")
-    file_path = payload.get("file_path", "")
+    """Apply an AI design suggestion, brainstorm task, or Agent Crew Proceed task to code via Antigravity."""
+    slug = (payload.get("slug") or payload.get("app_slug") or "").strip()
+    file_path = (payload.get("file_path") or payload.get("target_file") or "").strip()
     current_code = payload.get("current_code", "")
-    instruction = payload.get("instruction", "").strip()
+    instruction = (
+        payload.get("instruction")
+        or payload.get("task_prompt")
+        or payload.get("suggested_prompt")
+        or payload.get("task_title")
+        or ""
+    ).strip()
+    save_to_disk = bool(payload.get("save_to_disk", True))
 
     if not instruction:
         raise HTTPException(status_code=400, detail="Instruction is required")
 
     from gitbridge.services.extension_service import ExtensionService
-    result = ExtensionService.apply_design(slug=slug, file_path=file_path, current_code=current_code, instruction=instruction, db=db)
+    result = ExtensionService.apply_design(
+        slug=slug,
+        file_path=file_path,
+        current_code=current_code,
+        instruction=instruction,
+        db=db,
+        save_to_disk=save_to_disk
+    )
     return result
+
+@app.get("/api/extension/antigravity/status")
+def extension_antigravity_status_endpoint():
+    """Return status and capabilities of the integrated Google Antigravity SDK & local IDE."""
+    from gitbridge.services.antigravity_service import AntigravityService
+    return AntigravityService.get_antigravity_status()
+
+@app.get("/api/extension/antigravity/errors")
+def extension_antigravity_errors_endpoint(
+    slug: Optional[str] = Query(None),
+    unresolved_only: bool = Query(False),
+    limit: int = Query(15),
+):
+    """Return structured Antigravity errors with diagnosis (what_is_the_error, what_needs_done, suggested_replies)."""
+    from gitbridge.services.antigravity_service import AntigravityDaemonPool
+    errors = AntigravityDaemonPool.get_errors(
+        slug=slug,
+        unresolved_only=unresolved_only,
+        limit=limit,
+    )
+    open_errors = [e for e in errors if e.get("status") == "open"]
+    latest_open = open_errors[0] if open_errors else None
+    return {
+        "errors": errors,
+        "latest_error": latest_open or (errors[0] if errors else None),
+        "latest_unresolved": latest_open,
+        "open_count": len(open_errors),
+    }
+
+@app.post("/api/extension/antigravity/errors/clear")
+def extension_antigravity_clear_errors_endpoint(payload: dict = {}):
+    """Clear or dismiss Antigravity errors."""
+    from gitbridge.services.antigravity_service import AntigravityDaemonPool
+    cleared = AntigravityDaemonPool.clear_errors(
+        slug=payload.get("slug"),
+        error_id=payload.get("error_id"),
+    )
+    return {"success": True, "cleared": cleared}
+
+@app.post("/api/extension/antigravity/report-error")
+def extension_antigravity_report_error_endpoint(payload: dict = {}):
+    """Record and diagnose an external or user-reported Antigravity error so Galactic can display diagnosis and accept a reply."""
+    from gitbridge.services.antigravity_service import AntigravityDaemonPool
+    raw_error = (payload.get("error") or payload.get("raw_error") or payload.get("message") or "").strip()
+    if not raw_error:
+        raise HTTPException(status_code=400, detail="error message is required")
+    entry = AntigravityDaemonPool.diagnose_and_record_error(
+        raw_error=raw_error,
+        source=payload.get("source") or "galactic-reported",
+        slug=payload.get("slug") or payload.get("app_slug") or "",
+        file_path=payload.get("file_path") or payload.get("target_file") or "",
+        instruction=payload.get("instruction") or "",
+        model=payload.get("model") or "",
+    )
+    return {"success": True, "error": entry}
+
+@app.post("/api/extension/antigravity/respond")
+def extension_antigravity_respond_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Accept a user's in-chat response/instruction to Antigravity in Galactic to resolve an error or retry with guidance."""
+    from gitbridge.services.antigravity_service import AntigravityService
+    slug = (payload.get("slug") or payload.get("app_slug") or "").strip()
+    response_text = (
+        payload.get("response_text")
+        or payload.get("user_response")
+        or payload.get("message")
+        or payload.get("reply")
+        or payload.get("instruction")
+        or ""
+    ).strip()
+    error_id = payload.get("error_id")
+    action = payload.get("action") or "reply"
+    file_path = payload.get("file_path") or payload.get("target_file")
+    original_instruction = payload.get("original_instruction")
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first() if slug else None
+    return AntigravityService.respond_to_antigravity(
+        app_obj=app_obj,
+        slug=slug,
+        response_text=response_text,
+        user_response=response_text,
+        error_id=error_id,
+        action=action,
+        file_path=file_path,
+        original_instruction=original_instruction,
+        db=db,
+    )
+
+@app.post("/api/live-stream/frame")
+def push_live_screen_stream_frame_endpoint(payload: dict = {}):
+    """Push a live screen capture frame from GitBridge ('gitbridge') or Galactic ('galactic') so Geppy can see what we are working on."""
+    from gitbridge.services.chat_service import LiveScreenStreamHub
+    frame_b64 = (payload.get("frame_b64") or payload.get("image_b64") or "").strip()
+    if not frame_b64:
+        raise HTTPException(status_code=400, detail="frame_b64 is required")
+    source = (payload.get("source") or "galactic").strip()
+    return LiveScreenStreamHub.push_frame(
+        source=source,
+        frame_b64=frame_b64,
+        app_slug=payload.get("app_slug") or payload.get("slug"),
+        viewport_title=payload.get("viewport_title") or payload.get("title"),
+        viewport_url=payload.get("viewport_url") or payload.get("url"),
+        width=payload.get("width"),
+        height=payload.get("height"),
+    )
+
+@app.get("/api/live-stream/status")
+def get_live_screen_stream_status_endpoint(include_thumbnails: bool = Query(True)):
+    """Return status and latest thumbnails of active GitBridge & Galactic screen streams."""
+    from gitbridge.services.chat_service import LiveScreenStreamHub
+    return LiveScreenStreamHub.get_status(include_thumbnails=include_thumbnails)
+
+@app.post("/api/live-stream/stop")
+def stop_live_screen_stream_endpoint(payload: dict = {}):
+    """Stop one or all active screen streams."""
+    from gitbridge.services.chat_service import LiveScreenStreamHub
+    return LiveScreenStreamHub.stop_stream(source=payload.get("source"))
+
+@app.post("/api/agents/consult")
+def consult_agents_with_geppy_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Voice & Live Co-Design endpoint where Geppy consults with the specialized Agent Crew on what the user is working on."""
+    from gitbridge.services.agent_crew_service import AgentCrewService
+    prompt = (payload.get("prompt") or payload.get("message") or "Review what we are currently working on and advise.").strip()
+    app_slug = payload.get("app_slug") or payload.get("slug")
+    file_path = payload.get("file_path")
+    history = payload.get("history", [])
+    agent_ids = payload.get("agent_ids")
+    screen_frame_b64 = payload.get("screen_frame_b64")
+    voice_mode = bool(payload.get("voice_mode", True))
+    return AgentCrewService.consult_crew_with_geppy(
+        prompt=prompt,
+        app_slug=app_slug,
+        file_path=file_path,
+        history=history,
+        agent_ids=agent_ids,
+        screen_frame_b64=screen_frame_b64,
+        voice_mode=voice_mode,
+        db=db,
+    )
+
+@app.post("/api/extension/antigravity/warm")
+def extension_antigravity_warm_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Pre-warm persistent Antigravity agent sessions for an app on Port 8001."""
+    slug = (payload.get("slug") or "").strip()
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first() if slug else None
+    if not app_obj:
+        raise HTTPException(status_code=404, detail=f"App '{slug}' not found")
+    from gitbridge.services.antigravity_service import AntigravityService
+    return AntigravityService.warm_app_session(app_obj)
+
+@app.post("/api/extension/antigravity/reset")
+def extension_antigravity_reset_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Reset persistent Antigravity agent sessions for an app on Port 8001."""
+    slug = (payload.get("slug") or "").strip()
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first() if slug else None
+    from gitbridge.services.antigravity_service import AntigravityService, AntigravityDaemonPool
+    if app_obj and app_obj.local_path:
+        return AntigravityDaemonPool.reset_workspace(app_obj.local_path)
+    return {"reset": False, "slug": slug}
+
+@app.post("/api/extension/antigravity/open-ide")
+def extension_antigravity_open_ide_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Open the active app workspace (and optional active file) directly in Antigravity Desktop / IDE."""
+    slug = (payload.get("slug") or "").strip()
+    file_path = (payload.get("file_path") or "").strip() or None
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first() if slug else None
+    if not app_obj:
+        raise HTTPException(status_code=404, detail=f"App '{slug}' not found")
+    from gitbridge.services.antigravity_service import AntigravityService
+    return AntigravityService.launch_antigravity_ide(app_obj, file_path=file_path)
 
 @app.get("/api/apps/{slug}/backlog")
 def get_app_backlog_endpoint(slug: str, db: Session = Depends(get_db)):
@@ -817,12 +1212,21 @@ async def upload_image_to_app_endpoint(
 # --- SOT (Source of Truth) & Contextiles API Endpoints ---
 @app.get("/api/sot/modifiers")
 def get_sot_modifiers_endpoint():
-    """Return categorized modifier taxonomy and archetype definitions."""
+    """Return categorized modifier taxonomy, extensive variable dropdown catalog, extraction style keywords, and archetype definitions."""
     from gitbridge.services.sot_service import SOTService
     return {
         "modifiers": SOTService.get_modifiers_taxonomy(),
-        "archetypes": SOTService.get_archetypes()
+        "variable_dropdown_catalog": SOTService.get_variable_dropdown_catalog(),
+        "archetypes": SOTService.get_archetypes(),
+        "extraction_keywords": SOTService.get_extraction_keywords()
     }
+
+@app.post("/api/sot/resolve-mentions")
+def resolve_sot_mentions_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Resolve @handle and @<extraction_keyword><Handle> tags (e.g. @vsGeppy, @qGeppy, @matGeppy) in text."""
+    text = payload.get("text", "") or payload.get("prompt", "") or payload.get("concept", "")
+    from gitbridge.services.sot_service import SOTService
+    return SOTService.resolve_mentions(text, db)
 
 @app.post("/api/sot/ai-suggest-modifiers")
 def ai_suggest_sot_modifiers_endpoint(payload: dict = {}):
@@ -834,28 +1238,76 @@ def ai_suggest_sot_modifiers_endpoint(payload: dict = {}):
     return SOTService.suggest_modifiers_ai(reference_text, archetype, app_name)
 
 @app.post("/api/sot/ai-autofill")
-def ai_autofill_contextile_endpoint(payload: dict = {}):
-    """Intelligently autofill an entire Contextile from a creator's seed prompt or concept."""
+def ai_autofill_contextile_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Intelligently autofill an entire Contextile from a creator's seed prompt or concept (supports @ and @vs tags)."""
     prompt = payload.get("prompt", "")
     archetype = payload.get("archetype")
     app_name = payload.get("app_name")
     from gitbridge.services.sot_service import SOTService
-    return SOTService.ai_autofill_contextile(prompt, archetype, app_name)
+    return SOTService.ai_autofill_contextile(prompt, archetype, app_name, db=db)
 
 @app.post("/api/sot/generate-contextile")
 def generate_ai_contextile_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
-    """AI Generate a complete Context Style Contextile (e.g. '70s baseball card') with master prompt, modifiers, and preview thumbnail."""
+    """AI Generate a complete Contextile, Source of Truth, SOT Variant (e.g. '@geppy in a civil war costume'), or Contextile of Truth (Blank) with optional uploaded image and blank_spec."""
     concept = payload.get("concept", "") or payload.get("prompt", "")
-    if not concept:
-        raise HTTPException(status_code=400, detail="Concept or prompt is required")
+    image_url = payload.get("image_url")
+    entity_kind = payload.get("entity_kind")
+    blank_spec = payload.get("blank_spec")
+    parent_sot_handle = payload.get("parent_sot_handle")
+    variant_label = payload.get("variant_label")
+    if not concept and not image_url:
+        raise HTTPException(status_code=400, detail="Concept/prompt or uploaded image is required")
     archetype = payload.get("archetype")
     save_immediately = payload.get("save_immediately", True)
     from gitbridge.services.sot_service import SOTService
     return SOTService.generate_ai_contextile(
-        concept=concept,
+        concept=concept or "Physical Blank Contextile of Truth",
         archetype=archetype,
         save_immediately=save_immediately,
-        db=db
+        db=db,
+        image_url=image_url,
+        entity_kind=entity_kind,
+        blank_spec=blank_spec,
+        parent_sot_handle=parent_sot_handle,
+        variant_label=variant_label
+    )
+
+@app.post("/api/sot/analyze-blank")
+def analyze_blank_contextile_of_truth_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Analyze an uploaded physical blank photo, detect its size/shape/material and compatible fabrication output (Laser B&W burn, Stencil with edge connections, Vinyl, Sublimation), build a calibrated sizing template image, and optionally save as a Contextile of Truth."""
+    from gitbridge.services.sot_service import SOTService
+    image_url = payload.get("image_url")
+    concept = payload.get("concept", "") or payload.get("prompt", "") or payload.get("title", "")
+    width_in = payload.get("width_in") if payload.get("width_in") is not None else payload.get("width_value")
+    height_in = payload.get("height_in") if payload.get("height_in") is not None else payload.get("height_value")
+    safe_margin_in = payload.get("safe_margin_in")
+    safe_margin_pct = payload.get("safe_margin_pct")
+    shape = payload.get("shape")
+    material = payload.get("material")
+    fabrication_mode = payload.get("fabrication_mode")
+    unit = payload.get("unit") or "in"
+    color_mode = payload.get("color_mode")
+    requires_edge_bridges = payload.get("requires_edge_bridges")
+    paired_contextile_handles = payload.get("paired_contextile_handles")
+    handle_override = payload.get("name") or payload.get("handle")
+    save_immediately = bool(payload.get("save_immediately", False))
+    return SOTService.analyze_blank_image_and_build_template(
+        image_url=image_url,
+        concept=concept,
+        width_in=float(width_in) if width_in is not None and str(width_in).strip() != "" else None,
+        height_in=float(height_in) if height_in is not None and str(height_in).strip() != "" else None,
+        safe_margin_in=float(safe_margin_in) if safe_margin_in is not None and str(safe_margin_in).strip() != "" else None,
+        shape=shape,
+        material=material,
+        fabrication_mode=fabrication_mode,
+        save_immediately=save_immediately,
+        db=db,
+        handle_override=handle_override,
+        unit=unit,
+        color_mode=color_mode,
+        safe_margin_pct=float(safe_margin_pct) if safe_margin_pct is not None and str(safe_margin_pct).strip() != "" else None,
+        requires_edge_bridges=bool(requires_edge_bridges) if requires_edge_bridges is not None else None,
+        paired_contextile_handles=paired_contextile_handles if isinstance(paired_contextile_handles, list) else None
     )
 
 @app.post("/api/sot/compile")
@@ -947,7 +1399,7 @@ def get_sot_reference_file_endpoint(filename: str):
 
 @app.get("/api/sot/contextiles")
 def list_contextiles_endpoint(app_slug: Optional[str] = Query(None), db: Session = Depends(get_db)):
-    """List all saved Source-of-Truth Contextiles."""
+    """List all saved Source-of-Truth (SOT) Items, SOT Variants, Contextiles of Truth (Blanks), and Contextile Templates."""
     from gitbridge.services.sot_service import SOTService
     ctxs = SOTService.list_contextiles(db, app_slug=app_slug)
     return [
@@ -957,6 +1409,14 @@ def list_contextiles_endpoint(app_slug: Optional[str] = Query(None), db: Session
             "title": c.title,
             "description": c.description,
             "archetype": c.archetype or "character",
+            "entity_kind": SOTService.infer_entity_kind(c.archetype, c.modifiers, c.name),
+            "is_sot_variant": bool((c.modifiers or {}).get("is_sot_variant") or (c.modifiers or {}).get("parent_sot_handle")) if isinstance(c.modifiers, dict) else False,
+            "parent_sot_handle": (c.modifiers or {}).get("parent_sot_handle") if isinstance(c.modifiers, dict) else None,
+            "parent_sot_title": (c.modifiers or {}).get("parent_sot_title") if isinstance(c.modifiers, dict) else None,
+            "variant_label": (c.modifiers or {}).get("variant_label") if isinstance(c.modifiers, dict) else None,
+            "blank_spec": (c.modifiers or {}).get("blank_spec") if isinstance(c.modifiers, dict) else None,
+            "embedded_sot_handles": (c.modifiers or {}).get("embedded_sot_handles", []) if isinstance(c.modifiers, dict) else [],
+            "option_toggles": (c.modifiers or {}).get("option_toggles", []) if isinstance(c.modifiers, dict) else [],
             "reference_type": c.reference_type,
             "reference_text": c.reference_text,
             "reference_image_url": c.reference_image_url,
@@ -975,15 +1435,26 @@ def list_contextiles_endpoint(app_slug: Optional[str] = Query(None), db: Session
 
 @app.post("/api/sot/contextiles")
 def save_contextile_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
-    """Create or update a Source of Truth Contextile."""
+    """Create or update a Source of Truth (SOT) Item, SOT Variant, Contextile of Truth (Blank), or Contextile Template."""
     from gitbridge.services.sot_service import SOTService
     ctx = SOTService.create_contextile(payload, db)
+    entity_kind = SOTService.infer_entity_kind(ctx.archetype, ctx.modifiers, ctx.name)
+    is_var = bool((ctx.modifiers or {}).get("is_sot_variant") or (ctx.modifiers or {}).get("parent_sot_handle")) if isinstance(ctx.modifiers, dict) else False
+    kind_label = "SOT Variant" if is_var else ("Contextile of Truth (Blank)" if entity_kind == "contextile_of_truth" else ("Source of Truth" if entity_kind == "sot" else "Contextile Template"))
     return {
         "id": ctx.id,
         "name": ctx.name,
         "title": ctx.title,
         "description": ctx.description,
         "archetype": ctx.archetype,
+        "entity_kind": entity_kind,
+        "is_sot_variant": is_var,
+        "parent_sot_handle": (ctx.modifiers or {}).get("parent_sot_handle") if isinstance(ctx.modifiers, dict) else None,
+        "parent_sot_title": (ctx.modifiers or {}).get("parent_sot_title") if isinstance(ctx.modifiers, dict) else None,
+        "variant_label": (ctx.modifiers or {}).get("variant_label") if isinstance(ctx.modifiers, dict) else None,
+        "blank_spec": (ctx.modifiers or {}).get("blank_spec") if isinstance(ctx.modifiers, dict) else None,
+        "embedded_sot_handles": (ctx.modifiers or {}).get("embedded_sot_handles", []) if isinstance(ctx.modifiers, dict) else [],
+        "option_toggles": (ctx.modifiers or {}).get("option_toggles", []) if isinstance(ctx.modifiers, dict) else [],
         "reference_type": ctx.reference_type,
         "reference_text": ctx.reference_text,
         "reference_image_url": ctx.reference_image_url,
@@ -994,22 +1465,30 @@ def save_contextile_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
         "tags": ctx.tags,
         "assembled_prompt": ctx.assembled_prompt,
         "app_slug": ctx.app_slug,
-        "message": f"Contextile '@{ctx.name}' saved successfully!"
+        "message": f"{kind_label} '@{ctx.name}' saved successfully!"
     }
 
 @app.get("/api/sot/contextiles/{name}")
 def get_contextile_endpoint(name: str, db: Session = Depends(get_db)):
-    """Get single Contextile by handle name."""
+    """Get single SOT Item, SOT Variant, Contextile of Truth, or Contextile Template by handle name."""
     from gitbridge.services.sot_service import SOTService
     ctx = SOTService.get_contextile(name, db)
     if not ctx:
-        raise HTTPException(status_code=404, detail=f"Contextile '@{name}' not found")
+        raise HTTPException(status_code=404, detail=f"Item '@{name}' not found")
     return {
         "id": ctx.id,
         "name": ctx.name,
         "title": ctx.title,
         "description": ctx.description,
         "archetype": ctx.archetype or "character",
+        "entity_kind": SOTService.infer_entity_kind(ctx.archetype, ctx.modifiers, ctx.name),
+        "is_sot_variant": bool((ctx.modifiers or {}).get("is_sot_variant") or (ctx.modifiers or {}).get("parent_sot_handle")) if isinstance(ctx.modifiers, dict) else False,
+        "parent_sot_handle": (ctx.modifiers or {}).get("parent_sot_handle") if isinstance(ctx.modifiers, dict) else None,
+        "parent_sot_title": (ctx.modifiers or {}).get("parent_sot_title") if isinstance(ctx.modifiers, dict) else None,
+        "variant_label": (ctx.modifiers or {}).get("variant_label") if isinstance(ctx.modifiers, dict) else None,
+        "blank_spec": (ctx.modifiers or {}).get("blank_spec") if isinstance(ctx.modifiers, dict) else None,
+        "embedded_sot_handles": (ctx.modifiers or {}).get("embedded_sot_handles", []) if isinstance(c.modifiers if 'c' in locals() else ctx.modifiers, dict) else [],
+        "option_toggles": (ctx.modifiers or {}).get("option_toggles", []) if isinstance(ctx.modifiers, dict) else [],
         "reference_type": ctx.reference_type,
         "reference_text": ctx.reference_text,
         "reference_image_url": ctx.reference_image_url,
@@ -1091,9 +1570,28 @@ def brainstorm_asset_lab_concepts_endpoint(payload: dict = {}, db: Session = Dep
     )
     return {"concepts": concepts, "count": len(concepts)}
 
+@app.post("/api/asset-lab/auto-fill-concepts")
+def auto_fill_asset_lab_concepts_endpoint(payload: dict = {}):
+    """Port of geppy-s-asset-lab's generateIconDefinitions: AI auto-fills N distinct concepts for a Multi-Concept Grid."""
+    count = int(payload.get("count", 4))
+    theme_prompt = payload.get("theme_prompt", "") or payload.get("prompt", "")
+    asset_type = payload.get("asset_type", "app_icon")
+    ingredients_summary = payload.get("ingredients_summary", [])
+    app_slug = payload.get("app_slug")
+
+    from gitbridge.services.asset_lab_service import AssetLabService
+    concepts = AssetLabService.auto_fill_concepts(
+        count=count,
+        theme_prompt=theme_prompt,
+        asset_type=asset_type,
+        ingredients_summary=ingredients_summary,
+        app_slug=app_slug
+    )
+    return {"concepts": concepts, "count": len(concepts)}
+
 @app.post("/api/asset-lab/synthesize")
 def synthesize_asset_recipe_endpoint(payload: dict = {}):
-    """Mix multiple SOT contextiles, reference images, and directives into a Master Synthesis Blueprint."""
+    """Mix multiple SOT contextiles, actual Source-of-Truth pictures, and directives into a Master Synthesis Blueprint."""
     ingredients = payload.get("ingredients", [])
     custom_prompt = payload.get("custom_prompt", "")
     target_format = payload.get("target_format", "app_icon")
@@ -1102,6 +1600,11 @@ def synthesize_asset_recipe_endpoint(payload: dict = {}):
     reference_images = payload.get("reference_images", [])
     app_context = payload.get("app_context")
     variables = payload.get("variables", {})
+    scene_elements = payload.get("scene_elements", [])
+    grid_mode = payload.get("grid_mode", "single")
+    grid_rows = int(payload.get("grid_rows", 1) or 1)
+    grid_cols = int(payload.get("grid_cols", 1) or 1)
+    concepts_list = payload.get("concepts_list", [])
 
     from gitbridge.services.asset_lab_service import AssetLabService
     recipe = AssetLabService.synthesize_blend(
@@ -1112,13 +1615,18 @@ def synthesize_asset_recipe_endpoint(payload: dict = {}):
         overrides=overrides,
         reference_images=reference_images,
         app_context=app_context,
-        variables=variables
+        variables=variables,
+        scene_elements=scene_elements,
+        grid_mode=grid_mode,
+        grid_rows=grid_rows,
+        grid_cols=grid_cols,
+        concepts_list=concepts_list
     )
     return recipe
 
 @app.post("/api/asset-lab/generate")
 def generate_asset_lab_visual_endpoint(payload: dict = {}):
-    """Generate the actual fine-tuned visual asset PNG and persist in the lab repository."""
+    """Generate the actual fine-tuned visual asset PNG (plus Reference Sheet & sliced grid cells) and persist in the lab repository."""
     title = payload.get("title", "Fine-Tuned Asset")
     master_prompt = payload.get("master_prompt", "")
     target_format = payload.get("target_format", "app_icon")
@@ -1129,6 +1637,13 @@ def generate_asset_lab_visual_endpoint(payload: dict = {}):
     reference_images = payload.get("reference_images", [])
     app_slug = payload.get("app_slug")
     variables = payload.get("variables", {})
+    scene_elements = payload.get("scene_elements", [])
+    grid_mode = payload.get("grid_mode", "single")
+    grid_rows = int(payload.get("grid_rows", 1) or 1)
+    grid_cols = int(payload.get("grid_cols", 1) or 1)
+    concepts_list = payload.get("concepts_list", [])
+    preserve_source_picture = bool(payload.get("preserve_source_picture", False))
+    cutout_bg = payload.get("cutout_bg", None)
 
     from gitbridge.services.asset_lab_service import AssetLabService
     record = AssetLabService.generate_visual_asset(
@@ -1141,7 +1656,14 @@ def generate_asset_lab_visual_endpoint(payload: dict = {}):
         ingredients_summary=ingredients_summary,
         reference_images=reference_images,
         app_slug=app_slug,
-        variables=variables
+        variables=variables,
+        scene_elements=scene_elements,
+        grid_mode=grid_mode,
+        grid_rows=grid_rows,
+        grid_cols=grid_cols,
+        concepts_list=concepts_list,
+        preserve_source_picture=preserve_source_picture,
+        cutout_bg=cutout_bg
     )
     return record
 
@@ -1510,7 +2032,17 @@ def push_app_github_endpoint(slug: str, payload: dict = {}, db: Session = Depend
     msg = payload.get("commit_message")
     make_private = payload.get("make_private", False)
     push_remote = payload.get("push_remote", True)
-    result = WorkspaceService.push_app_to_github(app_obj, commit_message=msg, make_private=make_private, push_remote=push_remote, db=db)
+    update_changelog_file = payload.get("update_changelog_file", True)
+    changelog_entries = payload.get("changelog_entries", [])
+    result = WorkspaceService.push_app_to_github(
+        app_obj,
+        commit_message=msg,
+        make_private=make_private,
+        push_remote=push_remote,
+        update_changelog_file=update_changelog_file,
+        changelog_entries=changelog_entries,
+        db=db
+    )
     return result
 
 @app.post("/api/workspace/push-all-github")
@@ -1763,29 +2295,78 @@ def sync_github_api(username: Optional[str] = None, repo: Optional[str] = None, 
 
     return {"message": "GitHub Sync Completed", "added": added, "updated": updated, "cloned": cloned}
 
-@app.post("/api/sync/sheets")
-def sync_sheets_api(db: Session = Depends(get_db)):
-    apps = db.query(AppProfileModel).all()
-    app_dicts = [
+def _serialize_apps_for_sheets(db: Session) -> list:
+    apps = db.query(AppProfileModel).order_by(AppProfileModel.name.asc()).all()
+    return [
         {
             "slug": a.slug,
             "name": a.name,
             "description": a.description,
-            "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
+            "status": a.status.value if hasattr(a.status, "value") else str(a.status),
+            "priority_tier": getattr(a, "priority_tier", "Tier 2") or "Tier 2",
             "github_url": a.github_url,
+            "live_url": getattr(a, "live_url", "") or "",
             "ai_studio_link": a.ai_studio_link,
-            "tech_stack": a.tech_stack,
-            "tags": a.tags,
+            "tech_stack": a.tech_stack or [],
+            "tags": a.tags or [],
+            "backlog": getattr(a, "backlog", []) or [],
             "version": a.version,
-            "updated_at": a.updated_at
+            "updated_at": a.updated_at,
         }
         for a in apps
     ]
+
+
+@app.get("/api/sync/sheets/status")
+def get_sheets_sync_status(db: Session = Depends(get_db)):
+    app_dicts = _serialize_apps_for_sheets(db)
     sheets_service = GoogleSheetsService()
-    success = sheets_service.sync_catalog_to_sheets(app_dicts)
-    if not success:
-        sheets_service.export_to_csv_preview(app_dicts)
-    return {"message": "Sheets Sync Triggered", "google_sheets_updated": success}
+    state = sheets_service.get_state()
+    rows = sheets_service.build_rows(app_dicts)
+    tsv_data = sheets_service.build_tsv(app_dicts)
+    return {
+        **state,
+        "has_service_account": os.path.exists(sheets_service.credentials_path),
+        "has_webhook": bool(sheets_service.webhook_url),
+        "row_count": len(app_dicts),
+        "tsv": tsv_data,
+        "preview_headers": rows[0] if rows else [],
+        "preview_rows": rows[1:35] if len(rows) > 1 else [],
+    }
+
+
+@app.post("/api/sync/sheets/config")
+def save_sheets_sync_config(payload: dict = {}, db: Session = Depends(get_db)):
+    state = GoogleSheetsService.update_config(payload or {})
+    return {"success": True, "state": state, "message": "Google Sheets sync settings saved."}
+
+
+@app.post("/api/sync/sheets")
+def sync_sheets_api(payload: dict = {}, db: Session = Depends(get_db)):
+    if payload:
+        GoogleSheetsService.update_config(payload)
+    app_dicts = _serialize_apps_for_sheets(db)
+    sheets_service = GoogleSheetsService()
+    res = sheets_service.sync_catalog_to_sheets(app_dicts)
+    return res
+
+
+@app.post("/api/sync/sheets/pull")
+def pull_sheets_api(payload: dict = {}, db: Session = Depends(get_db)):
+    if payload:
+        GoogleSheetsService.update_config(payload)
+    sheets_service = GoogleSheetsService()
+    return sheets_service.pull_catalog_from_sheet(db)
+
+
+@app.get("/api/sync/sheets/csv")
+def download_sheets_csv_api(db: Session = Depends(get_db)):
+    from fastapi.responses import FileResponse
+    app_dicts = _serialize_apps_for_sheets(db)
+    sheets_service = GoogleSheetsService()
+    csv_path = sheets_service.export_to_csv_preview(app_dicts)
+    return FileResponse(csv_path, media_type="text/csv", filename="app_universe_export.csv")
+
 
 @app.post("/api/health/analyze")
 def analyze_health_api(target: str = "all", db: Session = Depends(get_db)):
@@ -1908,3 +2489,342 @@ def search_gemini_context(payload: dict = {}, db: Session = Depends(get_db)):
         "formatted_context": context_snippets if context_snippets else f"No apps matching query '{query_str}' found.",
         "matched_slugs": [a.slug for a in matched_apps]
     }
+
+
+# --- Gemini Mobile Doc Bridge & Auto-Listener Endpoints ---
+
+@app.on_event("startup")
+def start_mobile_bridge_listener():
+    from gitbridge.services.mobile_bridge_service import MobileBridgeService
+    MobileBridgeService.ensure_listener_running()
+    try:
+        from gitbridge.services.antigravity_service import AntigravityDaemonPool
+        AntigravityDaemonPool.ensure_running()
+    except Exception as e:
+        print(f"Warning: AntigravityService startup skipped: {e}")
+
+@app.get("/api/mobile-bridge/state")
+def get_mobile_bridge_state():
+    from gitbridge.services.mobile_bridge_service import MobileBridgeService
+    MobileBridgeService.ensure_listener_running()
+    return MobileBridgeService.get_state()
+
+@app.post("/api/mobile-bridge/config")
+def update_mobile_bridge_config(payload: dict = {}):
+    from gitbridge.services.mobile_bridge_service import MobileBridgeService
+    state = MobileBridgeService.update_config(payload)
+    return {"success": True, "state": state}
+
+@app.post("/api/mobile-bridge/sync-master-doc")
+def sync_mobile_bridge_master_doc(db: Session = Depends(get_db)):
+    from gitbridge.services.mobile_bridge_service import MobileBridgeService
+    return MobileBridgeService.generate_master_bridge_doc(db)
+
+@app.post("/api/mobile-bridge/scan")
+def scan_mobile_bridge_now(payload: dict = {}):
+    from gitbridge.services.mobile_bridge_service import MobileBridgeService
+    force = bool(payload.get("force", True))
+    return MobileBridgeService.scan_for_modifications(force=force)
+
+@app.post("/api/mobile-bridge/open-folder")
+def open_mobile_bridge_folder():
+    import subprocess
+    from gitbridge.services.mobile_bridge_service import MobileBridgeService
+    state = MobileBridgeService.get_state()
+    folder = state.get("watch_folder")
+    if folder and os.path.exists(folder):
+        subprocess.Popen(["explorer", os.path.abspath(folder)])
+        return {"success": True, "folder": folder}
+    raise HTTPException(status_code=404, detail="Watch folder not found")
+
+@app.post("/api/mobile-bridge/tasks")
+def add_mobile_bridge_task(payload: dict = {}):
+    from gitbridge.services.mobile_bridge_service import MobileBridgeService
+    app_slug = (payload.get("app_slug") or "").strip()
+    instruction = (payload.get("instruction") or "").strip()
+    target_file = (payload.get("target_file") or "auto").strip()
+    auto_execute = bool(payload.get("auto_execute", False))
+    if not app_slug or not instruction:
+        raise HTTPException(status_code=400, detail="Both app_slug and instruction are required")
+    return MobileBridgeService.add_manual_task(app_slug, instruction, target_file, auto_execute)
+
+@app.post("/api/mobile-bridge/tasks/run-all-pending")
+def run_all_pending_mobile_bridge_tasks(db: Session = Depends(get_db)):
+    from gitbridge.services.mobile_bridge_service import MobileBridgeService
+    state = MobileBridgeService.get_state()
+    pending = [t for t in state.get("tasks", []) if t.get("status") in ("pending", "failed")]
+    results = []
+    for t in pending:
+        results.append(MobileBridgeService.execute_modification(t["id"], db=db))
+    return {"success": True, "executed_count": len(results), "results": results, "state": MobileBridgeService.get_state()}
+
+@app.post("/api/mobile-bridge/tasks/{task_id}/run")
+def run_mobile_bridge_task(task_id: str, db: Session = Depends(get_db)):
+    from gitbridge.services.mobile_bridge_service import MobileBridgeService
+    res = MobileBridgeService.execute_modification(task_id, db=db)
+    res["state"] = MobileBridgeService.get_state()
+    return res
+
+@app.delete("/api/mobile-bridge/tasks/{task_id}")
+def delete_mobile_bridge_task(task_id: str):
+    from gitbridge.services.mobile_bridge_service import MobileBridgeService
+    return MobileBridgeService.delete_task(task_id)
+
+
+# --- GitBridge Specialized Agent Crew & Multi-Agent Council Endpoints ---
+
+@app.get("/api/extension/antigravity/live")
+def get_antigravity_live_activity_endpoint():
+    """Return real-time background AI / Antigravity task telemetry and completion state."""
+    from gitbridge.services.antigravity_service import AntigravityDaemonPool
+    return AntigravityDaemonPool.get_live_activity()
+
+@app.get("/api/agents")
+def list_specialist_agents():
+    """List all built-in and custom AI specialist agents in Captain Geppy's Crew."""
+    from gitbridge.services.agent_crew_service import AgentCrewService
+    # Ensure backward compatibility by checking for list_agents or get_all_agents
+    if hasattr(AgentCrewService, "list_agents"):
+        agents = AgentCrewService.list_agents()
+    else:
+        agents = AgentCrewService.get_all_agents()
+    return {"agents": agents, "count": len(agents)}
+
+@app.post("/api/agents/custom")
+def save_custom_specialist_agent(payload: dict = {}):
+    """Create or update a custom specialist AI agent."""
+    from gitbridge.services.agent_crew_service import AgentCrewService
+    agent = AgentCrewService.save_custom_agent(payload)
+    return {"success": True, "agent": agent, "agents": AgentCrewService.get_all_agents()}
+
+@app.delete("/api/agents/custom/{agent_id}")
+def delete_custom_specialist_agent(agent_id: str):
+    """Delete a custom specialist AI agent."""
+    from gitbridge.services.agent_crew_service import AgentCrewService
+    deleted = AgentCrewService.delete_custom_agent(agent_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Custom agent '{agent_id}' not found")
+    return {"success": True, "agents": AgentCrewService.get_all_agents()}
+
+@app.post("/api/agents/run")
+def run_specialist_agent_mission_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Execute a focused specialist agent mission (Design, Architecture, Social Media, Growth, QA, Docs)."""
+    from gitbridge.services.agent_crew_service import AgentCrewService
+    agent_id = (payload.get("agent_id") or "design-architect").strip()
+    prompt = (payload.get("prompt") or payload.get("message") or "").strip()
+    app_slug = payload.get("app_slug") or payload.get("slug")
+    file_path = payload.get("file_path")
+    history = payload.get("history", [])
+    generate_promo_visual = bool(payload.get("generate_promo_visual", False))
+    save_deliverable = bool(payload.get("save_deliverable", True))
+
+    return AgentCrewService.run_agent_mission(
+        agent_id=agent_id,
+        prompt=prompt,
+        app_slug=app_slug,
+        file_path=file_path,
+        history=history,
+        generate_promo_visual=generate_promo_visual,
+        save_deliverable_flag=save_deliverable,
+        db=db
+    )
+
+@app.post("/api/agents/council")
+def run_crew_council_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """Summon multiple agents together ('Crew Council Mode') to review an app across Design, Architecture, Social Media & Strategy."""
+    from gitbridge.services.agent_crew_service import AgentCrewService
+    prompt = (payload.get("prompt") or payload.get("message") or "").strip()
+    app_slug = payload.get("app_slug") or payload.get("slug")
+    agent_ids = payload.get("agent_ids")
+    file_path = payload.get("file_path")
+
+    return AgentCrewService.run_crew_council(
+        prompt=prompt,
+        app_slug=app_slug,
+        agent_ids=agent_ids,
+        file_path=file_path,
+        db=db
+    )
+
+@app.get("/api/apps/{slug}/deliverables")
+def get_app_deliverables_endpoint(slug: str):
+    """Fetch saved Agent Crew deliverables, Social Media Kits, and Council Reports for an app."""
+    from gitbridge.services.agent_crew_service import AgentCrewService
+    items = AgentCrewService.get_app_deliverables(slug)
+    return {"slug": slug, "deliverables": items, "count": len(items)}
+
+@app.post("/api/apps/{slug}/deliverables")
+def save_app_deliverable_endpoint(slug: str, payload: dict = {}, db: Session = Depends(get_db)):
+    """Save an Agent Crew deliverable or Social Media Kit for an app (optionally publishing to Instruction Manuals)."""
+    from gitbridge.services.agent_crew_service import AgentCrewService
+    rec = AgentCrewService.save_deliverable(slug, payload, db=db)
+    return {"success": True, "deliverable": rec}
+
+@app.delete("/api/apps/{slug}/deliverables/{deliverable_id}")
+def delete_app_deliverable_endpoint(slug: str, deliverable_id: str):
+    """Delete a saved Agent Crew deliverable."""
+    from gitbridge.services.agent_crew_service import AgentCrewService
+    deleted = AgentCrewService.delete_deliverable(slug, deliverable_id)
+    return {"success": deleted, "deliverable_id": deliverable_id}
+
+
+# --- Image Converter Service Endpoints ---
+
+@app.get("/api/tools/image-converter/formats")
+@app.get("/api/tools/convert-image/formats")
+def get_image_converter_formats():
+    """Retrieve supported image conversion formats from ImageConverterService."""
+    from gitbridge.services.image_converter_service import ImageConverterService
+    if hasattr(ImageConverterService, "get_supported_formats"):
+        return ImageConverterService.get_supported_formats()
+    return {
+        "input_formats": ["png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "ico", "svg"],
+        "output_formats": ["png", "jpg", "jpeg", "webp", "gif", "bmp", "ico", "tiff"]
+    }
+
+@app.post("/api/tools/convert-image")
+@app.post("/api/tools/image-converter/convert")
+@app.post("/api/media/convert")
+async def convert_image_endpoint(
+    request: Request,
+    file: Optional[UploadFile] = File(None),
+    target_format: Optional[str] = Form(None),
+    width: Optional[int] = Form(None),
+    height: Optional[int] = Form(None),
+    quality: Optional[int] = Form(85)
+):
+    """Convert image formats via multipart file upload or JSON payload matching frontend requests."""
+    from gitbridge.services.image_converter_service import ImageConverterService
+    from fastapi.responses import Response
+
+    content_type = request.headers.get("content-type", "")
+    filename = "image"
+    file_bytes = None
+    target_fmt = target_format or "png"
+
+    if "application/json" in content_type:
+        body = await request.json()
+        target_fmt = body.get("target_format") or body.get("format") or target_fmt
+        width = body.get("width", width)
+        height = body.get("height", height)
+        quality = body.get("quality", quality)
+        filename = body.get("filename", filename)
+        raw_b64 = body.get("image_base64") or body.get("image") or body.get("file")
+        if raw_b64:
+            import base64
+            if "," in raw_b64:
+                raw_b64 = raw_b64.split(",", 1)[1]
+            file_bytes = base64.b64decode(raw_b64)
+    elif file is not None:
+        filename = file.filename or "image"
+        file_bytes = await file.read()
+
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="No image file or base64 data provided for conversion.")
+
+    try:
+        res = ImageConverterService.convert_image(
+            file_bytes=file_bytes,
+            filename=filename,
+            target_format=target_fmt,
+            width=width,
+            height=height,
+            quality=quality
+        )
+
+        if isinstance(res, dict):
+            if "data" in res and isinstance(res["data"], bytes):
+                return Response(
+                    content=res["data"],
+                    media_type=res.get("mime_type") or res.get("media_type") or f"image/{target_fmt}",
+                    headers={"Content-Disposition": f'inline; filename="{res.get("filename", "converted." + target_fmt)}"'}
+                )
+            return res
+        return res
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Image conversion failed: {str(exc)}")
+
+
+# --- Universal GeppyBug Reporting & App Update Endpoints ---
+
+@app.post("/api/bugs/report")
+@app.post("/api/apps/{slug}/bugs")
+def submit_universal_bug_report_endpoint(
+    payload: dict = {},
+    slug: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Universal endpoint for reporting bugs from any app in Geppy's App Universe,
+    GitBridge Dashboard, or Geppy's Galactic Chrome Extension.
+    Logs to bug_reports_state.json, App Backlog, Health Card, BUGS.md, Antigravity Watchdog,
+    optional GitHub Issues, and optional instant AI code patching.
+    """
+    from gitbridge.services.bug_report_service import BugReportService
+    if slug and not payload.get("app_slug") and not payload.get("slug"):
+        payload["app_slug"] = slug
+    return BugReportService.submit_bug_report(payload=payload, db=db)
+
+
+@app.get("/api/bugs")
+@app.get("/api/apps/{slug}/bugs")
+def list_universal_bug_reports_endpoint(
+    slug: Optional[str] = None,
+    app_slug: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    limit: int = Query(50)
+):
+    """List reported bugs across Geppy's App Universe or filtered by app slug / status."""
+    from gitbridge.services.bug_report_service import BugReportService
+    target_slug = slug or app_slug
+    bugs = BugReportService.list_bug_reports(slug=target_slug, status=status, limit=limit)
+    open_count = len([b for b in bugs if b.get("status") == "open"])
+    return {
+        "bugs": bugs,
+        "count": len(bugs),
+        "open_count": open_count,
+        "slug": target_slug
+    }
+
+
+@app.post("/api/bugs/{bug_id}/status")
+def update_bug_report_status_endpoint(
+    bug_id: str,
+    payload: dict = {},
+    db: Session = Depends(get_db)
+):
+    """Update status of a reported bug ('open', 'fixed', 'dismissed')."""
+    from gitbridge.services.bug_report_service import BugReportService
+    new_status = (payload.get("status") or "fixed").strip()
+    note = payload.get("resolution_note")
+    updated = BugReportService.update_bug_status(bug_id=bug_id, status=new_status, resolution_note=note, db=db)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Bug '{bug_id}' not found")
+    return {"success": True, "bug": updated}
+
+
+@app.post("/api/apps/{slug}/update")
+@app.post("/api/universal/update")
+def universal_app_update_endpoint(
+    payload: dict = {},
+    slug: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Universal Update Button endpoint for any app in Geppy's App Universe:
+    Syncs Central Gemini Key, injects universal GeppyBug/Update bridge, pulls latest changes,
+    or runs an AI code update / GitHub push.
+    """
+    from gitbridge.services.bug_report_service import BugReportService
+    target_slug = slug or payload.get("app_slug") or payload.get("slug")
+    return BugReportService.trigger_app_update(slug=target_slug, payload=payload, db=db)
+
+
+@app.post("/api/workspace/inject-bridge-all")
+def inject_universal_bridge_all_apps_endpoint(db: Session = Depends(get_db)):
+    """Inject the universal geppy-key-bridge.js (with GeppyBug Report Bug & Update floating dock) into all local apps."""
+    from gitbridge.services.bug_report_service import BugReportService
+    return BugReportService.inject_bridge_into_all_apps(db=db)
+
+
+

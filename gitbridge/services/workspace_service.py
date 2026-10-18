@@ -235,8 +235,9 @@ class WorkspaceService:
                 if not os.path.isdir(folder_path) or entry in [".venv", "venv", "node_modules", ".git", "__pycache__"]:
                     continue
 
-                slug = entry.lower().replace("'", "-").replace("’", "-").replace(" ", "-").replace("_", "-").replace("--", "-").strip("-")
-                name = entry.replace("-", " ").replace("_", " ").title()
+                slug = entry.lower().replace("'", "").replace("’", "").replace(" ", "-").replace("_", "-").replace("--", "-").strip("-")
+                alt_slug = entry.lower().replace("'", "-").replace("’", "-").replace(" ", "-").replace("_", "-").replace("--", "-").strip("-")
+                name = entry.replace("-", " ").replace("_", " ").title().replace("'S", "'s")
                 github_url = WorkspaceService.extract_git_remote_url(folder_path)
 
                 tech_stack = []
@@ -248,8 +249,14 @@ class WorkspaceService:
                 local_ctx = WorkspaceService.parse_local_app_context(folder_path)
 
                 existing = db.query(AppProfileModel).filter(
-                    (AppProfileModel.slug == slug) | (AppProfileModel.local_path == folder_path)
+                    (AppProfileModel.slug == slug) | (AppProfileModel.slug == alt_slug) | (AppProfileModel.local_path == folder_path)
                 ).first()
+                if not existing:
+                    entry_norm = WorkspaceService.normalize_slug(entry)
+                    for cand in db.query(AppProfileModel).all():
+                        if WorkspaceService.normalize_slug(cand.slug) == entry_norm or WorkspaceService.normalize_slug(cand.name) == entry_norm:
+                            existing = cand
+                            break
 
                 if existing:
                     existing.local_path = folder_path
@@ -306,7 +313,7 @@ class WorkspaceService:
         """Normalize app slug or name for case-insensitive, punctuation-insensitive folder matching."""
         if not s:
             return ""
-        return s.lower().replace("'", "s").replace("’", "s").replace(" ", "").replace("_", "").replace("-", "")
+        return s.lower().replace("'", "").replace("’", "").replace(" ", "").replace("_", "").replace("-", "")
 
     @staticmethod
     def get_workspace_folder_map() -> Dict[str, str]:
@@ -689,12 +696,12 @@ class WorkspaceService:
         actions_str = "; ".join(recent_actions[-4:]) if recent_actions else ""
         app_name = app_obj.name if app_obj else "Application"
 
-        system_prompt = """You are Captain Geppy's Git Architect.
+        system_prompt = """You are Geppy's Git Architect.
 Generate a concise, professional Git commit message following conventional commits format (e.g. feat(scope): message, fix(scope): message, style(scope): message, refactor(scope): message).
 CRITICAL RULES:
 1. Output ONLY the single-line commit message string. Do NOT enclose in quotes, backticks, or markdown blocks.
 2. Keep it under 65 characters.
-3. Be specific to what changed."""
+3. Be specific to what changed. Never include 'Captain Geppy' in the commit message."""
 
         user_prompt = f"App: {app_name}\nModified Files: {file_summary}\nRecent Actions: {actions_str}\nGenerate a crisp commit message:"
 
@@ -711,9 +718,9 @@ CRITICAL RULES:
         if files:
             first_base = os.path.basename(files[0])
             if len(files) == 1:
-                return f"feat: update {first_base} via Geppy's Galactic"
+                return f"feat: update {first_base}"
             return f"feat: update {first_base} and {len(files) - 1} other files"
-        return f"feat: update {app_name} via Geppy's Galactic"
+        return f"feat: update {app_name}"
 
     @staticmethod
     def push_app_to_github(
@@ -721,9 +728,13 @@ CRITICAL RULES:
         commit_message: Optional[str] = None,
         make_private: bool = False,
         push_remote: bool = True,
+        update_changelog_file: bool = True,
+        changelog_entries: Optional[List[Dict[str, Any]]] = None,
         db: Session = None
     ) -> Dict[str, Any]:
         """Stage, commit, and push local application files to GitHub repository. Creates remote repo if not exists."""
+        from datetime import datetime
+
         local_path = app_obj.local_path
         if not local_path or not os.path.exists(local_path):
             return {
@@ -750,13 +761,86 @@ CRITICAL RULES:
                 }
 
         # Step 2: Configure local git identity if not set
+        is_gb = bool(app_obj and getattr(app_obj, "slug", "") in ("geppys-gitbridge", "gitbridge"))
+        git_user = "Captain Geppy" if is_gb else "Geppy"
         try:
             name_check = subprocess.run(["git", "config", "user.name"], cwd=local_path, capture_output=True, text=True)
-            if not name_check.stdout.strip():
-                subprocess.run(["git", "config", "user.name", "Captain Geppy"], cwd=local_path)
-                subprocess.run(["git", "config", "user.email", "geppy@galactic.dev"], cwd=local_path)
+            if not name_check.stdout.strip() or (not is_gb and name_check.stdout.strip() == "Captain Geppy"):
+                subprocess.run(["git", "config", "user.name", git_user], cwd=local_path)
+                subprocess.run(["git", "config", "user.email", "geppy@geppy.ai"], cwd=local_path)
         except Exception:
             pass
+
+        # Inspect pre-commit modified files so we can include them in CHANGELOG.md if needed
+        pre_status_res = subprocess.run(["git", "status", "--porcelain"], cwd=local_path, capture_output=True, text=True)
+        pre_changed_lines = [l for l in pre_status_res.stdout.splitlines() if l.strip()]
+
+        msg = (commit_message or f"Update {app_obj.name}").strip()
+        first_line_title = msg.splitlines()[0].strip() if msg else f"Update {app_obj.name}"
+
+        # Step 2.5: Automatically update CHANGELOG.md in the app repository if enabled
+        changelog_updated = False
+        if update_changelog_file and (pre_changed_lines or changelog_entries):
+            try:
+                changelog_path = os.path.join(local_path, "CHANGELOG.md")
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+                bullet_items = []
+                seen_bullets = set()
+
+                if changelog_entries and isinstance(changelog_entries, list):
+                    for entry in changelog_entries:
+                        if not isinstance(entry, dict):
+                            continue
+                        fp = entry.get("file_path") or ""
+                        summary = (entry.get("summary") or "").strip()
+                        explanation = (entry.get("explanation") or "").strip()
+                        if not summary:
+                            continue
+                        prefix = f"**`{fp}`**: " if fp else ""
+                        suffix = f" — {explanation}" if explanation and explanation not in summary else ""
+                        line_str = f"- {prefix}{summary}{suffix}"
+                        if line_str not in seen_bullets:
+                            seen_bullets.add(line_str)
+                            bullet_items.append(line_str)
+
+                # Also extract any bullet lines from commit_message body if changelog_entries was empty
+                if not bullet_items and "\n" in msg:
+                    for raw_line in msg.splitlines()[1:]:
+                        stripped = raw_line.strip()
+                        if stripped.startswith("- ") or stripped.startswith("* "):
+                            if stripped not in seen_bullets:
+                                seen_bullets.add(stripped)
+                                bullet_items.append(stripped)
+
+                # Fallback to listing modified files
+                if not bullet_items and pre_changed_lines:
+                    for cl in pre_changed_lines[:15]:
+                        fp_part = cl[3:].strip().strip('"').replace("\\", "/")
+                        if fp_part and fp_part != "CHANGELOG.md":
+                            bullet_items.append(f"- Updated `{fp_part}`")
+
+                if bullet_items:
+                    new_section = f"## [{now_str}] — {first_line_title}\n" + "\n".join(bullet_items) + "\n\n"
+                    header_title = f"# Change Log — {app_obj.name}\n\n"
+                    existing_body = ""
+                    if os.path.exists(changelog_path):
+                        try:
+                            with open(changelog_path, "r", encoding="utf-8", errors="ignore") as cf:
+                                existing_raw = cf.read()
+                            if existing_raw.startswith("# "):
+                                parts = existing_raw.split("\n", 1)
+                                header_title = parts[0].strip() + "\n\n"
+                                existing_body = parts[1].lstrip() if len(parts) > 1 else ""
+                            else:
+                                existing_body = existing_raw.lstrip()
+                        except Exception:
+                            existing_body = ""
+
+                    with open(changelog_path, "w", encoding="utf-8") as cf:
+                        cf.write(header_title + new_section + existing_body)
+                    changelog_updated = True
+            except Exception as e:
+                print(f"[WorkspaceService] Could not update CHANGELOG.md: {e}")
 
         # Step 3: Git add all files
         try:
@@ -775,7 +859,6 @@ CRITICAL RULES:
         files_committed_count = len(changed_lines)
 
         # Step 4: Commit locally
-        msg = commit_message or f"Update {app_obj.name} via Geppy's Galactic"
         commit_hash = ""
         if changed_lines:
             try:
@@ -802,6 +885,7 @@ CRITICAL RULES:
                 "success": True,
                 "saved_locally": True,
                 "pushed_to_github": False,
+                "changelog_updated": changelog_updated,
                 "commit_hash": commit_hash,
                 "branch": branch_name,
                 "commit_message": msg,
@@ -833,6 +917,7 @@ CRITICAL RULES:
                     "success": True,
                     "saved_locally": True,
                     "pushed_to_github": False,
+                    "changelog_updated": changelog_updated,
                     "commit_hash": commit_hash,
                     "branch": branch_name,
                     "commit_message": msg,
@@ -861,6 +946,7 @@ CRITICAL RULES:
                 "success": True,
                 "saved_locally": True,
                 "pushed_to_github": False,
+                "changelog_updated": changelog_updated,
                 "commit_hash": commit_hash,
                 "branch": branch_name,
                 "commit_message": msg,
@@ -884,6 +970,7 @@ CRITICAL RULES:
                         "success": True,
                         "saved_locally": True,
                         "pushed_to_github": False,
+                        "changelog_updated": changelog_updated,
                         "commit_hash": commit_hash,
                         "branch": branch_name,
                         "commit_message": msg,
@@ -897,6 +984,7 @@ CRITICAL RULES:
                 "success": True,
                 "saved_locally": True,
                 "pushed_to_github": True,
+                "changelog_updated": changelog_updated,
                 "commit_hash": commit_hash,
                 "branch": branch_name,
                 "commit_message": msg,
@@ -912,6 +1000,7 @@ CRITICAL RULES:
                 "success": True,
                 "saved_locally": True,
                 "pushed_to_github": False,
+                "changelog_updated": changelog_updated,
                 "commit_hash": commit_hash,
                 "branch": branch_name,
                 "commit_message": msg,
@@ -1066,22 +1155,44 @@ CRITICAL RULES:
 
     @staticmethod
     def get_app_file_tree(app_obj) -> List[Dict[str, Any]]:
-        """Get structured directory file tree for an application project folder."""
+        """Get structured directory file tree of editable source/config files for an application project folder."""
         if not app_obj.local_path or not os.path.exists(app_obj.local_path):
             return []
 
-        ignore_dirs = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", ".tmp.driveupload"}
+        ignore_dirs = {
+            ".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build",
+            ".next", ".tmp.driveupload", ".geppy_baselines", ".geppy_latest", "sot_references"
+        }
+        binary_or_skip_exts = {
+            ".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".ico", ".bmp", ".tiff",
+            ".mp3", ".wav", ".ogg", ".mp4", ".webm", ".mov", ".avi",
+            ".woff", ".woff2", ".ttf", ".eot", ".otf",
+            ".pdf", ".zip", ".tar", ".gz", ".7z", ".rar",
+            ".exe", ".dll", ".so", ".dylib", ".bin", ".lnk",
+            ".db", ".sqlite", ".sqlite3", ".pyc", ".pyo", ".pyd", ".map"
+        }
+        skip_filenames = {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "uv.lock"}
         tree = []
 
         for root, dirs, files in os.walk(app_obj.local_path):
-            dirs[:] = [d for d in dirs if d not in ignore_dirs and not d.startswith(".")]
+            dirs[:] = sorted([d for d in dirs if d not in ignore_dirs and not d.startswith(".")])
             rel_dir = os.path.relpath(root, app_obj.local_path).replace("\\", "/")
             if rel_dir == ".":
                 rel_dir = ""
 
-            for f in files:
+            # Skip generated image folders under assets/
+            if rel_dir.startswith("assets/"):
+                continue
+
+            for f in sorted(files):
+                if f in skip_filenames:
+                    continue
                 if f.startswith(".") and f not in [".env.example", ".gitignore", ".env"]:
                     continue
+                ext = os.path.splitext(f)[1].lower()
+                if ext in binary_or_skip_exts:
+                    continue
+
                 rel_path = f"{rel_dir}/{f}" if rel_dir else f
                 file_size = 0
                 try:
@@ -1089,7 +1200,6 @@ CRITICAL RULES:
                 except Exception:
                     pass
 
-                ext = os.path.splitext(f)[1].lower()
                 tree.append({
                     "path": rel_path,
                     "name": f,
@@ -1098,16 +1208,23 @@ CRITICAL RULES:
                     "size": file_size
                 })
 
-                if len(tree) >= 150:
+                if len(tree) >= 250:
                     break
-            if len(tree) >= 150:
+            if len(tree) >= 250:
                 break
 
-        return sorted(tree, key=lambda x: x["path"])
+        def _sort_key(item: Dict[str, Any]):
+            p = item["path"].lower()
+            ext = item["extension"]
+            # Prioritize primary UI & code files over docs/configs
+            is_primary_code = ext in {".html", ".tsx", ".jsx", ".js", ".ts", ".vue", ".svelte", ".css", ".scss", ".py"}
+            return (0 if is_primary_code else 1, p)
+
+        return sorted(tree, key=_sort_key)
 
     @staticmethod
     def read_app_file(app_obj, relative_path: str) -> Dict[str, Any]:
-        """Read content of a specific file inside app's project folder."""
+        """Read content of a specific file inside app's project folder, including original baseline and latest edited state."""
         if not app_obj.local_path or not os.path.exists(app_obj.local_path):
             return {"success": False, "message": "App local directory does not exist."}
 
@@ -1124,18 +1241,41 @@ CRITICAL RULES:
         try:
             with open(abs_target, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read(150000)
+
+            baseline_path = os.path.join(abs_base, ".geppy_baselines", clean_rel.replace("/", os.sep))
+            latest_path = os.path.join(abs_base, ".geppy_latest", clean_rel.replace("/", os.sep))
+
+            original_baseline = content
+            if os.path.exists(baseline_path) and os.path.isfile(baseline_path):
+                try:
+                    with open(baseline_path, "r", encoding="utf-8", errors="ignore") as bf:
+                        original_baseline = bf.read(150000)
+                except Exception:
+                    pass
+
+            latest_edited = content
+            if os.path.exists(latest_path) and os.path.isfile(latest_path):
+                try:
+                    with open(latest_path, "r", encoding="utf-8", errors="ignore") as lf:
+                        latest_edited = lf.read(150000)
+                except Exception:
+                    pass
+
             return {
                 "success": True,
                 "path": clean_rel,
                 "abs_path": abs_target,
-                "content": content
+                "content": content,
+                "original_baseline": original_baseline,
+                "latest_edited": latest_edited,
+                "has_baseline_diff": (original_baseline != latest_edited)
             }
         except Exception as e:
             return {"success": False, "message": f"Failed to read file: {e}"}
 
     @staticmethod
-    def save_app_file(app_obj, relative_path: str, content: str) -> Dict[str, Any]:
-        """Save/write content to a file inside app's project folder."""
+    def save_app_file(app_obj, relative_path: str, content: str, is_preview_revert: bool = False) -> Dict[str, Any]:
+        """Save/write content to a file inside app's project folder while preserving original baseline for Preview ON/OFF."""
         if not app_obj.local_path or not os.path.exists(app_obj.local_path):
             return {"success": False, "message": "App local directory does not exist."}
 
@@ -1146,10 +1286,45 @@ CRITICAL RULES:
         if not abs_target.startswith(abs_base):
             return {"success": False, "message": "Access denied: Path outside project directory."}
 
+        if clean_rel.lower().endswith(".py"):
+            import ast
+            try:
+                ast.parse(content)
+            except SyntaxError as syn_err:
+                return {
+                    "success": False,
+                    "message": f"Refused to overwrite '{clean_rel}' with invalid/truncated Python syntax: {syn_err}"
+                }
+
         try:
+            baseline_path = os.path.join(abs_base, ".geppy_baselines", clean_rel.replace("/", os.sep))
+            latest_path = os.path.join(abs_base, ".geppy_latest", clean_rel.replace("/", os.sep))
+
+            # 1. Preserve original baseline before first edit if not already saved
+            if not is_preview_revert and os.path.exists(abs_target) and not os.path.exists(baseline_path):
+                try:
+                    os.makedirs(os.path.dirname(baseline_path), exist_ok=True)
+                    with open(abs_target, "r", encoding="utf-8", errors="ignore") as orig_f:
+                        orig_text = orig_f.read()
+                    with open(baseline_path, "w", encoding="utf-8") as bf:
+                        bf.write(orig_text)
+                except Exception:
+                    pass
+
+            # 2. Save latest edited content snapshot when not reverting to baseline
+            if not is_preview_revert:
+                try:
+                    os.makedirs(os.path.dirname(latest_path), exist_ok=True)
+                    with open(latest_path, "w", encoding="utf-8") as lf:
+                        lf.write(content)
+                except Exception:
+                    pass
+
+            # 3. Write requested content to actual file on disk
             os.makedirs(os.path.dirname(abs_target), exist_ok=True)
             with open(abs_target, "w", encoding="utf-8") as f:
                 f.write(content)
+
             return {
                 "success": True,
                 "path": clean_rel,
@@ -1160,13 +1335,94 @@ CRITICAL RULES:
             return {"success": False, "message": f"Failed to save file: {e}"}
 
     @staticmethod
+    def set_app_preview_mode(
+        app_obj,
+        enabled: bool,
+        file_path: Optional[str] = None,
+        edited_content: Optional[str] = None,
+        baseline_content: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Swap all modified files (and any cached client/dist bundle) between Original Baseline (OFF) and Edited Preview (ON)."""
+        import shutil
+        if not app_obj.local_path or not os.path.exists(app_obj.local_path):
+            return {"success": False, "message": "App local directory does not exist."}
+
+        abs_base = os.path.abspath(app_obj.local_path)
+        baselines_root = os.path.join(abs_base, ".geppy_baselines")
+        latest_root = os.path.join(abs_base, ".geppy_latest")
+        swapped_files = []
+
+        # Ensure current file's baseline/latest are recorded if passed from extension
+        if file_path:
+            clean_rel = file_path.replace("\\", "/").lstrip("/")
+            b_file = os.path.join(baselines_root, clean_rel.replace("/", os.sep))
+            l_file = os.path.join(latest_root, clean_rel.replace("/", os.sep))
+            if baseline_content is not None and not os.path.exists(b_file):
+                try:
+                    os.makedirs(os.path.dirname(b_file), exist_ok=True)
+                    with open(b_file, "w", encoding="utf-8") as f:
+                        f.write(baseline_content)
+                except Exception:
+                    pass
+            if edited_content is not None:
+                try:
+                    os.makedirs(os.path.dirname(l_file), exist_ok=True)
+                    with open(l_file, "w", encoding="utf-8") as f:
+                        f.write(edited_content)
+                except Exception:
+                    pass
+
+        source_root = latest_root if enabled else baselines_root
+        if os.path.exists(source_root):
+            for root, _, files in os.walk(source_root):
+                for fname in files:
+                    src_file = os.path.join(root, fname)
+                    rel = os.path.relpath(src_file, source_root)
+                    dst_file = os.path.join(abs_base, rel)
+                    try:
+                        os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+                        shutil.copy2(src_file, dst_file)
+                        swapped_files.append(rel.replace("\\", "/"))
+                    except Exception:
+                        pass
+
+        # If this app has pre-built dist snapshots (.geppy_baselines_dist / .geppy_latest_dist), swap client/dist or dist instantly!
+        for dist_rel in [os.path.join("client", "dist"), "dist"]:
+            target_dist = os.path.join(abs_base, dist_rel)
+            snap_dist = os.path.join(abs_base, ".geppy_latest_dist" if enabled else ".geppy_baselines_dist")
+            if os.path.exists(snap_dist) and os.path.isdir(snap_dist):
+                try:
+                    if os.path.exists(target_dist):
+                        shutil.rmtree(target_dist, ignore_errors=True)
+                    shutil.copytree(snap_dist, target_dist)
+                    break
+                except Exception:
+                    pass
+
+        return {
+            "success": True,
+            "enabled": enabled,
+            "swapped_files": swapped_files
+        }
+
+    @staticmethod
     def launch_antigravity_cli(app_obj) -> Dict[str, Any]:
-        """Launch Antigravity CLI terminal in the application project folder."""
+        """Launch Antigravity Desktop / IDE (or CLI terminal) in the application project folder."""
         local_path = app_obj.local_path
         if not local_path or not os.path.exists(local_path):
             return {"success": False, "message": f"Local folder for '{app_obj.name}' does not exist on disk."}
 
         try:
+            from gitbridge.services.antigravity_service import ANTIGRAVITY_IDE_PATHS
+            ide_exe = next((p for p in ANTIGRAVITY_IDE_PATHS if os.path.exists(p)), None)
+            if ide_exe:
+                subprocess.Popen([ide_exe, os.path.abspath(local_path)], cwd=local_path, shell=ide_exe.lower().endswith(".cmd"))
+                return {
+                    "success": True,
+                    "local_path": local_path,
+                    "ide_path": ide_exe,
+                    "message": f"Opened '{app_obj.name}' in Antigravity ({os.path.basename(ide_exe)})!"
+                }
             cmd = f'start cmd /k "cd /d "{local_path}" && title Antigravity Agent CLI - {app_obj.name} && echo Launching Antigravity CLI in {local_path}... & agy || echo Antigravity CLI started in {local_path}"'
             subprocess.Popen(cmd, shell=True)
             return {
@@ -1175,4 +1431,4 @@ CRITICAL RULES:
                 "message": f"Launched Antigravity CLI terminal for '{app_obj.name}' in directory: {local_path}"
             }
         except Exception as e:
-            return {"success": False, "message": f"Failed to launch Antigravity terminal: {e}"}
+            return {"success": False, "message": f"Failed to launch Antigravity: {e}"}

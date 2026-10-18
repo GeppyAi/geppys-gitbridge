@@ -126,6 +126,8 @@ class AssetLabService:
             os.path.join(root_dir, "assets", "lab_generated"),
             os.path.join(base_dir, "assets"),
             os.path.join(root_dir, "assets"),
+            os.path.join(base_dir, "static", "icons"),
+            os.path.join(base_dir, "static"),
         ]
 
         if "/api/apps/" in clean_url and "/assets/file/" in clean_url:
@@ -250,14 +252,19 @@ class AssetLabService:
                         app_icons.append(app_obj.icon_url)
 
             # 2. Fetch Brand Character Context (Source of Truth)
+            is_gb = bool(app_slug and app_slug.lower() in ("geppys-gitbridge", "gitbridge")) or ("gitbridge" in (app_name or "").lower())
             char_ctx = None
             if brand_contextile:
                 char_ctx = db.query(ContextileModel).filter(ContextileModel.name == brand_contextile).first()
             if not char_ctx:
-                char_ctx = db.query(ContextileModel).filter(ContextileModel.name.in_(["captain-geppy", "geppybrand"])).first()
+                preferred_brand = "captain-geppy" if is_gb else "geppybrand"
+                char_ctx = db.query(ContextileModel).filter(ContextileModel.name == preferred_brand).first()
+            if not char_ctx:
+                char_ctx = db.query(ContextileModel).filter(ContextileModel.name.in_(["geppybrand", "captain-geppy"])).first()
 
             if char_ctx:
-                character_info = f"Character / Mascot Source of Truth: '@{char_ctx.name}' ({char_ctx.title})\nLikeness & Traits: {char_ctx.reference_text}\nArchetype: {char_ctx.archetype}"
+                display_char_title = char_ctx.title if (is_gb or "captain" not in (char_ctx.title or "").lower()) else "Geppy"
+                character_info = f"Character / Mascot Source of Truth: '@{char_ctx.name}' ({display_char_title})\nLikeness & Traits: {char_ctx.reference_text}\nArchetype: {char_ctx.archetype}"
                 if char_ctx.primary_image_url or char_ctx.reference_image_url:
                     character_info += f"\nCharacter Image URL: {char_ctx.primary_image_url or char_ctx.reference_image_url}"
 
@@ -319,6 +326,14 @@ class AssetLabService:
         is_transparent_req = "transparent" in combined_text or "no background" in combined_text or "isolated" in combined_text
         is_orange_req = "orange" in combined_text or is_hex_req
 
+        is_gb = bool(app_slug and app_slug.lower() in ("geppys-gitbridge", "gitbridge")) or ("gitbridge" in (app_name or "").lower())
+        default_char_desc = (
+            "Captain Geppy: Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor."
+            if is_gb
+            else "Geppy: Friendly, upbeat IT & AI specialist with brown hair, beard, modern glasses, and his signature blue shirt with white 'Geppy' text."
+        )
+        char_name_hint = "Captain Geppy" if is_gb else "Geppy"
+
         ref_instruction = ""
         if resolved_ref_paths:
             ref_instruction = f"- VISUAL REFERENCE IMAGES: {len(resolved_ref_paths)} image(s) provided. Look at the attached image(s): analyze the silhouette shape, beveling, materials, glow, palette, and icon layout. Ensure your 3 concepts and SVGs explicitly adopt and harmonize with this style!"
@@ -331,7 +346,7 @@ USER REQUIREMENTS:
 - GENERAL STYLE & MOOD: {style_directive or "Modern Hexagonal App Icon with Bold Orange Border and Metallic Accents"}
 - TARGET APP: {app_info or f"App: {app_name}"}
 - BRAND CHARACTER / MASCOT (Source of Truth):
-{character_info or "Captain Geppy: Charismatic cosmic astronaut commander wearing an obsidian-and-gold flight suit with an illuminated translucent cyan visor reflecting swirling nebula galaxies."}
+{character_info or default_char_desc}
 - STYLE CONTEXTILE (Source of Truth):
 {style_ctx_info or icon_guide_info}
 - PRODUCTION OUTPUT SPEC:
@@ -343,10 +358,11 @@ CRITICAL SHAPE & TRANSPARENCY RULES:
 - Hexagonal Silhouette Requested: {is_hex_req} (If True: all concepts MUST feature a 6-sided hexagonal silhouette with bold orange border #F59E0B and metallic accents).
 - Transparent Background (No Background) Requested: {is_transparent_req} (If True: all concepts and SVGs MUST be isolated on a transparent background with NO solid background rectangle).
 - Primary Accent Color: {"Bold Orange (#F59E0B)" if is_orange_req else "Vibrant Cyan and Amber Gold"}.
+{"" if is_gb else "- IDENTITY RULE: In this app, the character is strictly named 'Geppy' (NEVER 'Captain Geppy')."}
 
 INSTRUCTIONS:
 Generate exactly 3 DISTINCT creative concepts:
-- Concept 1: "Hero Brand Integration" — Stars the brand character / mascot likeness (e.g. Captain Geppy's illuminated visor, commander crest) seamlessly integrated into the requested silhouette (e.g. Hexagon or Squircle).
+- Concept 1: "Hero Brand Integration" — Stars the brand character / mascot likeness ({char_name_hint}) seamlessly integrated into the requested silhouette (e.g. Hexagon or Squircle).
 - Concept 2: "Signature Symbolic Glyph" — A stylized, powerful symbolic emblem or badge fusing the app's core utility with the brand's aesthetic language (e.g. glowing orbital ledger, hexagonal vault core, futuristic diamond emblem).
 - Concept 3: "Dimensional Scene / Isometric Matrix" — A rich, isometric or deeply layered glassmorphic dimensional scene with floating elements, ambient cosmic depth, and tangible physical materials.
 
@@ -769,15 +785,50 @@ Return strictly valid JSON with this schema:
         return vars_dict
 
     @classmethod
+    def _extract_option_toggles_summary(
+        cls,
+        ingredients: Optional[List[Dict[str, Any]]] = None
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Extract enabled and disabled option toggles from any attached Contextile templates.
+        """
+        enabled_list: List[Dict[str, Any]] = []
+        disabled_list: List[Dict[str, Any]] = []
+        for ing in (ingredients or []):
+            if not isinstance(ing, dict):
+                continue
+            mods = ing.get("modifiers") if isinstance(ing.get("modifiers"), dict) else {}
+            toggles = ing.get("option_toggles") if isinstance(ing.get("option_toggles"), list) else mods.get("option_toggles")
+            if not isinstance(toggles, list):
+                continue
+            c_name = ing.get("name") or ing.get("title") or "contextile"
+            for t in toggles:
+                if not isinstance(t, dict):
+                    continue
+                entry = {
+                    "contextile": c_name,
+                    "id": str(t.get("id") or ""),
+                    "label": str(t.get("label") or t.get("id") or ""),
+                    "prompt": str(t.get("prompt") or t.get("label") or ""),
+                    "enabled": bool(t.get("enabled", False))
+                }
+                if entry["enabled"]:
+                    enabled_list.append(entry)
+                else:
+                    disabled_list.append(entry)
+        return {"enabled": enabled_list, "disabled": disabled_list}
+
+    @classmethod
     def _classify_and_resolve_references(
         cls,
         ingredients_summary: Optional[List[Dict[str, Any]]] = None,
         reference_images: Optional[List[str]] = None
     ) -> Dict[str, List[str]]:
         """
-        Cleanly separate Subject Portrait Photos (real character/person photos to feature as the focal subject)
-        from Style / Icon / Cover References (used only for palette & multimodal inspiration, NEVER pasted under outputs).
+        Cleanly separate Subject Portrait Photos (real character/person Source of Truth photos to feature as the focal subject)
+        from Contextile Sample Images / Style / Icon / Cover References (used only for layout & style inspiration, NEVER pasted as identity).
         """
+        from gitbridge.services.sot_service import SOTService
         subject_urls: List[str] = []
         style_urls: List[str] = []
         all_urls: List[str] = []
@@ -796,18 +847,24 @@ Return strictly valid JSON with this schema:
             for ing in ingredients_summary:
                 if not isinstance(ing, dict):
                     continue
-                role = str(ing.get("role") or "").lower()
+                role = str(ing.get("role") or ing.get("sot_role") or "").lower()
                 arch = str(ing.get("archetype") or "").lower()
                 name = str(ing.get("name") or "").lower()
+                mods = ing.get("modifiers") if isinstance(ing.get("modifiers"), dict) else {}
+                entity_kind = str(ing.get("entity_kind") or SOTService.infer_entity_kind(arch, mods, name)).lower()
+
                 p_img = ing.get("primary_image_url") or ing.get("reference_image_url")
                 g_imgs = ing.get("gallery_images") or []
                 ing_imgs = [u for u in ([p_img] + list(g_imgs)) if u]
 
+                # Contextile templates contain SAMPLE images (never subject identity photos!)
                 is_subject_ing = (
-                    role == "subject" or
-                    arch in ["character", "person", "mascot", "subject"] or
-                    name in ["jon", "captain-geppy"]
-                ) and role not in ["style", "lighting", "materials", "output"] and arch not in ["style", "icon_set", "ui_component", "output"]
+                    entity_kind == "sot" and (
+                        role in ["subject", "mascot"] or
+                        arch in ["character", "person", "mascot", "subject"] or
+                        name in ["jon", "captain-geppy"]
+                    ) and arch not in ["place", "environment", "style", "scene_template", "icon_set", "ui_component", "output"]
+                )
 
                 for u in ing_imgs:
                     if u not in all_urls:
@@ -849,6 +906,381 @@ Return strictly valid JSON with this schema:
             "all_paths": all_paths
         }
 
+    SOT_ROLE_LABELS = {
+        "mascot": "SOURCE OF TRUTH: CHARACTER / PERSON (LOCK IDENTITY)",
+        "subject": "SOURCE OF TRUTH: CHARACTER / PERSON (LOCK IDENTITY)",
+        "logo": "SOURCE OF TRUTH: BRAND LOGO (LOCK GEOMETRY)",
+        "icon": "CONTEXTILE TEMPLATE: ICON CONTAINER",
+        "item": "SOURCE OF TRUTH: SPECIFIC PROP / ITEM",
+        "blank_substrate": "CONTEXTILE OF TRUTH: PHYSICAL BLANK & SIZING TEMPLATE (FIT TO SAFE ZONE)",
+        "style_only": "CONTEXTILE SAMPLE (MATCH LAYOUT/STYLE ONLY - NOT IDENTITY)",
+        "style": "CONTEXTILE SAMPLE (MATCH LAYOUT/STYLE ONLY - NOT IDENTITY)",
+        "stage": "SOURCE OF TRUTH: SPECIFIC PLACE / SETTING (LOCK LOCATION)",
+        "lighting": "LIGHTING & ATMOSPHERE REFERENCE",
+        "materials": "SURFACE MATERIAL REFERENCE",
+        "base_image": "BASE IMAGE (COMPOSITE ONTO THIS)"
+    }
+
+    SOT_INTERACTION_PROMPTS = {
+        "none": "",
+        "holding": "The character MUST be actively holding, wielding, or operating the REFERENCE ITEM/PROP.",
+        "wearing": "The character MUST be wearing or equipped with the REFERENCE ITEM/PROP as part of their outfit/gear.",
+        "sitting_on": "The character MUST be sitting on, riding, or perched atop the REFERENCE ITEM/PROP.",
+        "branded": "The item/scene MUST be branded with the REFERENCE CHARACTER/LOGO colors and aesthetic.",
+        "mascot_printed": "The REFERENCE CHARACTER image MUST be printed, embossed, or emblazoned directly onto the surface of the REFERENCE ITEM/PROP.",
+        "logo_printed": "The REFERENCE LOGO MUST be printed, stamped, or embossed directly onto the surface of the REFERENCE ITEM/PROP.",
+        "emblem": "Use the REFERENCE PICTURE as the central 3D heroic emblem/crest inside the badge.",
+        "themed_after": "Design the entire target item/concept so its shape, materials, and details are themed after the REFERENCE PICTURE.",
+        "integrated": "Naturally blend and integrate the overlay picture into the base image matching lighting, perspective, and shadows.",
+        "sticker": "Apply the reference picture as a crisp die-cut vinyl sticker overlay."
+    }
+
+    @classmethod
+    def build_scene_elements_and_reference_sheet(
+        cls,
+        ingredients_summary: Optional[List[Dict[str, Any]]] = None,
+        reference_images: Optional[List[Any]] = None,
+        scene_elements: Optional[List[Dict[str, Any]]] = None,
+        asset_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Port of geppy-s-asset-lab's `combineImagesToSingleReference` + `sceneElements` architecture.
+        Cleanly distinguishes unchanging Source-of-Truth (SOT) entities (Characters/People, Specific Places,
+        Brand Logos, Props), Contextiles of Truth (Physical Blanks & Sizing Templates), and Contextile Templates
+        (whose images are labeled as CONTEXTILE SAMPLES and whose embedded SOT handles are automatically expanded).
+        """
+        from gitbridge.services.sot_service import SOTService
+        from gitbridge.db.database import SessionLocal
+        from gitbridge.db.models import ContextileModel as SOTContextileModel
+
+        elements: List[Dict[str, Any]] = []
+        seen_paths: set = set()
+
+        def _add_element(
+            url_or_path: str,
+            role: str = "mascot",
+            interaction: str = "none",
+            action: str = "",
+            name: str = ""
+        ):
+            if not url_or_path:
+                return
+            local_p = cls.resolve_image_path(url_or_path)
+            if not local_p or not os.path.exists(local_p):
+                return
+            # Allow same image only if given a distinct role/action
+            dedup_key = f"{local_p}::{role}::{interaction}::{action}"
+            if dedup_key in seen_paths:
+                return
+            seen_paths.add(dedup_key)
+
+            role_key = (role or "mascot").lower().strip()
+            base_label = cls.SOT_ROLE_LABELS.get(role_key, "REFERENCE SOURCE OF TRUTH")
+            label_parts = [base_label]
+            if name:
+                label_parts.append(f"[{name.upper()}]")
+            if interaction and interaction != "none":
+                label_parts.append(f"INTERACTION: {interaction.upper().replace('_', ' ')}")
+            if action:
+                label_parts.append(f"ACTION: {action.upper()}")
+            full_label = " - ".join(label_parts)
+
+            elements.append({
+                "url": url_or_path,
+                "path": local_p,
+                "role": role_key,
+                "interaction": (interaction or "none").lower().strip(),
+                "action": (action or "").strip(),
+                "name": name or os.path.basename(local_p),
+                "label": full_label
+            })
+
+        def _role_for_sot_archetype(arch_str: str, explicit_role: str = "") -> str:
+            er = (explicit_role or "").lower().strip()
+            a = (arch_str or "").lower().strip()
+            if a == "blank_substrate" or er == "blank_substrate":
+                return "blank_substrate"
+            if a in ["place", "environment"] or er in ["stage", "place", "environment"]:
+                return "stage"
+            if a == "brand_asset" or er == "logo":
+                return "logo"
+            if a == "prop" or er == "item":
+                return "item"
+            return "mascot"
+
+        # 1. Explicit scene_elements (from UI Source-of-Truth Picture Deck)
+        for el in (scene_elements or []):
+            if isinstance(el, dict):
+                img_u = el.get("image_url") or el.get("url") or el.get("primary_image_url")
+                _add_element(
+                    url_or_path=img_u,
+                    role=el.get("role") or el.get("identity_focus") or "mascot",
+                    interaction=el.get("interaction") or "none",
+                    action=el.get("action") or "",
+                    name=el.get("name") or el.get("title") or ""
+                )
+
+        # 2. Attached SOT items, Contextiles of Truth (Blanks), & Contextile templates
+        embedded_handles_to_resolve: List[str] = []
+        attached_names = set()
+
+        for ing in (ingredients_summary or []):
+            if not isinstance(ing, dict):
+                continue
+            raw_name = str(ing.get("name") or "").strip().lower()
+            if raw_name:
+                attached_names.add(raw_name)
+            ing_role = str(ing.get("sot_role") or ing.get("identity_focus") or ing.get("role") or "").lower()
+            arch = str(ing.get("archetype") or "").lower()
+            mods = ing.get("modifiers") if isinstance(ing.get("modifiers"), dict) else {}
+            entity_kind = str(ing.get("entity_kind") or SOTService.infer_entity_kind(arch, mods, raw_name)).lower()
+
+            if entity_kind == "contextile_of_truth":
+                ing_role = "blank_substrate"
+            elif entity_kind == "contextile":
+                # Contextile images are sample layouts/styles ONLY — never lock them as character/person identity!
+                if arch in ["icon_set", "ui_component"] or ing_role == "icon":
+                    ing_role = "icon"
+                else:
+                    ing_role = "style_only"
+
+                # Collect any embedded Source-of-Truth handles locked inside this Contextile (e.g. @blackwood-manor inside @blackwood-horror-movie)
+                emb = ing.get("embedded_sot_handles") if isinstance(ing.get("embedded_sot_handles"), list) else mods.get("embedded_sot_handles")
+                if isinstance(emb, list):
+                    for h in emb:
+                        clean_h = str(h or "").strip().lstrip("@").lower()
+                        if clean_h and clean_h not in embedded_handles_to_resolve:
+                            embedded_handles_to_resolve.append(clean_h)
+            else:
+                # True Source of Truth entity (Person, Character, Place, Brand Logo, Prop)
+                ing_role = _role_for_sot_archetype(arch, ing_role)
+
+            ing_interaction = str(ing.get("interaction") or "none").lower()
+            ing_action = str(ing.get("action") or "").strip()
+            ing_name = str(ing.get("title") or ing.get("name") or "")
+            p_img = ing.get("primary_image_url") or ing.get("reference_image_url")
+            if p_img:
+                _add_element(p_img, role=ing_role, interaction=ing_interaction, action=ing_action, name=ing_name)
+            for g_img in (ing.get("gallery_images") or [])[:2]:
+                if g_img and g_img != p_img:
+                    _add_element(g_img, role=ing_role, interaction=ing_interaction, action=ing_action, name=ing_name)
+
+        # 2b. Expand embedded Source-of-Truth items from any attached Contextile template
+        if embedded_handles_to_resolve:
+            db = SessionLocal()
+            try:
+                for emb_handle in embedded_handles_to_resolve:
+                    if emb_handle in attached_names:
+                        continue
+                    emb_rec = db.query(SOTContextileModel).filter(SOTContextileModel.name == emb_handle).first()
+                    if emb_rec and emb_rec.primary_image_url:
+                        emb_role = _role_for_sot_archetype(emb_rec.archetype or "place")
+                        _add_element(
+                            emb_rec.primary_image_url,
+                            role=emb_role,
+                            interaction="none",
+                            action=f"Embedded SOT from Contextile (@{emb_rec.name})",
+                            name=f"{emb_rec.title} (@{emb_rec.name})"
+                        )
+            except Exception as e:
+                print(f"[AssetLabService] Embedded SOT resolution notice: {e}")
+            finally:
+                db.close()
+
+        # 3. Extra uploaded Reference Images (each can be a string URL or a dict {url, role, interaction, action, name})
+        for ref_item in (reference_images or []):
+            if isinstance(ref_item, dict):
+                _add_element(
+                    url_or_path=ref_item.get("url") or ref_item.get("image_url"),
+                    role=ref_item.get("role") or "item",
+                    interaction=ref_item.get("interaction") or "holding",
+                    action=ref_item.get("action") or "",
+                    name=ref_item.get("name") or "Reference Picture"
+                )
+            elif isinstance(ref_item, str) and ref_item.strip():
+                # Default extra uploaded picture to Mascot if no mascot yet, otherwise Item/Prop to interact with
+                has_mascot = any(e["role"] in ("mascot", "subject") for e in elements)
+                default_r = "item" if has_mascot else "mascot"
+                default_int = "holding" if has_mascot else "none"
+                _add_element(ref_item.strip(), role=default_r, interaction=default_int, name="Uploaded Reference")
+
+        # Build the side-by-side Labeled Combined Reference Sheet (port of combineImagesToSingleReference)
+        ref_sheet_img: Optional[Image.Image] = None
+        ref_sheet_url: Optional[str] = None
+        ref_sheet_path: Optional[str] = None
+
+        if elements:
+            try:
+                target_w = 512
+                padding = 20
+                text_h = 64
+                loaded_panels = []
+
+                for el in elements[:6]:
+                    try:
+                        with Image.open(el["path"]) as im_raw:
+                            im_rgba = im_raw.convert("RGBA")
+                            rw, rh = im_rgba.size
+                            scale = target_w / max(1, rw)
+                            nh = min(640, max(256, int(rh * scale)))
+                            # Fit cleanly onto a 512 x nh studio panel
+                            panel_im = Image.new("RGBA", (target_w, nh), (248, 250, 252, 255))
+                            im_fit = im_rgba.copy()
+                            im_fit.thumbnail((target_w - 16, nh - 16), Image.Resampling.LANCZOS)
+                            ox = (target_w - im_fit.width) // 2
+                            oy = (nh - im_fit.height) // 2
+                            panel_im.paste(im_fit, (ox, oy), im_fit)
+                            loaded_panels.append((panel_im, el))
+                    except Exception as e:
+                        print(f"[AssetLabService] Reference panel load notice: {e}")
+
+                if loaded_panels:
+                    max_img_h = max(p[0].height for p in loaded_panels)
+                    total_w = len(loaded_panels) * target_w + (len(loaded_panels) + 1) * padding
+                    total_h = max_img_h + text_h + padding * 2
+
+                    sheet = Image.new("RGBA", (total_w, total_h), (255, 255, 255, 255))
+                    s_draw = ImageDraw.Draw(sheet)
+                    font_lbl = cls._load_font(size=15, bold=True)
+                    font_sub = cls._load_font(size=12, bold=False)
+
+                    role_badge_colors = {
+                        "mascot": (245, 158, 11),
+                        "subject": (245, 158, 11),
+                        "logo": (6, 182, 212),
+                        "icon": (168, 85, 247),
+                        "item": (16, 185, 129),
+                        "style_only": (236, 72, 153),
+                        "style": (236, 72, 153),
+                        "stage": (59, 130, 246),
+                        "base_image": (99, 102, 241)
+                    }
+
+                    cur_x = padding
+                    for panel_im, el in loaded_panels:
+                        b_col = role_badge_colors.get(el["role"], (15, 23, 42))
+                        # Header bar above picture
+                        s_draw.rounded_rectangle(
+                            [cur_x, padding, cur_x + target_w, padding + text_h - 6],
+                            radius=8,
+                            fill=(*b_col, 255)
+                        )
+                        lbl_main = cls.SOT_ROLE_LABELS.get(el["role"], "SOURCE OF TRUTH")
+                        lbl_sub_parts = []
+                        if el.get("name"):
+                            lbl_sub_parts.append(str(el["name"]))
+                        if el.get("interaction") and el["interaction"] != "none":
+                            lbl_sub_parts.append(f"Mode: {el['interaction'].upper()}")
+                        if el.get("action"):
+                            lbl_sub_parts.append(f"Action: {el['action']}")
+                        lbl_sub = " | ".join(lbl_sub_parts) or "LOCKED VISUAL SOURCE OF TRUTH"
+
+                        s_draw.text((cur_x + 12, padding + 8), lbl_main[:48], fill=(255, 255, 255, 255), font=font_lbl)
+                        s_draw.text((cur_x + 12, padding + 32), lbl_sub[:62], fill=(254, 249, 195, 255), font=font_sub)
+
+                        # Paste actual picture below header
+                        img_y = padding + text_h
+                        sheet.paste(panel_im, (cur_x, img_y))
+                        s_draw.rectangle(
+                            [cur_x, img_y, cur_x + target_w, img_y + panel_im.height],
+                            outline=(*b_col, 255),
+                            width=3
+                        )
+                        cur_x += target_w + padding
+
+                    ref_sheet_img = sheet
+                    if asset_id:
+                        lab_dir = cls._get_lab_dir()
+                        sheet_fname = f"{asset_id}_ref_sheet.png"
+                        ref_sheet_path = os.path.join(lab_dir, sheet_fname)
+                        sheet.convert("RGB").save(ref_sheet_path, "PNG", quality=92)
+                        ref_sheet_url = f"/api/asset-lab/file/{sheet_fname}"
+            except Exception as e:
+                print(f"[AssetLabService] build_scene_elements_and_reference_sheet notice: {e}")
+
+        return {
+            "elements": elements,
+            "ref_sheet_img": ref_sheet_img,
+            "ref_sheet_path": ref_sheet_path,
+            "ref_sheet_url": ref_sheet_url
+        }
+
+    @classmethod
+    def auto_fill_concepts(
+        cls,
+        count: int = 4,
+        theme_prompt: str = "",
+        asset_type: str = "app_icon",
+        ingredients_summary: Optional[List[Dict[str, Any]]] = None,
+        app_slug: Optional[str] = None
+    ) -> List[Dict[str, str]]:
+        """
+        Port of geppy-s-asset-lab's `generateIconDefinitions`:
+        Uses Gemini to generate `count` distinct, cohesive concepts (each with `label`, `prompt`, and `interaction`)
+        so the user can generate multiple concepts as a whole (2x2 or 3x3 grid sheet + sliced individual assets).
+        """
+        from gitbridge.services.central_key_service import CentralKeyService
+        count = max(2, min(12, int(count or 4)))
+
+        ing_names = [str(i.get("title") or i.get("name")) for i in (ingredients_summary or []) if isinstance(i, dict)]
+        ing_ctx = ", ".join(ing_names) if ing_names else "Geppy Source of Truth"
+
+        sys_inst = (
+            "You are an expert visual director for an AI Asset Lab. "
+            "Return ONLY a JSON array of objects with keys: "
+            "\"label\" (short 2-3 word title), \"prompt\" (concrete visual description of the item/pose/concept), "
+            "and \"interaction\" (one of: 'none', 'holding', 'wearing', 'sitting_on', 'mascot_printed', 'logo_printed', 'emblem', 'themed_after')."
+        )
+        u_prompt = (
+            f"Generate {count} distinct, high-impact visual asset concepts that work together as a cohesive set.\n"
+            f"Theme / Direction: {theme_prompt or 'Cohesive app icon & mascot action set'}\n"
+            f"Asset Format: {asset_type}\n"
+            f"Source of Truth Anchors: {ing_ctx}\n"
+            f"Target App: {app_slug or 'General'}\n"
+            f"Return a JSON array of exactly {count} items."
+        )
+        raw = CentralKeyService.call_gemini(
+            [{"role": "user", "parts": [{"text": u_prompt}]}],
+            sys_inst,
+            timeout=18,
+            json_mode=True
+        )
+        if raw:
+            try:
+                clean = raw.strip()
+                if clean.startswith("```json"): clean = clean[7:]
+                elif clean.startswith("```"): clean = clean[3:]
+                if clean.endswith("```"): clean = clean[:-3]
+                arr = json.loads(clean.strip())
+                if isinstance(arr, list) and len(arr) > 0:
+                    out = []
+                    for idx, item in enumerate(arr[:count], 1):
+                        if isinstance(item, dict):
+                            out.append({
+                                "label": str(item.get("label") or f"Concept {idx}"),
+                                "prompt": str(item.get("prompt") or f"Variation {idx} of {theme_prompt or ing_ctx}"),
+                                "interaction": str(item.get("interaction") or "none")
+                            })
+                    if out:
+                        return out
+            except Exception as e:
+                print(f"[AssetLabService] auto_fill_concepts parse notice: {e}")
+
+        # Intelligent instant fallback concepts
+        base_label = theme_prompt.strip()[:28] if theme_prompt else "SOT Concept"
+        defaults = [
+            {"label": f"{base_label} • Hero Pose", "prompt": f"Primary heroic front-facing pose of {ing_ctx} with signature lighting and emblem.", "interaction": "none"},
+            {"label": f"{base_label} • Action Tool", "prompt": f"{ing_ctx} actively holding and operating a glowing high-tech tool/gadget.", "interaction": "holding"},
+            {"label": f"{base_label} • Emblem Crest", "prompt": f"Precision 3D metallic badge crest emblazoned with the {ing_ctx} insignia.", "interaction": "emblem"},
+            {"label": f"{base_label} • Victory Gesture", "prompt": f"{ing_ctx} giving a confident thumbs-up celebration with radiant energy rim glow.", "interaction": "none"},
+            {"label": f"{base_label} • Command Gear", "prompt": f"{ing_ctx} wearing upgraded tactical holographic visor and shoulder armor.", "interaction": "wearing"},
+            {"label": f"{base_label} • Hover Mount", "prompt": f"{ing_ctx} perched atop a sleek floating cosmic platform/cruiser.", "interaction": "sitting_on"},
+            {"label": f"{base_label} • Branded Artifact", "prompt": f"Collectible 3D artifact with the {ing_ctx} graphic printed on its surface.", "interaction": "mascot_printed"},
+            {"label": f"{base_label} • Power Surge", "prompt": f"{ing_ctx} surrounded by a swirling vortex of neon starlight particles.", "interaction": "none"},
+            {"label": f"{base_label} • Master Seal", "prompt": f"Stamped golden vault seal themed after {ing_ctx}.", "interaction": "themed_after"},
+        ]
+        return defaults[:count]
+
     @staticmethod
     def _is_trading_card_request(
         target_format: str,
@@ -858,23 +1290,26 @@ Return strictly valid JSON with this schema:
     ) -> bool:
         """
         Determine if the asset should be rendered as a 1970s Trading / Baseball Card.
-        Avoids false positives from UI component contextiles like '@galactic-card-ui'.
+        STRICTLY requires either:
+        - `target_format` explicitly set to trading_card / baseball_card, OR
+        - An attached Contextile ingredient that is explicitly `@70s-baseball-card` / `@vintage-sport-card-elite`, OR
+        - When `target_format` is `auto`/empty and the user explicitly typed `baseball card` / `70s baseball card`.
         """
         fmt = (target_format or "").lower().strip()
         if fmt in ["trading_card", "baseball_card", "tradingcard"]:
             return True
+        for ing in (ingredients or []):
+            if isinstance(ing, dict):
+                ing_handle = str(ing.get("name") or "").lower().strip()
+                if ing_handle in ["70s-baseball-card", "vintage-sport-card-elite"]:
+                    return True
         if fmt and fmt not in ["auto", ""]:
             # User explicitly chose another format (e.g. app_icon, transparent_png, banner_hero)
             return False
         combined = f"{title} {master_prompt}".lower()
-        card_phrases = ["baseball card", "trading card", "topps", "sport card", "sports card", "collectible card"]
+        card_phrases = ["70s baseball card", "1970s baseball card", "baseball card", "topps card"]
         if any(phrase in combined for phrase in card_phrases):
             return True
-        for ing in (ingredients or []):
-            if isinstance(ing, dict):
-                ing_id = f"{ing.get('name', '')} {ing.get('title', '')}".lower()
-                if any(k in ing_id for k in ["baseball-card", " baseball card", "sport-card", "tradingcard", "trading card"]):
-                    return True
         return False
 
     @classmethod
@@ -885,18 +1320,28 @@ Return strictly valid JSON with this schema:
         target_format: str = "app_icon",
         fidelity_mode: str = "balanced",
         overrides: Dict[str, Any] = None,
-        reference_images: List[str] = None,
+        reference_images: List[Any] = None,
         app_context: Optional[str] = None,
-        variables: Dict[str, Any] = None
+        variables: Dict[str, Any] = None,
+        scene_elements: Optional[List[Dict[str, Any]]] = None,
+        grid_mode: str = "single",
+        grid_rows: int = 1,
+        grid_cols: int = 1,
+        concepts_list: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
-        Synthesize multiple SOT Contextiles, reference images, and directives
-        into a unified, fine-tuned Master Asset Generation Blueprint.
+        Synthesize Source-of-Truth (SOT) entities (People, Characters, Specific Places, Logos, Props),
+        Contextile Templates (with sample images, embedded SOTs, and option toggles),
+        and multi-concept grid specs into a Master Asset Generation Blueprint.
         """
+        from gitbridge.services.sot_service import SOTService
         overrides = overrides or {}
         reference_images = reference_images or []
         merged_vars = cls._merge_variables(variables, ingredients)
         is_card = cls._is_trading_card_request(target_format, custom_prompt, custom_prompt, ingredients)
+        toggle_info = cls._extract_option_toggles_summary(ingredients)
+        enabled_toggles = toggle_info["enabled"]
+        disabled_toggles = toggle_info["disabled"]
 
         aspect_map = {
             "app_icon": "1:1",
@@ -909,66 +1354,210 @@ Return strictly valid JSON with this schema:
         }
         default_aspect = "2.5:3.5" if is_card else aspect_map.get(target_format, "1:1")
 
-        # System Instruction for the AI Style Synthesizer
-        system_instruction = f"""You are Captain Geppy's Chief Holodeck & Style Synthesizer aboard Geppy's GitBridge.
-Your duty is to fuse ALL provided Sources of Truth (SOT) contextiles, visual reference images, dynamic template variables, and creator directives into a bespoke Master Asset Blueprint.
+        # Build the geppy-s-asset-lab Labeled Reference Sheet from all active pictures
+        sot_bundle = cls.build_scene_elements_and_reference_sheet(
+            ingredients_summary=ingredients,
+            reference_images=reference_images,
+            scene_elements=scene_elements
+        )
+        active_elements = sot_bundle["elements"]
+        ref_sheet_img = sot_bundle["ref_sheet_img"]
 
-ROLES of Contextiles:
-- "subject": The primary character, person, mascot, or central object likeness to feature at the center of the composition.
-- "style": The thematic frame, artistic medium, silhouette, or aesthetic genre.
-- "lighting": Volumetric lighting, rim glow, shadows, and atmospheric color temperature.
-- "materials": Surface texture, frosted glass, brushed metals, neon, or vintage cardstock.
+        # System Instruction for the AI Style Synthesizer
+        system_instruction = f"""You are the Chief Visual Synthesizer for Geppy's Asset Lab.
+You MUST strictly distinguish between THREE different entity types:
+1. SOURCE OF TRUTH (SOT) ENTITIES (`entity_kind = "sot"`):
+   - Unchanging ground-truth pieces: a specific Person (`@jon`), Character/Mascot (`@captain-geppy`), Specific Place/Location (`@blackwood-manor`), Brand Logo (`@geppybrand`), or Prop.
+   - Their photos are labeled `SOURCE OF TRUTH: CHARACTER / PERSON (LOCK IDENTITY)` or `SOURCE OF TRUTH: SPECIFIC PLACE / SETTING (LOCK LOCATION)`. You MUST preserve their exact identity, face, architecture, or geometry.
+2. CONTEXTILES OF TRUTH (`entity_kind = "contextile_of_truth"`):
+   - Physical Blank items & Sizing Templates (e.g., `@wood-plaque-blank`, `@slate-coaster-blank`, or an uploaded photo of a blank item to sublimate, laser engrave, stencil, or vinyl-cut).
+   - They function as BOTH the Source of Truth for the physical blank substrate AND the calibrated sizing/output Contextile defining dimensions (`width_in` × `height_in`), safe margin, contour shape, and what can be output on it:
+     * If Laser Engraver / Burn (`laser_bw`): Output MUST be strictly high-contrast 1-bit BLACK AND WHITE ONLY (#000000 = laser burn area, #FFFFFF = unburned blank; NO colors, NO gray background wash).
+     * If Stencil with Edge Connections (`stencil_bridged`): Output MUST be a bold cuttable stencil where EVERY interior island is connected to the outer frame via structural stencil bridges / edge connections so no pieces fall out when cut.
+     * If Vinyl Cutter (`vinyl_cut`): Solid weed-ready vector shapes with connected bridges.
+3. CONTEXTILE TEMPLATES (`entity_kind = "contextile"`):
+   - Reusable templatized settings, styles, fabrication rules, or scene templates (e.g., `@stencil-edge-connections`, `@laser-engrave-bw-burn`, `@blackwood-horror-movie`, `@70s-baseball-card`).
+   - Their attached images are labeled `CONTEXTILE SAMPLE (MATCH LAYOUT/STYLE ONLY - NOT IDENTITY)`. Use them ONLY as a template for layout, framing, typography, texture, and mood — NEVER copy the sample person/subject inside a Contextile sample image!
+   - A Contextile can include customizable OPTION TOGGLES and extensive VARIABLE DROPDOWNS. Strictly include all ENABLED option toggles and selected dropdown values.
 
 CRITICAL FUSION RULES:
-1. Honor the requested Target Format ('{target_format}') and Aspect Ratio ('{default_aspect}'). Do NOT force a baseball card unless Target Format is 'trading_card' or explicitly requested.
-2. Integrate EVERY active SOT Contextile ingredient's traits, modifiers, and reference text into the `master_prompt` and `composition_blueprint`.
-3. Integrate EVERY Dynamic Template Variable value (such as app_title, character_name, role_title, glyph_symbol, badge_count, version_tag, power_level, special_gear, team_name, player_name, position, stats) directly into the visual description and badge/typography specification.
-4. If visual reference images are attached, analyze their exact colors, character features, clothing/helmet/visor details, and framing, and weave them into `master_prompt`.
+1. Honor the requested Target Format ('{target_format}') and Aspect Ratio ('{default_aspect}').
+2. Look closely at the attached COMBINED REFERENCE SHEET image and follow each panel's header label (`SOURCE OF TRUTH`, `CONTEXTILE OF TRUTH`, vs `CONTEXTILE SAMPLE`).
+3. If Grid / Multi-Concept Mode is active ('{grid_mode}', {grid_rows}x{grid_cols}), structure the blueprint for a cohesive {grid_rows}x{grid_cols} sprite sheet where every cell shares the locked Source-of-Truth character/style.
 
 Respond ONLY with valid JSON in this exact structure:
 {{
-  "title": "Creative Asset Title reflecting the specific subject, variables, and style",
-  "master_prompt": "Hyper-detailed visual generation prompt describing the exact subject, pose, costume/gear, central emblem, background/frame silhouette, lighting, materials, and embedded variable typography/badges.",
+  "title": "Creative Asset Title reflecting the specific SOT entities, Contextile of Truth blank, Contextile template, and enabled options",
+  "master_prompt": "Hyper-detailed visual generation prompt combining the unchanging Source-of-Truth character/place/prop with the Contextile of Truth blank sizing/fabrication constraints and Contextile template settings.",
   "negative_prompt": "blurry, low quality, generic primitive shapes, stacked icons, distorted anatomy, pixelated edges",
   "color_palette": ["#F59E0B (Primary Accent)", "#06B6D4 (Secondary Glow)", "#6366F1 (Energy Core)", "#0F172A (Deep Base)"],
-  "composition_blueprint": "Detailed breakdown of container shape, background layer, central subject/emblem layer, foreground effects, and variable badge placements.",
-  "style_fusion_notes": "Concise summary of how each @contextile and variable was fused.",
+  "composition_blueprint": "Detailed breakdown of how each Source-of-Truth entity is placed into the Contextile of Truth safe zone and Contextile template.",
+  "style_fusion_notes": "Concise summary of how the Source-of-Truth entities, Contextile of Truth blank, Contextile template, and option toggles were fused.",
   "suggested_aspect_ratio": "{default_aspect}"
 }}"""
 
         user_content = f"Target Format: {target_format}\nSuggested Aspect Ratio: {default_aspect}\nFidelity Mode: {fidelity_mode}\n"
+        user_content += f"Generation Scope: {grid_mode} ({grid_rows}x{grid_cols})\n"
         if app_context:
             user_content += f"Target App: {app_context}\n"
-        user_content += f"Creator Directives: {custom_prompt or 'Create a flagship visual asset fusing all selected SOT contextiles and variables.'}\n\n"
+        user_content += f"Creator Directives: {custom_prompt or 'Combine the attached Source-of-Truth entities into the active Contextile template.'}\n\n"
+        if custom_prompt and "@" in str(custom_prompt):
+            try:
+                from gitbridge.db.database import SessionLocal
+                _db = SessionLocal()
+                try:
+                    mention_res = SOTService.resolve_mentions(str(custom_prompt), _db)
+                    if mention_res.get("grounding_prompt"):
+                        user_content += f"{mention_res['grounding_prompt']}\n\n"
+                finally:
+                    _db.close()
+            except Exception:
+                pass
 
-        user_content += "ACTIVE SOT CONTEXTILE INGREDIENTS:\n"
-        for idx, ing in enumerate(ingredients or [], 1):
-            name = ing.get("name", f"item-{idx}")
-            role = ing.get("role", "style")
-            title = ing.get("title", name)
-            ref_text = ing.get("reference_text", "")
-            modifiers = ing.get("modifiers", {})
-            user_content += f"[{idx}] @{name} (Role: {role.upper()}, Title: {title})\n"
-            if ref_text:
-                user_content += f"    Base Truth: {ref_text}\n"
-            if modifiers:
-                user_content += f"    Modifiers: {json.dumps(modifiers)}\n"
+        if active_elements:
+            user_content += "ACTIVE REFERENCE SHEET PANELS (SOT IDENTITIES, CONTEXTILES OF TRUTH BLANKS, vs CONTEXTILE SAMPLES):\n"
+            for idx, el in enumerate(active_elements, 1):
+                int_desc = cls.SOT_INTERACTION_PROMPTS.get(el["interaction"], "")
+                user_content += (
+                    f"[{idx}] Panel '{el['name']}' -> Role: {el['label']}\n"
+                    f"    Rule: {int_desc or 'Follow panel header role strictly'}\n"
+                )
+                if el.get("action"):
+                    user_content += f"    Specific Action/Pose: {el['action']}\n"
+
+        sot_ings = []
+        blank_ings = []
+        ctx_ings = []
+        for ing in (ingredients or []):
+            if not isinstance(ing, dict):
+                continue
+            arch = str(ing.get("archetype") or "").lower()
+            mods = ing.get("modifiers") if isinstance(ing.get("modifiers"), dict) else {}
+            ek = str(ing.get("entity_kind") or SOTService.infer_entity_kind(arch, mods, ing.get("name"))).lower()
+            if ek == "contextile_of_truth":
+                blank_ings.append(ing)
+            elif ek == "contextile":
+                ctx_ings.append(ing)
+            else:
+                sot_ings.append(ing)
+
+        if sot_ings:
+            user_content += "\nATTACHED SOURCE OF TRUTH (SOT) ENTITIES (UNCHANGING SUBJECTS / PLACES / PROPS):\n"
+            for idx, ing in enumerate(sot_ings, 1):
+                name = ing.get("name", f"sot-{idx}")
+                arch = ing.get("archetype", "character")
+                title = ing.get("title", name)
+                ref_text = ing.get("reference_text", "")
+                user_content += f"[{idx}] @{name} (SOT Type: {str(arch).upper()}, Title: {title})\n"
+                if ref_text:
+                    user_content += f"    Unchanging Ground Truth: {ref_text}\n"
+
+        active_fab_directive = ""
+        if blank_ings:
+            user_content += "\nATTACHED CONTEXTILES OF TRUTH (PHYSICAL BLANKS & SIZING TEMPLATES):\n"
+            for idx, ing in enumerate(blank_ings, 1):
+                name = ing.get("name", f"blank-{idx}")
+                title = ing.get("title", name)
+                ref_text = ing.get("reference_text", "")
+                mods = ing.get("modifiers") if isinstance(ing.get("modifiers"), dict) else {}
+                bspec = ing.get("blank_spec") if isinstance(ing.get("blank_spec"), dict) else (mods.get("blank_spec") if isinstance(mods.get("blank_spec"), dict) else {})
+                w_in = bspec.get("width_in") or mods.get("width_in") or 4.0
+                h_in = bspec.get("height_in") or mods.get("height_in") or 4.0
+                safe_in = bspec.get("safe_margin_in", 0.25)
+                shape = bspec.get("shape", "rounded_rect")
+                material = bspec.get("material", "natural_wood")
+                fab_mode = bspec.get("fabrication_mode") or mods.get("fabrication_mode") or "laser_bw"
+                user_content += (
+                    f"[{idx}] @{name} (Contextile of Truth Blank: {title})\n"
+                    f"    Calibrated Blank Size: {w_in}\" W × {h_in}\" H (Safe Zone Margin: {safe_in}\") | Shape: {shape} | Substrate: {material} | Fabrication Mode: {fab_mode}\n"
+                )
+                if ref_text:
+                    user_content += f"    Blank Specification: {ref_text}\n"
+                if "laser" in str(fab_mode).lower():
+                    active_fab_directive = "STRICTLY 1-BIT BLACK AND WHITE LASER ENGRAVING BURN ONLY (#000000 black burn lines on #FFFFFF pure white background, woodcut/pyrography line art, zero color gradients, zero gray wash)"
+                elif "stencil" in str(fab_mode).lower() or bspec.get("edge_connections"):
+                    active_fab_directive = "CUTTABLE STENCIL WITH EDGE CONNECTIONS (bold high-contrast black-and-white cutout shapes with sturdy structural stencil bridges connecting all interior islands to the outer frame so no pieces fall out)"
+
+        if ctx_ings:
+            user_content += "\nACTIVE CONTEXTILE TEMPLATES (TEMPLATIZED SETTINGS, SAMPLES & EMBEDDED SOTS):\n"
+            for idx, ing in enumerate(ctx_ings, 1):
+                name = ing.get("name", f"contextile-{idx}")
+                title = ing.get("title", name)
+                ref_text = ing.get("reference_text", "")
+                mods = ing.get("modifiers") if isinstance(ing.get("modifiers"), dict) else {}
+                emb = ing.get("embedded_sot_handles") or mods.get("embedded_sot_handles") or []
+                user_content += f"[{idx}] @{name} (Contextile Template: {title})\n"
+                if emb:
+                    user_content += f"    Embedded Source of Truth Slot(s): {', '.join('@' + str(h).lstrip('@') for h in emb)}\n"
+                if ref_text:
+                    user_content += f"    Template Specification: {ref_text}\n"
+                clean_mods = {k: v for k, v in mods.items() if k not in ("option_toggles", "entity_kind")}
+                if clean_mods:
+                    user_content += f"    Template Modifiers: {json.dumps(clean_mods)}\n"
+                if "stencil" in name.lower():
+                    active_fab_directive = "CUTTABLE STENCIL WITH EDGE CONNECTIONS (bold high-contrast black-and-white cutout shapes with sturdy structural stencil bridges connecting all interior islands to the outer frame so no pieces fall out)"
+                elif "laser" in name.lower() and not active_fab_directive:
+                    active_fab_directive = "STRICTLY 1-BIT BLACK AND WHITE LASER ENGRAVING BURN ONLY (#000000 black burn lines on #FFFFFF pure white background, woodcut/pyrography line art, zero color gradients, zero gray wash)"
+
+        if enabled_toggles:
+            user_content += "\nENABLED CONTEXTILE SPECIFICS / OPTION TOGGLES (MUST BE APPLIED):\n"
+            for t in enabled_toggles:
+                user_content += f"  - [ENABLED on @{t['contextile']}] {t['label']}: {t['prompt']}\n"
+        if disabled_toggles:
+            user_content += "\nDISABLED CONTEXTILE OPTION TOGGLES (DO NOT APPLY UNLESS REQUESTED IN DIRECTIVES):\n"
+            for t in disabled_toggles:
+                user_content += f"  - [OFF on @{t['contextile']}] {t['label']}\n"
+
+        if concepts_list and grid_mode == "multi_concept_grid":
+            user_content += f"\nMULTI-CONCEPT GRID CELLS ({grid_rows}x{grid_cols} AS A WHOLE):\n"
+            for c_idx, c_item in enumerate(concepts_list[:grid_rows * grid_cols], 1):
+                if isinstance(c_item, dict):
+                    user_content += f"  - Cell {c_idx} ({c_item.get('label', f'Concept {c_idx}')}): {c_item.get('prompt', '')} [Interaction: {c_item.get('interaction', 'none')}]\n"
+
+        # Extract active dropdown variables (Style, Medium, Lighting, Camera/Lens, Materials, Color Grading, Mood, Fabrication Mode, etc.)
+        dropdown_directives = []
+        for ing in (ingredients or []):
+            if not isinstance(ing, dict):
+                continue
+            for v in (ing.get("variables") or []):
+                if not isinstance(v, dict):
+                    continue
+                v_type = str(v.get("type") or "").lower()
+                v_cat = str(v.get("category_preset") or "").lower()
+                v_opts = v.get("options")
+                if v_type == "dropdown" or v_cat or (isinstance(v_opts, list) and len(v_opts) > 0):
+                    v_label = v.get("label") or v.get("key") or "Variable"
+                    v_key = v.get("key") or ""
+                    v_val = merged_vars.get(v_key) or v.get("value") or v.get("default_value") or ""
+                    if v_val:
+                        dropdown_directives.append(f"{v_label}: {v_val}")
+                        if "stencil" in str(v_val).lower():
+                            active_fab_directive = "CUTTABLE STENCIL WITH EDGE CONNECTIONS (bold high-contrast black-and-white cutout shapes with sturdy structural stencil bridges connecting all interior islands to the outer frame so no pieces fall out)"
+                        elif "laser" in str(v_val).lower() and "1-bit" in str(v_val).lower():
+                            active_fab_directive = "STRICTLY 1-BIT BLACK AND WHITE LASER ENGRAVING BURN ONLY (#000000 black burn lines on #FFFFFF pure white background, woodcut/pyrography line art, zero color gradients, zero gray wash)"
+
+        if dropdown_directives:
+            user_content += "\nSELECTED CONTEXTILE VARIABLE DROPDOWNS (STYLE / MEDIUM / LIGHTING / FABRICATION / ETC. - MUST BE APPLIED):\n"
+            for dd in dropdown_directives:
+                user_content += f"  - {dd}\n"
+
+        if active_fab_directive:
+            user_content += f"\nMANDATORY PHYSICAL FABRICATION CONSTRAINT:\n  - {active_fab_directive}\n"
 
         if merged_vars:
             user_content += f"\nDYNAMIC TEMPLATE VARIABLES & VALUES (MUST BE INTEGRATED):\n{json.dumps(merged_vars, indent=2)}\n"
         if overrides:
             user_content += f"\nOverrides & Nuances: {json.dumps(overrides)}\n"
 
-        ref_info = cls._classify_and_resolve_references(ingredients, reference_images)
         user_parts: List[Dict[str, Any]] = [{"text": user_content}]
-        for rpath in ref_info["all_paths"][:2]:
+        if ref_sheet_img is not None:
             try:
-                with Image.open(rpath) as r_im:
-                    r_im.thumbnail((512, 512))
-                    import io
-                    buf = io.BytesIO()
-                    r_im.convert("RGBA").save(buf, format="PNG")
-                    b64_str = base64.b64encode(buf.getvalue()).decode("utf-8")
+                import io
+                sheet_copy = ref_sheet_img.copy()
+                sheet_copy.thumbnail((1280, 720))
+                buf = io.BytesIO()
+                sheet_copy.convert("RGBA").save(buf, format="PNG")
+                b64_str = base64.b64encode(buf.getvalue()).decode("utf-8")
                 user_parts.append({
                     "inlineData": {
                         "mimeType": "image/png",
@@ -976,10 +1565,13 @@ Respond ONLY with valid JSON in this exact structure:
                     }
                 })
             except Exception as e:
-                print(f"[AssetLabService] synthesize_blend image attach notice: {e}")
+                print(f"[AssetLabService] synthesize_blend ref_sheet attach notice: {e}")
 
         messages = [{"role": "user", "parts": user_parts}]
         raw = call_gemini(messages, system_instruction, json_mode=True, timeout=25)
+
+        enabled_prompts_str = "; ".join(t["prompt"] for t in enabled_toggles if t.get("prompt"))
+        dropdown_prompts_str = " | ".join(dropdown_directives)
 
         if raw:
             try:
@@ -990,6 +1582,12 @@ Respond ONLY with valid JSON in this exact structure:
                 clean = clean.strip()
                 data = json.loads(clean)
                 if isinstance(data, dict) and data.get("master_prompt"):
+                    if active_fab_directive and active_fab_directive[:24].lower() not in data["master_prompt"].lower():
+                        data["master_prompt"] = f"{active_fab_directive} | {data['master_prompt']}"
+                    if dropdown_prompts_str and not any(dd.split(":")[-1].strip().lower() in data["master_prompt"].lower() for dd in dropdown_directives[:2]):
+                        data["master_prompt"] = f"{data['master_prompt']} | Selected Contextile Dropdowns: {dropdown_prompts_str}"
+                    if enabled_prompts_str and enabled_prompts_str.lower() not in data["master_prompt"].lower():
+                        data["master_prompt"] = f"{data['master_prompt']} | Enabled Template Specifics: {enabled_prompts_str}"
                     if not data.get("suggested_aspect_ratio"):
                         data["suggested_aspect_ratio"] = default_aspect
                     return data
@@ -998,15 +1596,18 @@ Respond ONLY with valid JSON in this exact structure:
 
         # Intelligent Fallback Recipe Synthesis
         ing_names = [f"@{i.get('name')}" for i in (ingredients or []) if i.get('name')]
-        ing_str = " + ".join(ing_names) if ing_names else "SOT Galactic Fusion"
+        ing_str = " + ".join(ing_names) if ing_names else "SOT + Contextile Fusion"
 
-        subject_ing = next((i for i in (ingredients or []) if i.get("role") == "subject" or i.get("archetype") == "character"), None)
+        subject_ing = next(
+            (i for i in sot_ings if i.get("role") in ("subject", "mascot") or i.get("archetype") == "character"),
+            sot_ings[0] if sot_ings else None
+        )
         subject_name = (
             merged_vars.get("character_name")
             or merged_vars.get("player_name")
             or merged_vars.get("app_title")
             or (subject_ing.get("title") if subject_ing else None)
-            or "Captain Geppy"
+            or (active_elements[0]["name"] if active_elements else "Geppy")
         )
 
         if is_card:
@@ -1015,26 +1616,43 @@ Respond ONLY with valid JSON in this exact structure:
             s_text = merged_vars.get("stats") or "STARFLEET PILOT • .342 AVG • 48 HR • SOT ALL-GALAXY"
             c_num = merged_vars.get("card_number") or "#76"
             y_era = merged_vars.get("year_era") or "'76"
+            extra_toggle_txt = f" Featured Specifics: {enabled_prompts_str}." if enabled_prompts_str else ""
+            extra_dd_txt = f" Style & Medium Dropdowns: {dropdown_prompts_str}." if dropdown_prompts_str else ""
 
             return {
                 "title": f"1970s Vintage Baseball Card: {subject_name}",
-                "master_prompt": f"Authentic 1970s Topps-style vintage baseball card featuring {subject_name} of {t_name} ({p_pos}), printed on aged cardboard stock with arched team banner '{t_name}', round star position badge '{p_pos}', lower nameplate '{subject_name}', stats '{s_text}', card {c_num} ({y_era}). {custom_prompt or ''}".strip(),
+                "master_prompt": f"Authentic 1970s Topps-style vintage baseball card featuring {subject_name} of {t_name} ({p_pos}), printed on aged cardboard stock with arched team banner '{t_name}', round star position badge '{p_pos}', lower nameplate '{subject_name}', stats '{s_text}', card {c_num} ({y_era}).{extra_dd_txt}{extra_toggle_txt} {custom_prompt or ''}".strip(),
                 "negative_prompt": "modern digital rendering, 3D glossy render, flat vector clipart, blurry, distorted anatomy",
                 "color_palette": ["#F5EDE0 (Cardboard Buff)", "#DC2626 (Retro Red)", "#F59E0B (Topps Gold)", "#1E3A8A (Vintage Navy)"],
-                "composition_blueprint": f"Authentic 1970s trading card layout: arched team banner '{t_name}', portrait window '{subject_name}', star position badge '{p_pos}', stats '{s_text}', card {c_num}.",
-                "style_fusion_notes": f"Transposed {subject_name} ({ing_str}) into 1970s vintage trading card format.",
+                "composition_blueprint": f"Authentic 1970s trading card layout: arched team banner '{t_name}', portrait window '{subject_name}', star position badge '{p_pos}', stats '{s_text}', card {c_num}.{extra_dd_txt}{extra_toggle_txt}",
+                "style_fusion_notes": f"Applied @70s-baseball-card Contextile template to {subject_name} ({ing_str}).",
                 "suggested_aspect_ratio": "2.5:3.5"
             }
 
         base_parts = []
-        for ing in (ingredients or []):
-            r = ing.get("role", "style")
+        if active_fab_directive:
+            base_parts.append(f"[{active_fab_directive}]")
+        for el in active_elements:
+            base_parts.append(f"[{el['label']}]")
+        for ing in sot_ings:
+            txt = ing.get("reference_text", "")
+            if txt:
+                base_parts.append(f"[SOT @{ing.get('name')}: {txt}]")
+        for ing in blank_ings:
+            txt = ing.get("reference_text", "")
+            if txt:
+                base_parts.append(f"[CONTEXTILE OF TRUTH BLANK @{ing.get('name')}: {txt}]")
+        for ing in ctx_ings:
             txt = ing.get("reference_text", "")
             mods = ing.get("modifiers", {})
             if txt:
-                base_parts.append(f"[{r.upper()} @{ing.get('name')}: {txt}]")
+                base_parts.append(f"[CONTEXTILE TEMPLATE @{ing.get('name')}: {txt}]")
             if mods:
-                base_parts.append(f"[MODIFIERS: {json.dumps(mods)}]")
+                clean_m = {k: v for k, v in mods.items() if k not in ("option_toggles", "entity_kind")}
+                if clean_m:
+                    base_parts.append(f"[TEMPLATE SETTINGS: {json.dumps(clean_m)}]")
+        if enabled_prompts_str:
+            base_parts.append(f"[ENABLED TEMPLATE SPECIFICS: {enabled_prompts_str}]")
         if merged_vars:
             var_summary = ", ".join(f"{k}='{v}'" for k, v in merged_vars.items())
             base_parts.append(f"[VARIABLES: {var_summary}]")
@@ -1042,60 +1660,444 @@ Respond ONLY with valid JSON in this exact structure:
             base_parts.append(f"[DIRECTIVE: {custom_prompt}]")
 
         compiled_prompt = " | ".join(base_parts) if base_parts else f"Flagship fine-tuned 3D visual asset for {subject_name} ({ing_str})"
-        compiled_prompt += " | Crisp vector & dimensional rendering, volumetric rim lighting, glassmorphic bevels, high-contrast focal emblem."
+        if not active_fab_directive:
+            compiled_prompt += " | Crisp vector & dimensional rendering, volumetric rim lighting, glassmorphic bevels, high-contrast focal emblem."
 
         return {
             "title": f"{subject_name} ({ing_str})",
             "master_prompt": compiled_prompt,
             "negative_prompt": "blurry, low resolution, artifacts, distorted geometry, stacked duplicate icons",
-            "color_palette": ["#F59E0B (Amber Gold)", "#06B6D4 (Cyan Visor)", "#6366F1 (Indigo Nebula)", "#0F172A (Obsidian)"],
-            "composition_blueprint": f"Optimized for {target_format} ({default_aspect}) featuring {subject_name} with dynamic variables and {ing_str} styling.",
-            "style_fusion_notes": f"Harmonized {len(ingredients or [])} contextiles and {len(merged_vars)} variables into a unified blueprint.",
+            "color_palette": ["#000000 (Laser Burn / Cut)", "#FFFFFF (Blank Surface)"] if active_fab_directive else ["#F59E0B (Amber Gold)", "#06B6D4 (Cyan Visor)", "#6366F1 (Indigo Nebula)", "#0F172A (Obsidian)"],
+            "composition_blueprint": f"Optimized for {target_format} ({default_aspect}) featuring {subject_name} with {len(sot_ings)} Source-of-Truth item(s), {len(blank_ings)} Blank Contextile(s) of Truth, and {len(ctx_ings)} Contextile template(s).",
+            "style_fusion_notes": f"Harmonized {len(sot_ings)} Source-of-Truth entities, {len(blank_ings)} Contextile(s) of Truth, {len(ctx_ings)} Contextiles, and {len(enabled_toggles)} enabled option toggle(s).",
             "suggested_aspect_ratio": default_aspect
         }
 
     @classmethod
-    def _extract_reference_visual_traits(cls, ref_paths: List[str]) -> str:
+    def _extract_reference_visual_traits(
+        cls,
+        ref_paths: List[str],
+        ref_sheet_img: Optional[Image.Image] = None,
+        scene_elements: Optional[List[Dict[str, Any]]] = None
+    ) -> str:
         """
-        Uses Gemini Vision to extract concise physical/stylistic traits from reference images
-        so text-to-image engines (like FLUX.1-schnell) faithfully incorporate reference photos and styles.
+        Uses Gemini Vision on the Combined Source-of-Truth Reference Sheet (or individual reference images)
+        to extract a forensic, role-aware visual specification of the character, item/prop, logo, and style.
         """
-        if not ref_paths:
+        if not ref_paths and ref_sheet_img is None:
             return ""
         try:
             from gitbridge.services.central_key_service import CentralKeyService
             import io
+            role_notes = []
+            for el in (scene_elements or []):
+                role_notes.append(f"- {el.get('label')}: interaction={el.get('interaction')}, action={el.get('action') or 'standard'}")
+            role_str = "\n".join(role_notes)
+
             parts: List[Dict[str, Any]] = [{
                 "text": (
-                    "Describe the key visual traits of the subject and style in these reference image(s) in 2 concise sentences "
-                    "(including facial features, hair/beard/glasses, helmet/visor/clothing, colors, and artistic medium) "
-                    "for an AI image generator prompt. Output plain text only."
+                    "Analyze this Combined Source-of-Truth Reference Sheet (where each panel has a header label above it).\n"
+                    f"{('Active Picture Roles:\n' + role_str + '\n') if role_str else ''}"
+                    "Describe in 3 ultra-specific, concrete sentences:\n"
+                    "1) The exact physical appearance of the REFERENCE CHARACTER / LOGO (species/type, face, helmet/glasses/hat, outfit/suit colors, proportions).\n"
+                    "2) The exact appearance of any REFERENCE ITEM/PROP or STAGE and how the character should interact with it.\n"
+                    "3) The exact art style, materials, lighting, and color palette from any STYLE/ICON reference (ignoring any unrelated object like a printer inside a style-only reference).\n"
+                    "Output plain text only."
                 )
             }]
             attached = 0
-            for rpath in ref_paths[:2]:
-                if not rpath or not os.path.exists(rpath):
-                    continue
-                with Image.open(rpath) as im:
-                    im.thumbnail((384, 384))
-                    buf = io.BytesIO()
-                    im.convert("RGBA").save(buf, format="PNG")
-                    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            if ref_sheet_img is not None:
+                im_c = ref_sheet_img.copy()
+                im_c.thumbnail((1024, 512))
+                buf = io.BytesIO()
+                im_c.convert("RGBA").save(buf, format="PNG")
+                b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
                 parts.append({"inlineData": {"mimeType": "image/png", "data": b64}})
                 attached += 1
+            else:
+                for rpath in (ref_paths or [])[:3]:
+                    if not rpath or not os.path.exists(rpath):
+                        continue
+                    with Image.open(rpath) as im:
+                        im.thumbnail((384, 384))
+                        buf = io.BytesIO()
+                        im.convert("RGBA").save(buf, format="PNG")
+                        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+                    parts.append({"inlineData": {"mimeType": "image/png", "data": b64}})
+                    attached += 1
             if attached == 0:
                 return ""
             desc = CentralKeyService.call_gemini(
                 [{"role": "user", "parts": parts}],
-                "You are a concise visual reference descriptor for AI image synthesis.",
-                timeout=12,
+                "You are a forensic visual Source-of-Truth analyzer for AI image synthesis.",
+                timeout=14,
                 json_mode=False,
-                max_output_tokens=256
+                max_output_tokens=320
             )
             return (desc or "").strip()
         except Exception as e:
             print(f"[AssetLabService] _extract_reference_visual_traits notice: {e}")
             return ""
+
+    @classmethod
+    def _compose_from_source_of_truth_pictures(
+        cls,
+        title: str,
+        master_prompt: str,
+        target_format: str,
+        width: int,
+        height: int,
+        scene_elements: List[Dict[str, Any]],
+        color_palette: List[str],
+        vars_dict: Dict[str, Any],
+        is_hex: bool = False,
+        should_cutout: bool = True,
+        ai_backdrop_or_prop: Optional[Image.Image] = None,
+        grid_mode: str = "single",
+        grid_rows: int = 1,
+        grid_cols: int = 1,
+        concepts_list: Optional[List[Dict[str, Any]]] = None
+    ) -> Optional[Image.Image]:
+        """
+        True Picture-Preserving Source-of-Truth Compositor & Stylizer!
+        Takes the ACTUAL Source-of-Truth picture pixels (Character SOT, Logo SOT, Item/Prop SOT,
+        Stage/Background SOT, Base Image SOT, Style SOT) and composites them together so that:
+        - The user's actual character/mascot/logo picture is preserved as the visual Source of Truth.
+        - Multiple pictures (e.g. Character picture + Item/Prop picture + Stage picture, or Base Image + Overlay)
+          are combined according to their interaction mode ('holding', 'wearing', 'sitting_on',
+          'mascot_printed', 'logo_printed', 'emblem', 'integrated', 'sticker').
+        - If a multi-variation or multi-concept grid (2x2 or 3x3) is requested, builds the complete
+          cohesive grid sheet where each cell displays its distinct concept/variation!
+        """
+        from gitbridge.services.output_service import OutputService
+        from PIL import ImageEnhance, ImageOps
+
+        if not scene_elements:
+            return None
+
+        # Categorize elements by role
+        mascot_els = [e for e in scene_elements if e["role"] in ("mascot", "subject")]
+        logo_els = [e for e in scene_elements if e["role"] == "logo"]
+        icon_els = [e for e in scene_elements if e["role"] == "icon"]
+        item_els = [e for e in scene_elements if e["role"] == "item"]
+        stage_els = [e for e in scene_elements if e["role"] == "stage"]
+        base_els = [e for e in scene_elements if e["role"] == "base_image"]
+        style_els = [e for e in scene_elements if e["role"] in ("style_only", "style", "lighting", "materials")]
+
+        # Helper to load and cleanly cut out an element's background
+        def _load_cutout(el_dict: Dict[str, Any], do_cut: bool = True) -> Optional[Image.Image]:
+            p = el_dict.get("path")
+            if not p or not os.path.exists(p):
+                return None
+            try:
+                with Image.open(p) as im:
+                    rgba = im.convert("RGBA")
+                if not do_cut:
+                    return rgba
+                # Check if already has transparency
+                alpha_extrema = rgba.getchannel("A").getextrema()
+                if alpha_extrema and alpha_extrema[0] < 200:
+                    return rgba
+                return OutputService.remove_background(rgba, tolerance=44, edge_feather=1, sample_corners=True)
+            except Exception as e:
+                print(f"[AssetLabService] _load_cutout notice: {e}")
+                return None
+
+        pal = color_palette or []
+        c_accent = _hex_to_rgb(pal[0] if len(pal) > 0 else None, (245, 158, 11))
+        c_sec = _hex_to_rgb(pal[1] if len(pal) > 1 else None, (6, 182, 212))
+        c_gold = _hex_to_rgb(pal[2] if len(pal) > 2 else None, (251, 191, 36))
+        c_dark = _hex_to_rgb(pal[3] if len(pal) > 3 else None, (15, 23, 42))
+
+        # Extract dominant color tint from style reference picture if present
+        if style_els:
+            try:
+                with Image.open(style_els[0]["path"]) as sim:
+                    s_small = sim.convert("RGB").resize((16, 16), Image.Resampling.BILINEAR)
+                    pixels = list(s_small.getdata())
+                    # Find most vibrant pixel in style reference
+                    best_px = max(pixels, key=lambda rgb: (max(rgb) - min(rgb)) + (sum(rgb) // 6))
+                    if max(best_px) > 60:
+                        c_accent = best_px
+            except Exception:
+                pass
+
+        def _render_single_cell(
+            cell_w: int,
+            cell_h: int,
+            cell_label: str = "",
+            cell_prompt: str = "",
+            cell_interaction: str = "",
+            variation_idx: int = 0
+        ) -> Image.Image:
+            canvas = Image.new("RGBA", (cell_w, cell_h), (0, 0, 0, 0) if should_cutout else (*c_dark, 255))
+            draw = ImageDraw.Draw(canvas)
+            cx, cy = cell_w // 2, cell_h // 2
+            box_r = int(min(cell_w, cell_h) * 0.44)
+
+            # 1. Base Image or Stage Background layer
+            if base_els:
+                base_im = _load_cutout(base_els[0], do_cut=False)
+                if base_im:
+                    base_fit = ImageOps.fit(base_im, (cell_w, cell_h), Image.Resampling.LANCZOS)
+                    canvas.paste(base_fit, (0, 0))
+            elif stage_els:
+                stage_im = _load_cutout(stage_els[0], do_cut=False)
+                if stage_im:
+                    stage_fit = ImageOps.fit(stage_im, (cell_w, cell_h), Image.Resampling.LANCZOS)
+                    canvas.paste(stage_fit, (0, 0))
+            elif target_format in ("app_icon", "transparent_png", "avatar") or is_hex:
+                # Draw 3D Hexagonal or Squircle Icon Container
+                if is_hex:
+                    dx = int(box_r * 0.866)
+                    dy = box_r // 2
+                    pts_outer = [
+                        (cx, cy - box_r), (cx + dx, cy - dy), (cx + dx, cy + dy),
+                        (cx, cy + box_r), (cx - dx, cy + dy), (cx - dx, cy - dy)
+                    ]
+                    draw.polygon(pts_outer, fill=(*c_dark, 248), outline=(*c_accent, 255), width=max(4, cell_w // 75))
+                    ir = int(box_r * 0.91)
+                    idx_h, idy_h = int(ir * 0.866), ir // 2
+                    pts_inner = [
+                        (cx, cy - ir), (cx + idx_h, cy - idy_h), (cx + idx_h, cy + idy_h),
+                        (cx, cy + ir), (cx - idx_h, cy + idy_h), (cx - idx_h, cy - idy_h)
+                    ]
+                    draw.polygon(pts_inner, outline=(*c_gold, 195), width=max(2, cell_w // 180))
+                else:
+                    bx0, by0 = cx - box_r, cy - box_r
+                    bsz = box_r * 2
+                    rx = int(bsz * 0.22)
+                    draw.rounded_rectangle(
+                        [bx0, by0, bx0 + bsz, by0 + bsz],
+                        radius=rx,
+                        fill=(*c_dark, 248),
+                        outline=(*c_accent, 255),
+                        width=max(4, cell_w // 80)
+                    )
+                    draw.rounded_rectangle(
+                        [bx0 + 10, by0 + 10, bx0 + bsz - 10, by0 + bsz - 10],
+                        radius=max(6, rx - 8),
+                        outline=(*c_gold, 180),
+                        width=max(2, cell_w // 200)
+                    )
+
+                # Ambient radial glow inside container
+                glow_layer = Image.new("RGBA", (cell_w, cell_h), (0, 0, 0, 0))
+                g_draw = ImageDraw.Draw(glow_layer)
+                glow_col = c_accent if variation_idx % 2 == 0 else c_sec
+                for r_step in range(int(box_r * 0.75), 10, -12):
+                    alpha = int(55 * (1.0 - r_step / max(1, box_r * 0.75)))
+                    g_draw.ellipse([cx - r_step, cy - r_step, cx + r_step, cy + r_step], fill=(*glow_col, alpha))
+                canvas = Image.alpha_composite(canvas, glow_layer)
+
+            # 2. If AI generated a contextual prop/scene layer, blend it inside the container behind or alongside the SOT picture
+            if ai_backdrop_or_prop is not None and variation_idx == 0:
+                try:
+                    ai_fit = ai_backdrop_or_prop.copy()
+                    target_ai_sz = int(box_r * 1.45)
+                    ai_fit.thumbnail((target_ai_sz, target_ai_sz), Image.Resampling.LANCZOS)
+                    ax = cx - ai_fit.width // 2
+                    ay = cy - ai_fit.height // 2
+                    canvas.paste(ai_fit, (ax, ay), ai_fit)
+                except Exception:
+                    pass
+
+            # 3. Primary Source-of-Truth Picture (Character / Mascot / Logo / Icon)
+            primary_el = (
+                mascot_els[variation_idx % len(mascot_els)] if mascot_els
+                else (logo_els[0] if logo_els else (icon_els[0] if icon_els else None))
+            )
+            item_el = item_els[variation_idx % len(item_els)] if item_els else None
+
+            eff_interaction = (
+                cell_interaction
+                or (item_el.get("interaction") if item_el else "")
+                or (primary_el.get("interaction") if primary_el else "")
+                or "none"
+            ).lower()
+
+            # Check if interaction prints Mascot/Logo onto the Item surface
+            if item_el and primary_el and eff_interaction in ("mascot_printed", "logo_printed", "branded"):
+                item_im = _load_cutout(item_el, do_cut=True)
+                prim_im = _load_cutout(primary_el, do_cut=True)
+                if item_im:
+                    isz = int(box_r * 1.55)
+                    item_im.thumbnail((isz, isz), Image.Resampling.LANCZOS)
+                    ix = cx - item_im.width // 2
+                    iy = cy - item_im.height // 2
+                    canvas.paste(item_im, (ix, iy), item_im)
+                    if prim_im:
+                        psz = int(min(item_im.width, item_im.height) * 0.48)
+                        prim_im.thumbnail((psz, psz), Image.Resampling.LANCZOS)
+                        px = cx - prim_im.width // 2
+                        py = cy - prim_im.height // 2
+                        canvas.paste(prim_im, (px, py), prim_im)
+            else:
+                # Standard or interactive character + prop placement
+                if primary_el:
+                    prim_im = _load_cutout(primary_el, do_cut=True)
+                    if prim_im:
+                        # Subtle variation transforms when rendering a Variation Grid (2x2 or 3x3)
+                        if grid_mode == "variations_grid" and variation_idx > 0:
+                            if variation_idx % 4 == 1:
+                                prim_im = ImageOps.mirror(prim_im)
+                            elif variation_idx % 4 == 2:
+                                prim_im = ImageEnhance.Color(prim_im).enhance(1.25)
+                                prim_im = ImageEnhance.Contrast(prim_im).enhance(1.12)
+                            elif variation_idx % 4 == 3:
+                                prim_im = prim_im.rotate(-6, resample=Image.Resampling.BICUBIC, expand=True)
+
+                        psz = int(box_r * (1.42 if item_el else 1.56))
+                        prim_im.thumbnail((psz, psz), Image.Resampling.LANCZOS)
+                        # Shift slightly if holding an item on the right
+                        offset_x = -int(box_r * 0.14) if (item_el and eff_interaction in ("holding", "none")) else 0
+                        offset_y = -int(box_r * 0.12) if (item_el and eff_interaction == "sitting_on") else -int(box_r * 0.04)
+
+                        # If sitting_on, draw the item underneath first
+                        if item_el and eff_interaction == "sitting_on":
+                            it_im = _load_cutout(item_el, do_cut=True)
+                            if it_im:
+                                it_sz = int(box_r * 1.1)
+                                it_im.thumbnail((it_sz, it_sz), Image.Resampling.LANCZOS)
+                                canvas.paste(it_im, (cx - it_im.width // 2, cy + int(box_r * 0.18)), it_im)
+
+                        px = cx - prim_im.width // 2 + offset_x
+                        py = cy - prim_im.height // 2 + offset_y
+                        canvas.paste(prim_im, (px, py), prim_im)
+
+                # Paste Item/Prop picture if holding, wearing, or alongside
+                if item_el and eff_interaction != "sitting_on":
+                    it_im = _load_cutout(item_el, do_cut=True)
+                    if it_im:
+                        if eff_interaction == "wearing":
+                            it_sz = int(box_r * 0.85)
+                            it_im.thumbnail((it_sz, it_sz), Image.Resampling.LANCZOS)
+                            ix = cx - it_im.width // 2
+                            iy = cy - int(box_r * 0.55)
+                        else:
+                            # Holding / interacting on the foreground right
+                            it_sz = int(box_r * 0.88)
+                            it_im.thumbnail((it_sz, it_sz), Image.Resampling.LANCZOS)
+                            ix = cx + int(box_r * 0.12)
+                            iy = cy - it_im.height // 2 + int(box_r * 0.1)
+                        canvas.paste(it_im, (ix, iy), it_im)
+
+            # 4. If Logo element is also present alongside a Mascot, place a crisp corner/crest logo badge
+            if logo_els and mascot_els:
+                lg_im = _load_cutout(logo_els[0], do_cut=True)
+                if lg_im:
+                    lsz = int(box_r * 0.48)
+                    lg_im.thumbnail((lsz, lsz), Image.Resampling.LANCZOS)
+                    lx = cx + int(box_r * 0.42) - lg_im.width // 2
+                    ly = cy - int(box_r * 0.48) - lg_im.height // 2
+                    canvas.paste(lg_im, (lx, ly), lg_im)
+
+            # 5. Dynamic Title / Cell Concept Ribbon
+            draw = ImageDraw.Draw(canvas)
+            ribbon_txt = (
+                cell_label
+                or str(vars_dict.get("app_title") or vars_dict.get("character_name") or "").strip()
+            ).upper()[:24]
+            if ribbon_txt:
+                ry = cy + int(box_r * 0.62)
+                rw_box = int(box_r * 1.48)
+                rh_box = max(28, int(cell_h * 0.068))
+                draw.rounded_rectangle(
+                    [cx - rw_box // 2, ry, cx + rw_box // 2, ry + rh_box],
+                    radius=12,
+                    fill=(*c_dark, 235),
+                    outline=(*c_accent, 255),
+                    width=2
+                )
+                f_rib = cls._load_font(size=max(12, int(rh_box * 0.52)), bold=True)
+                tb = draw.textbbox((0, 0), ribbon_txt, font=f_rib)
+                tw, th = tb[2] - tb[0], tb[3] - tb[1]
+                draw.text((cx - tw // 2, ry + (rh_box - th) // 2 - 2), ribbon_txt, fill=(255, 255, 255, 255), font=f_rib)
+
+            return canvas
+
+        # Check if rendering a Multi-Variation or Multi-Concept Grid Sheet (rows x cols)
+        rows = max(1, int(grid_rows or 1))
+        cols = max(1, int(grid_cols or 1))
+        if grid_mode in ("variations_grid", "multi_concept_grid") and (rows > 1 or cols > 1):
+            sheet_img = Image.new("RGBA", (width, height), (0, 0, 0, 0) if should_cutout else (*c_dark, 255))
+            cell_w = width // cols
+            cell_h = height // rows
+            total_cells = rows * cols
+            concepts = concepts_list or []
+
+            for idx in range(total_cells):
+                r_idx = idx // cols
+                c_idx = idx % cols
+                c_info = concepts[idx] if idx < len(concepts) and isinstance(concepts[idx], dict) else {}
+                c_lbl = c_info.get("label") or (f"Variation {idx + 1}" if grid_mode == "variations_grid" else f"Concept {idx + 1}")
+                c_prm = c_info.get("prompt") or master_prompt
+                c_int = c_info.get("interaction") or ""
+                cell_im = _render_single_cell(
+                    cell_w=cell_w,
+                    cell_h=cell_h,
+                    cell_label=c_lbl,
+                    cell_prompt=c_prm,
+                    cell_interaction=c_int,
+                    variation_idx=idx
+                )
+                sheet_img.paste(cell_im, (c_idx * cell_w, r_idx * cell_h), cell_im)
+            return sheet_img
+
+        return _render_single_cell(width, height, variation_idx=0)
+
+    @classmethod
+    def slice_grid_cells(
+        cls,
+        sheet_img: Image.Image,
+        rows: int,
+        cols: int,
+        asset_id: str,
+        concepts_list: Optional[List[Dict[str, Any]]] = None,
+        should_cutout: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Slices a Multi-Variation or Multi-Concept Sprite Sheet (rows x cols) into individual
+        ready-to-use PNG assets and returns their metadata (`sliced_assets`).
+        """
+        from gitbridge.services.output_service import OutputService
+        rows = max(1, int(rows or 1))
+        cols = max(1, int(cols or 1))
+        if rows <= 1 and cols <= 1:
+            return []
+
+        lab_dir = cls._get_lab_dir()
+        sw, sh = sheet_img.size
+        cw, ch = sw // cols, sh // rows
+        sliced: List[Dict[str, Any]] = []
+        concepts = concepts_list or []
+
+        for idx in range(rows * cols):
+            r_i = idx // cols
+            c_i = idx % cols
+            x0, y0 = c_i * cw, r_i * ch
+            cell = sheet_img.crop((x0, y0, x0 + cw, y0 + ch)).convert("RGBA")
+            if should_cutout:
+                try:
+                    alpha_ext = cell.getchannel("A").getextrema()
+                    if not alpha_ext or alpha_ext[0] > 240:
+                        cell = OutputService.remove_background(cell, tolerance=45, edge_feather=1, sample_corners=True)
+                except Exception:
+                    pass
+            cell_512 = cell.resize((512, 512), Image.Resampling.LANCZOS)
+            c_fname = f"{asset_id}_cell_{idx + 1}.png"
+            c_fpath = os.path.join(lab_dir, c_fname)
+            cell_512.save(c_fpath, "PNG")
+            c_meta = concepts[idx] if idx < len(concepts) and isinstance(concepts[idx], dict) else {}
+            sliced.append({
+                "index": idx + 1,
+                "label": c_meta.get("label") or f"Asset #{idx + 1}",
+                "prompt": c_meta.get("prompt") or "",
+                "interaction": c_meta.get("interaction") or "none",
+                "filename": c_fname,
+                "file_url": f"/api/asset-lab/file/{c_fname}"
+            })
+        return sliced
 
     @classmethod
     def _generate_ai_raster_image(
@@ -1111,19 +2113,26 @@ Respond ONLY with valid JSON in this exact structure:
         vars_dict: Dict[str, Any],
         ref_paths: List[str],
         use_chroma_cutout: bool = True,
-        is_hex: bool = False
-    ) -> Tuple[Optional[Image.Image], Optional[Image.Image]]:
+        is_hex: bool = False,
+        ref_sheet_img: Optional[Image.Image] = None,
+        scene_elements: Optional[List[Dict[str, Any]]] = None,
+        grid_mode: str = "single",
+        grid_rows: int = 1,
+        grid_cols: int = 1,
+        concepts_list: Optional[List[Dict[str, Any]]] = None,
+        preserve_source_picture: bool = False
+    ) -> Tuple[Optional[Image.Image], Optional[Image.Image], Optional[Image.Image]]:
         """
-        Generates a real AI raster image from all prompt, contextile, variable, and reference inputs,
-        and then automatically cuts out the background afterward using OutputService.remove_background.
-        Returns (final_image, raw_uncut_image).
+        Generates a real AI raster image anchored to the Source-of-Truth pictures (Combined Reference Sheet)
+        and also builds a Picture-Preserving SOT Composite when source pictures are provided.
+        Returns (final_image, raw_uncut_image, picture_composite_image).
         """
         import io
         import urllib.parse
         from gitbridge.services.central_key_service import CentralKeyService
         from gitbridge.services.output_service import OutputService
 
-        # 1. Build rich, comprehensive AI image generation prompt integrating every input
+        # 1. Build rich, geppy-s-asset-lab style prompt with explicit Source-of-Truth Picture Roles & Grid Specs
         ing_fragments = []
         for ing in (ingredients_summary or []):
             if isinstance(ing, dict):
@@ -1134,6 +2143,35 @@ Respond ONLY with valid JSON in this exact structure:
                 if mod_str:
                     frag += f" ({mod_str})"
                 ing_fragments.append(frag.strip())
+
+        sot_element_instructions = []
+        for el in (scene_elements or []):
+            lbl = el.get("label", "SOURCE OF TRUTH")
+            int_rule = cls.SOT_INTERACTION_PROMPTS.get(el.get("interaction", "none"), "")
+            act_rule = f"Pose/Action: {el['action']}." if el.get("action") else ""
+            sot_element_instructions.append(f"[{lbl} -> {int_rule} {act_rule}]".strip())
+
+        grid_instruction = ""
+        rows = max(1, int(grid_rows or 1))
+        cols = max(1, int(grid_cols or 1))
+        if grid_mode == "variations_grid" and (rows > 1 or cols > 1):
+            grid_instruction = (
+                f" SPRITE SHEET ({rows}x{cols} GRID OF {rows * cols} VARIATIONS): "
+                f"Create a single image arranged in a clean {rows} rows by {cols} columns grid ({rows * cols} distinct variations in total). "
+                f"Each cell must show a unique pose, angle, expression, or variation of the concept while strictly maintaining the exact Source-of-Truth character and style. "
+                f"Leave clean spacing between cells with NO grid lines or borders."
+            )
+        elif grid_mode == "multi_concept_grid" and (rows > 1 or cols > 1):
+            cell_descs = []
+            for idx, c_it in enumerate((concepts_list or [])[:rows * cols], 1):
+                if isinstance(c_it, dict):
+                    cell_descs.append(f"Cell {idx} ({c_it.get('label', f'Item {idx}')}): {c_it.get('prompt', '')}")
+            cells_str = " | ".join(cell_descs) if cell_descs else f"{rows * cols} distinct matching items"
+            grid_instruction = (
+                f" MULTI-CONCEPT SPRITE SHEET ({rows}x{cols} GRID AS A WHOLE): "
+                f"Create a single cohesive image arranged in a {rows} rows by {cols} columns grid containing {rows * cols} distinct concepts: {cells_str}. "
+                f"Every item in the grid must share the exact same Source-of-Truth character/logo/art style. Leave clean spacing between items."
+            )
 
         var_fragments = []
         for k, v in (vars_dict or {}).items():
@@ -1148,7 +2186,6 @@ Respond ONLY with valid JSON in this exact structure:
         )
         badge_label = vars_dict.get("badge_count") or vars_dict.get("version_tag") or vars_dict.get("glyph_symbol") or ""
 
-        # Filter out dark background palette tokens when chroma cutout is active so the model never paints a dark slate background
         fg_palette = []
         for c_item in (color_palette or []):
             c_low = str(c_item).lower()
@@ -1156,7 +2193,6 @@ Respond ONLY with valid JSON in this exact structure:
                 continue
             fg_palette.append(str(c_item))
         pal_str = ", ".join(fg_palette)
-        combined_lower = f"{title} {master_prompt} {pal_str} {' '.join(ing_fragments)}".lower()
 
         chroma_name = "pure solid flat White (#FFFFFF) studio"
         chroma_hex = "#FFFFFF"
@@ -1186,8 +2222,17 @@ Respond ONLY with valid JSON in this exact structure:
             " Full-bleed cinematic composition with rich atmospheric lighting and depth."
         )
 
+        combined_ref_lead = ""
+        if ref_sheet_img is not None and scene_elements:
+            combined_ref_lead = (
+                "COMBINED SOURCE-OF-TRUTH REFERENCE SHEET: The attached reference image contains the exact Source-of-Truth picture(s) side-by-side with bold role headers above each panel. "
+                "You MUST use the actual pictured CHARACTER/LOGO/ITEM as the strict visual Source of Truth and combine them as instructed: "
+                + " ".join(sot_element_instructions) + ". "
+            )
+
         full_ai_prompt = (
-            f"{bg_lead}Masterpiece 3D digital render of {title}: {master_prompt}. "
+            f"{bg_lead}{combined_ref_lead}Masterpiece 3D digital render of {title}: {master_prompt}. "
+            f"{grid_instruction} "
             f"{container_hint}"
             f"{('Style & Contextiles: ' + ' | '.join(ing_fragments) + '. ') if ing_fragments else ''}"
             f"{('Integrated Attributes: ' + ', '.join(var_fragments) + '. ') if var_fragments else ''}"
@@ -1198,7 +2243,7 @@ Respond ONLY with valid JSON in this exact structure:
 
         raw_ai_img: Optional[Image.Image] = None
 
-        # 2. Tier 1: Try Google Gemini Image Models (with multimodal reference images)
+        # 2. Tier 1: Try Google Gemini Multimodal Image Models with the Combined Reference Sheet + individual SOT pictures!
         api_key = CentralKeyService.get_api_key()
         if api_key:
             valid_ratios = {"1:1": "1:1", "16:9": "16:9", "9:16": "9:16", "4:3": "4:3", "3:4": "3:4"}
@@ -1206,17 +2251,29 @@ Respond ONLY with valid JSON in this exact structure:
             api_aspect = valid_ratios.get(aspect_str, "1:1")
 
             gem_parts: List[Dict[str, Any]] = []
-            for rpath in (ref_paths or [])[:2]:
-                if rpath and os.path.exists(rpath):
-                    try:
-                        with Image.open(rpath) as rim:
-                            rim.thumbnail((512, 512))
-                            buf = io.BytesIO()
-                            rim.convert("RGBA").save(buf, format="PNG")
-                            b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-                        gem_parts.append({"inlineData": {"mimeType": "image/png", "data": b64}})
-                    except Exception:
-                        pass
+            # Attach the Combined Labeled Reference Sheet first (exact geppy-s-asset-lab pattern!)
+            if ref_sheet_img is not None:
+                try:
+                    sheet_c = ref_sheet_img.copy()
+                    sheet_c.thumbnail((1280, 720))
+                    buf = io.BytesIO()
+                    sheet_c.convert("RGBA").save(buf, format="PNG")
+                    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+                    gem_parts.append({"inlineData": {"mimeType": "image/png", "data": b64}})
+                except Exception:
+                    pass
+            else:
+                for rpath in (ref_paths or [])[:3]:
+                    if rpath and os.path.exists(rpath):
+                        try:
+                            with Image.open(rpath) as rim:
+                                rim.thumbnail((512, 512))
+                                buf = io.BytesIO()
+                                rim.convert("RGBA").save(buf, format="PNG")
+                                b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+                            gem_parts.append({"inlineData": {"mimeType": "image/png", "data": b64}})
+                        except Exception:
+                            pass
             gem_parts.append({"text": full_ai_prompt})
 
             for img_model in ["gemini-2.5-flash-image", "gemini-3.1-flash-image-preview", "gemini-3-pro-image-preview"]:
@@ -1239,24 +2296,31 @@ Respond ONLY with valid JSON in this exact structure:
                                 if inl and inl.get("data"):
                                     img_bytes = base64.b64decode(inl["data"])
                                     raw_ai_img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
-                                    print(f"[AssetLabService] Generated AI raster image via {img_model}!")
+                                    print(f"[AssetLabService] Generated Multimodal SOT image via {img_model}!")
                                     break
                     if raw_ai_img is not None:
                         break
                     elif res.status_code == 429:
-                        # Quota exhausted on free tier for Gemini image models; proceed to Tier 2 Flux
                         break
                 except Exception as e:
                     print(f"[AssetLabService] Gemini image model {img_model} notice: {e}")
 
-        # 3. Tier 2: Multi-Space FLUX.1 / SD3.5 AI Image Generation (with Gemini Vision reference traits)
+        # 3. Tier 2: Multi-Space FLUX.1 / SD3.5 AI Image Generation (guided by Gemini Vision forensic analysis of the Combined Reference Sheet)
         if raw_ai_img is None:
-            ref_traits = cls._extract_reference_visual_traits(ref_paths) if ref_paths else ""
+            ref_traits = cls._extract_reference_visual_traits(
+                ref_paths=ref_paths,
+                ref_sheet_img=ref_sheet_img,
+                scene_elements=scene_elements
+            )
             flux_prompt = full_ai_prompt
             if ref_traits:
-                flux_prompt = f"{bg_lead}{title}: {master_prompt}. Subject & Style Reference Details: {ref_traits}. {container_hint}{text_hint}{bg_tail}"
-            if len(flux_prompt) > 1300:
-                flux_prompt = flux_prompt[:1100] + bg_tail
+                flux_prompt = (
+                    f"{bg_lead}{title}: {master_prompt}. "
+                    f"Exact Source-of-Truth Visual Specification: {ref_traits}. "
+                    f"{grid_instruction} {container_hint}{text_hint}{bg_tail}"
+                )
+            if len(flux_prompt) > 1350:
+                flux_prompt = flux_prompt[:1150] + bg_tail
 
             flux_w = min(1024, max(512, (width // 64) * 64))
             flux_h = min(1024, max(512, (height // 64) * 64))
@@ -1281,7 +2345,7 @@ Respond ONLY with valid JSON in this exact structure:
                 (
                     "https://stabilityai-stable-diffusion-3-5-large-turbo.hf.space",
                     "/gradio_api/call/infer",
-                    [flux_prompt, "floor shadow, gradient background, blurry, watermark, multiple items", seed_val, False, flux_w, flux_h, 0.0, 4]
+                    [flux_prompt, "floor shadow, gradient background, blurry, watermark", seed_val, False, flux_w, flux_h, 0.0, 4]
                 )
             ]
 
@@ -1315,7 +2379,7 @@ Respond ONLY with valid JSON in this exact structure:
                 except Exception as e:
                     print(f"[AssetLabService] Flux space {space_host} notice: {e}")
 
-        # 4. Tier 3: Pollinations AI Raster Fallback (with explicit chroma isolation at start and end)
+        # 4. Tier 3: Pollinations AI Raster Fallback
         if raw_ai_img is None:
             try:
                 short_core = f"{title}, {master_prompt}"[:340]
@@ -1337,28 +2401,63 @@ Respond ONLY with valid JSON in this exact structure:
             except Exception as e:
                 print(f"[AssetLabService] Pollinations AI raster fallback notice: {e}")
 
-        if raw_ai_img is None:
-            return None, None
+        cutout_ai_img: Optional[Image.Image] = None
+        if raw_ai_img is not None:
+            if raw_ai_img.size != (width, height):
+                raw_ai_img = raw_ai_img.resize((width, height), Image.Resampling.LANCZOS)
+            if use_chroma_cutout:
+                try:
+                    cutout_ai_img = OutputService.remove_background(
+                        raw_ai_img,
+                        tolerance=48,
+                        edge_feather=1,
+                        sample_corners=True
+                    )
+                except Exception as e:
+                    print(f"[AssetLabService] Post-generation cutout notice: {e}")
+                    cutout_ai_img = raw_ai_img
+            else:
+                cutout_ai_img = raw_ai_img
 
-        # Resize to target canvas dimensions if needed
-        if raw_ai_img.size != (width, height):
-            raw_ai_img = raw_ai_img.resize((width, height), Image.Resampling.LANCZOS)
-
-        # 5. Automatic Post-Generation Background Cutout!
-        if use_chroma_cutout:
+        # 5. Build the True Picture-Preserving SOT Composite whenever actual SOT Character/Logo/Item/Stage pictures are present!
+        sot_picture_composite: Optional[Image.Image] = None
+        has_identity_pictures = any(
+            e.get("role") in ("mascot", "subject", "logo", "item", "base_image", "stage")
+            for e in (scene_elements or [])
+        )
+        if has_identity_pictures:
             try:
-                cutout_img = OutputService.remove_background(
-                    raw_ai_img,
-                    tolerance=48,
-                    edge_feather=1,
-                    sample_corners=True
+                sot_picture_composite = cls._compose_from_source_of_truth_pictures(
+                    title=title,
+                    master_prompt=master_prompt,
+                    target_format=target_format,
+                    width=width,
+                    height=height,
+                    scene_elements=scene_elements,
+                    color_palette=color_palette,
+                    vars_dict=vars_dict,
+                    is_hex=is_hex,
+                    should_cutout=use_chroma_cutout,
+                    ai_backdrop_or_prop=cutout_ai_img,
+                    grid_mode=grid_mode,
+                    grid_rows=grid_rows,
+                    grid_cols=grid_cols,
+                    concepts_list=concepts_list
                 )
-                return cutout_img, raw_ai_img
             except Exception as e:
-                print(f"[AssetLabService] Post-generation cutout notice: {e}")
-                return raw_ai_img, raw_ai_img
+                print(f"[AssetLabService] _compose_from_source_of_truth_pictures notice: {e}")
 
-        return raw_ai_img, raw_ai_img
+        # If preserve_source_picture is True (or if AI raster failed), promote the Picture-Preserving SOT Composite to primary!
+        if preserve_source_picture and sot_picture_composite is not None:
+            return sot_picture_composite, (raw_ai_img or sot_picture_composite), sot_picture_composite
+
+        if cutout_ai_img is not None:
+            return cutout_ai_img, raw_ai_img, sot_picture_composite
+
+        if sot_picture_composite is not None:
+            return sot_picture_composite, sot_picture_composite, sot_picture_composite
+
+        return None, None, None
 
     @classmethod
     def _synthesize_ai_svg_artwork(
@@ -1526,7 +2625,7 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
         title: str,
         master_prompt: str,
         ingredients_summary: List[Dict[str, Any]] = None,
-        reference_images: List[str] = None,
+        reference_images: List[Any] = None,
         color_palette: List[str] = None,
         variables: Dict[str, Any] = None
     ) -> Image.Image:
@@ -1655,43 +2754,76 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
                 alpha = int(45 * (1.0 - lr / 180))
                 p_draw.ellipse([lx - lr, -30 - lr, lx + lr, -30 + lr], fill=(253, 224, 71, alpha))
 
-        # Check for a genuine Subject Portrait Photo (excluding style covers like 1970s-cover.png!)
-        ref_info = cls._classify_and_resolve_references(ingredients_summary, reference_images)
+        # Check for a genuine Subject Portrait Photo (excluding Contextile sample covers like 1970s-cover.png!)
+        raw_ref_urls = [r.get("url") if isinstance(r, dict) else r for r in (reference_images or []) if r]
+        ref_info = cls._classify_and_resolve_references(ingredients_summary, raw_ref_urls)
+        toggle_info = cls._extract_option_toggles_summary(ingredients_summary)
+        enabled_toggles = toggle_info["enabled"]
+        toggle_prompt_suffix = "; ".join(t["prompt"] for t in enabled_toggles if t.get("prompt"))
+        has_mustache_toggle = any(
+            "mustache" in (t.get("id", "") + " " + t.get("label", "") + " " + t.get("prompt", "")).lower()
+            for t in enabled_toggles
+        ) or ("mustache" in (master_prompt or "").lower())
+        has_portrait_modifier_toggle = has_mustache_toggle or any(
+            any(k in (t.get("id", "") + " " + t.get("label", "") + " " + t.get("prompt", "")).lower() for k in ["aviator", "sunglasses", "glasses", "hat", "helmet", "beard", "mullet"])
+            for t in enabled_toggles
+        )
         composited = False
 
-        for local_path in ref_info["subject_paths"]:
-            if os.path.exists(local_path):
-                try:
-                    ref_img = Image.open(local_path).convert("RGBA")
-                    rw, rh = ref_img.size
-                    scale = max(pw / rw, ph / rh)
-                    nw, nh = max(1, int(rw * scale)), max(1, int(rh * scale))
-                    ref_scaled = ref_img.resize((nw, nh), Image.Resampling.LANCZOS)
-                    cx = nw // 2
-                    cy = int(nh * 0.44) if nh > ph * 1.1 else nh // 2
-                    x0 = max(0, min(nw - pw, cx - pw // 2))
-                    y0 = max(0, min(nh - ph, cy - ph // 2))
-                    ref_crop = ref_scaled.crop((x0, y0, x0 + pw, y0 + ph))
-
-                    # Subtle warm 1970s Kodachrome film wash
-                    tint = Image.new("RGBA", (pw, ph), (254, 240, 138, 18))
-                    ref_crop = Image.alpha_composite(ref_crop, tint)
-                    photo_box.paste(ref_crop, (0, 0), ref_crop)
-                    composited = True
-                    break
-                except Exception as e:
-                    print(f"[_render_trading_card] composite subject image failed: {e}")
-
-        if not composited:
-            # Generate AI raster character portrait & cut out onto the trading card backdrop
-            ai_cutout, _ = cls._generate_ai_raster_image(
+        # If a portrait-modifying Contextile toggle (e.g. funny 1970s handlebar mustache) is active, try AI portrait synthesis first with the SOT subject photo as reference
+        if has_portrait_modifier_toggle:
+            ai_cutout, _, _ = cls._generate_ai_raster_image(
                 title=disp_name,
-                master_prompt=f"Heroic waist-up portrait of {disp_name} ({star_txt}) for {team_text}: {master_prompt}",
+                master_prompt=f"Heroic waist-up 1970s portrait of {disp_name} ({star_txt}) for {team_text}. REQUIRED SPECIFICS: {toggle_prompt_suffix}. {master_prompt}",
                 target_format="card_portrait",
                 width=pw,
                 height=ph,
                 color_palette=color_palette or ["#F59E0B", "#06B6D4", "#DC2626", "#0F172A"],
-                composition_blueprint=f"Centered heroic character portrait of {disp_name} ({star_txt}) for {team_text}.",
+                composition_blueprint=f"Centered heroic character portrait of {disp_name} ({star_txt}) for {team_text}. {toggle_prompt_suffix}",
+                ingredients_summary=ingredients_summary,
+                vars_dict=vars_dict,
+                ref_paths=ref_info["all_paths"],
+                use_chroma_cutout=True,
+                is_hex=False
+            )
+            if ai_cutout is not None:
+                photo_box = Image.alpha_composite(photo_box, ai_cutout.convert("RGBA"))
+                composited = True
+
+        if not composited:
+            for local_path in ref_info["subject_paths"]:
+                if os.path.exists(local_path):
+                    try:
+                        ref_img = Image.open(local_path).convert("RGBA")
+                        rw, rh = ref_img.size
+                        scale = max(pw / rw, ph / rh)
+                        nw, nh = max(1, int(rw * scale)), max(1, int(rh * scale))
+                        ref_scaled = ref_img.resize((nw, nh), Image.Resampling.LANCZOS)
+                        cx = nw // 2
+                        cy = int(nh * 0.44) if nh > ph * 1.1 else nh // 2
+                        x0 = max(0, min(nw - pw, cx - pw // 2))
+                        y0 = max(0, min(nh - ph, cy - ph // 2))
+                        ref_crop = ref_scaled.crop((x0, y0, x0 + pw, y0 + ph))
+
+                        # Subtle warm 1970s Kodachrome film wash
+                        tint = Image.new("RGBA", (pw, ph), (254, 240, 138, 18))
+                        ref_crop = Image.alpha_composite(ref_crop, tint)
+                        photo_box.paste(ref_crop, (0, 0), ref_crop)
+                        composited = True
+                        break
+                    except Exception as e:
+                        print(f"[_render_trading_card] composite subject image failed: {e}")
+
+        if not composited:
+            # Generate AI raster character portrait & cut out onto the trading card backdrop
+            ai_cutout, _, _ = cls._generate_ai_raster_image(
+                title=disp_name,
+                master_prompt=f"Heroic waist-up portrait of {disp_name} ({star_txt}) for {team_text}: {master_prompt} {toggle_prompt_suffix}".strip(),
+                target_format="card_portrait",
+                width=pw,
+                height=ph,
+                color_palette=color_palette or ["#F59E0B", "#06B6D4", "#DC2626", "#0F172A"],
+                composition_blueprint=f"Centered heroic character portrait of {disp_name} ({star_txt}) for {team_text}. {toggle_prompt_suffix}".strip(),
                 ingredients_summary=ingredients_summary,
                 vars_dict=vars_dict,
                 ref_paths=ref_info["all_paths"],
@@ -1930,15 +3062,24 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
         color_palette: List[str] = None,
         composition_blueprint: str = "",
         ingredients_summary: List[Dict[str, Any]] = None,
-        reference_images: List[str] = None,
+        reference_images: List[Any] = None,
         app_slug: Optional[str] = None,
-        variables: Dict[str, Any] = None
+        variables: Dict[str, Any] = None,
+        scene_elements: Optional[List[Dict[str, Any]]] = None,
+        grid_mode: str = "single",
+        grid_rows: int = 1,
+        grid_cols: int = 1,
+        concepts_list: Optional[List[Dict[str, Any]]] = None,
+        preserve_source_picture: bool = False,
+        cutout_bg: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
-        Generate a bespoke, high-fidelity visual asset using:
-        1. Real AI raster image generation followed by automatic post-generation background cutout (PNG)
-        2. Bespoke scalable AI vector artwork (SVG)
-        Honors all user prompts, SOT contextiles, reference photos, and dynamic template variables without stacking old icons.
+        Generate a bespoke, high-fidelity visual asset using the geppy-s-asset-lab Picture-as-Source-of-Truth architecture:
+        1. Assembles all active SOT pictures (Character, Logo, Icon Template, Item/Prop, Style, Stage) into a
+           side-by-side Labeled Combined Reference Sheet (`ref_sheet_url`).
+        2. Generates both AI Raster synthesis (`file_url` / `raw_file_url`) AND a True Picture-Preserving SOT Composite (`sot_composite_url`)
+           that literally cuts out and combines the user's actual Source-of-Truth pictures.
+        3. Supports Single Assets (`1x1`), Variation Grids (`2x2`, `3x3`), and Multi-Concept Grids (`2x2`, `3x3`) with automatic cell slicing (`sliced_assets`).
         """
         lab_dir = cls._get_lab_dir()
         asset_id = f"asset_{int(time.time())}_{uuid.uuid4().hex[:6]}"
@@ -1955,6 +3096,9 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
                     "name": getattr(ing, "name", ""),
                     "title": getattr(ing, "title", ""),
                     "role": getattr(ing, "role", "style"),
+                    "sot_role": getattr(ing, "sot_role", None),
+                    "interaction": getattr(ing, "interaction", "none"),
+                    "action": getattr(ing, "action", ""),
                     "archetype": getattr(ing, "archetype", "general"),
                     "reference_text": getattr(ing, "reference_text", ""),
                     "primary_image_url": getattr(ing, "primary_image_url", None),
@@ -1968,10 +3112,21 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
         # Merge variables from explicit dict + ingredient defaults
         vars_dict = cls._merge_variables(variables, ingredients_summary)
 
+        # Build the Labeled Combined Reference Sheet from all active SOT pictures
+        sot_bundle = cls.build_scene_elements_and_reference_sheet(
+            ingredients_summary=ingredients_summary,
+            reference_images=reference_images,
+            scene_elements=scene_elements,
+            asset_id=asset_id
+        )
+        active_scene_elements = sot_bundle["elements"]
+        ref_sheet_img = sot_bundle["ref_sheet_img"]
+        ref_sheet_url = sot_bundle["ref_sheet_url"]
+
         # Check if this is genuinely a Trading Card / Baseball Card request
         is_card = cls._is_trading_card_request(target_format, title, master_prompt, ingredients_summary)
 
-        if is_card:
+        if is_card and grid_mode == "single":
             img = cls._render_trading_card(
                 title=title,
                 master_prompt=master_prompt,
@@ -1991,6 +3146,11 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
                 "filepath": filepath,
                 "file_path": filepath,
                 "file_url": file_url,
+                "ref_sheet_url": ref_sheet_url,
+                "scene_elements": [
+                    {"name": e["name"], "role": e["role"], "interaction": e["interaction"], "action": e["action"], "label": e["label"], "url": e["url"]}
+                    for e in active_scene_elements
+                ],
                 "target_format": "trading_card",
                 "aspect_ratio": "2.5:3.5",
                 "master_prompt": master_prompt,
@@ -2014,7 +3174,7 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
             "2.5:3.5": (750, 1050)
         }
         width, height = dim_map.get(aspect_ratio, (1024, 1024))
-        if target_format in ["app_icon", "transparent_png", "avatar"]:
+        if target_format in ["app_icon", "transparent_png", "avatar"] or grid_mode in ("variations_grid", "multi_concept_grid"):
             width, height = (1024, 1024)
 
         palette_list = color_palette or []
@@ -2024,16 +3184,18 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
             "hexagonal" in combined_text or
             any("hex" in (i.get("name", "") + " " + i.get("title", "") + " " + str(i.get("modifiers", {}))).lower() for i in ingredients_summary)
         )
-        # Default to automatic chroma background cutout for all icons, avatars, transparent PNGs, and UI assets
-        should_cutout = (
-            target_format not in ["banner_hero", "social_story"] or
-            "no background" in combined_text or
-            "no_background" in combined_text or
-            "transparent" in combined_text or
-            "isolated" in combined_text or
-            "cutout" in combined_text or
-            any("transparent" in str(i.get("modifiers", {})).lower() or "no background" in str(i.get("modifiers", {})).lower() for i in ingredients_summary)
-        )
+        if cutout_bg is not None:
+            should_cutout = bool(cutout_bg)
+        else:
+            should_cutout = (
+                target_format not in ["banner_hero", "social_story"] or
+                "no background" in combined_text or
+                "no_background" in combined_text or
+                "transparent" in combined_text or
+                "isolated" in combined_text or
+                "cutout" in combined_text or
+                any("transparent" in str(i.get("modifiers", {})).lower() or "no background" in str(i.get("modifiers", {})).lower() for i in ingredients_summary)
+            )
         is_orange = "orange" in combined_text or is_hex or any("orange" in str(i.get("modifiers", {})).lower() for i in ingredients_summary)
 
         if is_orange and not palette_list:
@@ -2048,13 +3210,11 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
             c_dark = _hex_to_rgb(palette_list[3] if len(palette_list) > 3 else None, (15, 23, 42))
         c_base = (max(0, c_dark[0] - 10), max(0, c_dark[1] - 10), max(0, c_dark[2] - 10))
 
-        # Separate Subject Portrait Photos vs Style References (never paste style icons onto the canvas)
-        ref_info = cls._classify_and_resolve_references(ingredients_summary, reference_images)
-        subject_photo_path = ref_info["subject_paths"][0] if ref_info["subject_paths"] else None
-        subject_data_uri = cls._prepare_subject_photo_data_uri(subject_photo_path, size=640) if subject_photo_path else None
+        raw_ref_urls = [r.get("url") if isinstance(r, dict) else r for r in (reference_images or []) if r]
+        ref_info = cls._classify_and_resolve_references(ingredients_summary, raw_ref_urls)
 
-        # 1. Generate Real AI Raster Image + Automatic Post-Generation Cutout
-        ai_cutout_img, raw_ai_img = cls._generate_ai_raster_image(
+        # 1. Generate AI Raster Image + SOT Picture Composite + Automatic Post-Generation Cutout
+        ai_cutout_img, raw_ai_img, sot_picture_composite = cls._generate_ai_raster_image(
             title=title,
             master_prompt=master_prompt,
             target_format=target_format,
@@ -2064,10 +3224,37 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
             composition_blueprint=composition_blueprint,
             ingredients_summary=ingredients_summary,
             vars_dict=vars_dict,
-            ref_paths=ref_info["all_paths"],
+            ref_paths=[e["path"] for e in active_scene_elements] or ref_info["all_paths"],
             use_chroma_cutout=should_cutout,
-            is_hex=is_hex
+            is_hex=is_hex,
+            ref_sheet_img=ref_sheet_img,
+            scene_elements=active_scene_elements,
+            grid_mode=grid_mode,
+            grid_rows=grid_rows,
+            grid_cols=grid_cols,
+            concepts_list=concepts_list,
+            preserve_source_picture=preserve_source_picture
         )
+
+        rendered_img: Optional[Image.Image] = ai_cutout_img or raw_ai_img or sot_picture_composite
+        if rendered_img is None:
+            rendered_img = Image.new("RGBA", (width, height), (0, 0, 0, 0) if should_cutout else (*c_dark, 255))
+
+        # 1b. Apply Physical Fabrication Processing (Laser 1-Bit B&W Burn / Stencil Edge Connections) & Blank Contextile of Truth Composite
+        try:
+            fab_res = cls._apply_fabrication_and_blank_composite(
+                rendered_img=raw_ai_img or rendered_img,
+                ingredients_summary=ingredients_summary,
+                vars_dict=vars_dict,
+                master_prompt=master_prompt
+            )
+            if fab_res.get("production_img") is not None:
+                rendered_img = fab_res["production_img"]
+                should_cutout = False
+            if fab_res.get("blank_mockup_img") is not None:
+                sot_picture_composite = fab_res["blank_mockup_img"]
+        except Exception as e:
+            print(f"[AssetLabService] _apply_fabrication_and_blank_composite notice: {e}")
 
         # Save raw uncut AI image alongside if available
         raw_file_url = None
@@ -2080,77 +3267,45 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
             except Exception as e:
                 print(f"[AssetLabService] Save raw AI image notice: {e}")
 
-        # 2. Synthesize Scalable Vector SVG Artwork
-        # If AI raster cutout succeeded, build the vector SVG companion immediately without blocking for another 30s LLM call
-        svg_code: Optional[str] = None
-        if ai_cutout_img is None or target_format in ("svg", "vector_svg"):
-            svg_code = cls._synthesize_ai_svg_artwork(
-                title=title,
-                master_prompt=master_prompt,
-                target_format=target_format,
-                width=width,
-                height=height,
-                color_palette=palette_list,
-                composition_blueprint=composition_blueprint,
-                ingredients_summary=ingredients_summary,
-                vars_dict=vars_dict,
-                has_subject_photo=bool(subject_data_uri),
-                is_transparent=should_cutout,
-                is_hex=is_hex,
-                ref_paths=ref_info["all_paths"]
-            )
-            if svg_code and subject_data_uri and "{{SUBJECT_IMAGE_DATA_URI}}" in svg_code:
-                svg_code = svg_code.replace("{{SUBJECT_IMAGE_DATA_URI}}", subject_data_uri)
-
-        if not svg_code:
-            svg_code = cls._build_rich_fallback_svg(
-                title=title,
-                master_prompt=master_prompt,
-                target_format=target_format,
-                width=width,
-                height=height,
-                c_accent=c_accent,
-                c_secondary=c_secondary,
-                c_gold=c_gold,
-                c_dark=c_dark,
-                c_base=c_base,
-                is_hex=is_hex,
-                is_transparent=should_cutout,
-                vars_dict=vars_dict,
-                subject_data_uri=subject_data_uri
-            )
-
-        # Primary PNG output uses the AI-generated & automatically cut-out image (with SVG rasterization as offline fallback)
-        rendered_img: Optional[Image.Image] = ai_cutout_img
-        if rendered_img is None:
+        # Save True Picture-Preserving SOT Composite (or Physical Blank Mockup Composite) alongside if available
+        sot_composite_url = None
+        if sot_picture_composite is not None:
+            comp_filename = f"{asset_id}_sot_composite.png"
+            comp_filepath = os.path.join(lab_dir, comp_filename)
             try:
-                import resvg_py
-                import io
-                png_bytes = resvg_py.svg_to_bytes(svg_code, width=width, height=height)
-                rendered_img = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+                if should_cutout:
+                    sot_picture_composite.convert("RGBA").save(comp_filepath, "PNG")
+                else:
+                    sot_picture_composite.convert("RGB").save(comp_filepath, "PNG", quality=95)
+                sot_composite_url = f"/api/asset-lab/file/{comp_filename}"
             except Exception as e:
-                print(f"[AssetLabService] Fallback SVG resvg render notice: {e}")
-                rendered_img = Image.new("RGBA", (width, height), (0, 0, 0, 0) if should_cutout else (*c_dark, 255))
+                print(f"[AssetLabService] Save SOT composite notice: {e}")
 
-        # Save High-Resolution PNG (preserving transparent RGBA cutout when should_cutout is True)
+        # Save High-Resolution PNG
         if should_cutout:
             rendered_img.convert("RGBA").save(filepath, "PNG")
         else:
             rendered_img.convert("RGB").save(filepath, "PNG", quality=95)
         file_url = f"/api/asset-lab/file/{filename}"
 
-        # Save Clean Scalable Vector SVG
-        svg_filename = f"{asset_id}.svg"
-        svg_filepath = os.path.join(lab_dir, svg_filename)
-        try:
-            with open(svg_filepath, "w", encoding="utf-8") as f:
-                f.write(svg_code)
-            svg_url = f"/api/asset-lab/file/{svg_filename}"
-        except Exception as e:
-            print(f"[AssetLabService] Error saving SVG asset: {e}")
-            svg_url = None
+        # If a Variation Grid or Multi-Concept Grid (2x2 or 3x3) was generated, automatically slice into individual assets!
+        sliced_assets: List[Dict[str, Any]] = []
+        rows = max(1, int(grid_rows or 1))
+        cols = max(1, int(grid_cols or 1))
+        if grid_mode in ("variations_grid", "multi_concept_grid") and (rows > 1 or cols > 1):
+            try:
+                sliced_assets = cls.slice_grid_cells(
+                    sheet_img=rendered_img,
+                    rows=rows,
+                    cols=cols,
+                    asset_id=asset_id,
+                    concepts_list=concepts_list,
+                    should_cutout=should_cutout
+                )
+            except Exception as e:
+                print(f"[AssetLabService] slice_grid_cells notice: {e}")
 
-        # Record in history
+        # Record in history (PNG only, no wasted SVG processing)
         record = {
             "id": asset_id,
             "title": title,
@@ -2159,10 +3314,17 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
             "file_path": filepath,
             "file_url": file_url,
             "raw_file_url": raw_file_url,
-            "svg_filename": svg_filename if svg_url else None,
-            "svg_filepath": svg_filepath if svg_url else None,
-            "svg_url": svg_url,
-            "cutout_applied": bool(should_cutout and ai_cutout_img is not None),
+            "sot_composite_url": sot_composite_url,
+            "ref_sheet_url": ref_sheet_url,
+            "scene_elements": [
+                {"name": e["name"], "role": e["role"], "interaction": e["interaction"], "action": e["action"], "label": e["label"], "url": e["url"]}
+                for e in active_scene_elements
+            ],
+            "grid_mode": grid_mode,
+            "grid_rows": rows,
+            "grid_cols": cols,
+            "sliced_assets": sliced_assets,
+            "cutout_applied": bool(should_cutout and rendered_img is not None),
             "target_format": target_format,
             "aspect_ratio": aspect_ratio,
             "master_prompt": master_prompt,
@@ -2175,4 +3337,208 @@ Return ONLY the `<svg viewBox="0 0 {width} {height}" width="{width}" height="{he
         }
         cls.save_history_item(record)
         return record
+
+    @classmethod
+    def _apply_fabrication_and_blank_composite(
+        cls,
+        rendered_img: Optional[Image.Image],
+        ingredients_summary: Optional[List[Dict[str, Any]]] = None,
+        vars_dict: Optional[Dict[str, Any]] = None,
+        master_prompt: str = ""
+    ) -> Dict[str, Optional[Image.Image]]:
+        """
+        If a Contextile of Truth (physical blank) or Fabrication Contextile (Laser 1-Bit B&W Burn,
+        Cut Stencil with Edge Connections, Vinyl Cutter, or Sublimation) is active:
+        1. Post-processes `production_img` into a true 1-bit high-contrast Black & White laser/stencil file
+           (and adds structural outer frame + edge connection bridges when stencil mode is active).
+        2. Renders `blank_mockup_img` showing the artwork burned, stenciled, or sublimated directly inside
+           the physical blank's calibrated safe zone!
+        """
+        if rendered_img is None:
+            return {"production_img": None, "blank_mockup_img": None}
+
+        from gitbridge.services.sot_service import SOTService
+        ings = ingredients_summary or []
+        vdict = vars_dict or {}
+        mp_low = (master_prompt or "").lower()
+
+        blank_ing = None
+        blank_spec: Dict[str, Any] = {}
+        is_laser_bw = False
+        is_stencil_bridged = False
+        is_vinyl_cut = False
+
+        for ing in ings:
+            if not isinstance(ing, dict):
+                continue
+            name_low = str(ing.get("name") or "").lower()
+            arch_low = str(ing.get("archetype") or "").lower()
+            mods = ing.get("modifiers") if isinstance(ing.get("modifiers"), dict) else {}
+            ek = str(ing.get("entity_kind") or SOTService.infer_entity_kind(arch_low, mods, name_low)).lower()
+            if ek == "contextile_of_truth" or arch_low == "blank_substrate" or isinstance(ing.get("blank_spec"), dict) or isinstance(mods.get("blank_spec"), dict):
+                blank_ing = ing
+                blank_spec = (ing.get("blank_spec") if isinstance(ing.get("blank_spec"), dict) else mods.get("blank_spec")) or {}
+            if "stencil" in name_low:
+                is_stencil_bridged = True
+            if "laser" in name_low:
+                is_laser_bw = True
+            for f_item in (mods.get("fabrication_mode") or []):
+                fl = str(f_item).lower()
+                if "stencil" in fl or "bridge" in fl:
+                    is_stencil_bridged = True
+                elif "laser" in fl and ("1-bit" in fl or "black & white" in fl or "dither" in fl):
+                    is_laser_bw = True
+                elif "vinyl" in fl:
+                    is_vinyl_cut = True
+            for tog in (ing.get("option_toggles") or mods.get("option_toggles") or []):
+                if isinstance(tog, dict) and tog.get("enabled"):
+                    tk = str(tog.get("key") or tog.get("label") or "").lower()
+                    if "stencil" in tk or "bridge" in tk:
+                        is_stencil_bridged = True
+                    elif "laser" in tk or "1bit" in tk or "1-bit" in tk:
+                        is_laser_bw = True
+
+        # Check dropdown variable selections
+        for vk, vv in vdict.items():
+            v_str = f"{vk} {vv}".lower()
+            if "stencil" in v_str and ("bridge" in v_str or "edge connection" in v_str):
+                is_stencil_bridged = True
+                is_laser_bw = False
+            elif "laser engraver" in v_str and ("1-bit" in v_str or "black & white" in v_str):
+                is_laser_bw = True
+            elif "dye sublimation" in v_str or "uv direct" in v_str:
+                is_laser_bw = False
+                is_stencil_bridged = False
+
+        if blank_spec:
+            bfab = str(blank_spec.get("fabrication_mode") or "").lower()
+            if not is_stencil_bridged and not is_vinyl_cut:
+                if "stencil" in bfab or blank_spec.get("edge_connections"):
+                    is_stencil_bridged = True
+                elif "laser" in bfab or blank_spec.get("color_constraint") == "bw_1bit":
+                    is_laser_bw = True
+
+        if "cuttable stencil with edge connections" in mp_low:
+            is_stencil_bridged = True
+        elif "strictly 1-bit black and white laser" in mp_low:
+            is_laser_bw = True
+
+        production_img: Optional[Image.Image] = None
+        bw_mask: Optional[Image.Image] = None
+
+        if is_laser_bw or is_stencil_bridged:
+            # Convert rendered_img into crisp 1-bit high-contrast Black (#000000) & White (#FFFFFF)
+            src_rgba = rendered_img.convert("RGBA")
+            w, h = src_rgba.size
+            white_bg = Image.new("RGBA", (w, h), (255, 255, 255, 255))
+            white_bg.alpha_composite(src_rgba)
+            gray = white_bg.convert("L")
+
+            # Compute adaptive threshold so artwork lines/shapes become pure #000000 and background is #FFFFFF
+            hist = gray.histogram()
+            total_px = max(1, sum(hist))
+            mean_lum = sum(i * hist[i] for i in range(256)) / total_px
+            # If the image has a dark background, invert so background becomes white (#FFFFFF)
+            corners = [
+                gray.getpixel((8, 8)),
+                gray.getpixel((w - 9, 8)),
+                gray.getpixel((8, h - 9)),
+                gray.getpixel((w - 9, h - 9))
+            ]
+            if sum(corners) / 4.0 < 110:
+                from PIL import ImageOps
+                gray = ImageOps.invert(gray)
+                hist = gray.histogram()
+                mean_lum = sum(i * hist[i] for i in range(256)) / total_px
+
+            thresh = int(max(95, min(185, mean_lum * 0.92)))
+            bw_l = gray.point(lambda p: 0 if p < thresh else 255, mode="L")
+            prod_rgba = Image.merge("RGBA", (bw_l, bw_l, bw_l, Image.new("L", (w, h), 255)))
+
+            if is_stencil_bridged:
+                # Add outer stencil sheet border + structural edge-connection bridges (white bridge bars tying interior islands to outer frame)
+                sdraw = ImageDraw.Draw(prod_rgba)
+                frame_pad = max(18, int(min(w, h) * 0.04))
+                bridge_w = max(12, int(min(w, h) * 0.018))
+                # White outer frame margin (material) + black stencil border guide
+                sdraw.rectangle([0, 0, w, frame_pad], fill=(255, 255, 255, 255))
+                sdraw.rectangle([0, h - frame_pad, w, h], fill=(255, 255, 255, 255))
+                sdraw.rectangle([0, 0, frame_pad, h], fill=(255, 255, 255, 255))
+                sdraw.rectangle([w - frame_pad, 0, w, h], fill=(255, 255, 255, 255))
+                sdraw.rectangle([frame_pad, frame_pad, w - frame_pad, h - frame_pad], outline=(0, 0, 0, 255), width=4)
+                # Structural stencil edge bridges (top, bottom, left, right, and mid-island tie-bars in pure white #FFFFFF material)
+                cx, cy = w // 2, h // 2
+                sdraw.rectangle([cx - bridge_w // 2, 0, cx + bridge_w // 2, h], fill=(255, 255, 255, 255))
+                sdraw.rectangle([0, cy - bridge_w // 2, w, cy + bridge_w // 2], fill=(255, 255, 255, 255))
+                # Secondary upper/lower island support bridges
+                y_upper = int(h * 0.34)
+                y_lower = int(h * 0.66)
+                b_thin = max(8, bridge_w * 2 // 3)
+                sdraw.rectangle([0, y_upper - b_thin // 2, w, y_upper + b_thin // 2], fill=(255, 255, 255, 255))
+                sdraw.rectangle([0, y_lower - b_thin // 2, w, y_lower + b_thin // 2], fill=(255, 255, 255, 255))
+                bw_l = prod_rgba.convert("L")
+
+            production_img = prod_rgba
+            bw_mask = bw_l
+
+        # 2. If a Blank Contextile of Truth is active, render an On-Blank Mockup Composite showing the output on the physical blank!
+        blank_mockup_img: Optional[Image.Image] = None
+        if blank_ing is not None:
+            raw_blank_url = (
+                blank_spec.get("raw_blank_image_url")
+                or (blank_ing.get("gallery_images")[-1] if (blank_ing.get("gallery_images") and len(blank_ing.get("gallery_images")) > 1) else None)
+                or blank_ing.get("primary_image_url")
+            )
+            blank_path = cls.resolve_image_path(raw_blank_url) if raw_blank_url else None
+            if blank_path and os.path.exists(blank_path):
+                try:
+                    with Image.open(blank_path) as b_im:
+                        blank_canvas = b_im.convert("RGBA")
+                except Exception:
+                    blank_canvas = None
+            else:
+                blank_canvas = None
+
+            if blank_canvas is not None:
+                bw_c, bh_c = blank_canvas.size
+                w_in = float(blank_spec.get("width_in") or 4.0)
+                h_in = float(blank_spec.get("height_in") or 4.0)
+                safe_in = float(blank_spec.get("safe_margin_in") or 0.25)
+                mat_str = str(blank_spec.get("material") or "natural_wood").lower()
+
+                # Compute safe zone box inside the blank image (accounting for 9% outer studio padding + safe_margin_in)
+                margin_rx = min(0.28, 0.09 + (safe_in / max(1.0, w_in)) * 0.8)
+                margin_ry = min(0.28, 0.09 + (safe_in / max(1.0, h_in)) * 0.8)
+                sx0, sy0 = int(bw_c * margin_rx), int(bh_c * margin_ry)
+                sx1, sy1 = bw_c - sx0, bh_c - sy0
+                sw, sh = max(64, sx1 - sx0), max(64, sy1 - sy0)
+
+                if bw_mask is not None:
+                    # Burn or stencil the 1-bit mask onto the blank surface!
+                    from PIL import ImageOps
+                    mask_resized = ImageOps.invert(bw_mask).resize((sw, sh), Image.Resampling.LANCZOS)
+                    if "slate" in mat_str or "black" in mat_str:
+                        # Laser etching on dark slate turns burned areas light silver-stone
+                        burn_color = (218, 224, 232, 235)
+                    elif is_stencil_bridged:
+                        # Stencil cutout sprayed onto blank
+                        burn_color = (20, 28, 42, 240)
+                    else:
+                        # Deep pyrography woodburn on natural wood
+                        burn_color = (52, 26, 10, 238)
+                    burn_layer = Image.new("RGBA", (sw, sh), burn_color)
+                    blank_canvas.paste(burn_layer, (sx0, sy0), mask_resized)
+                else:
+                    # Full-color sublimation / UV transfer inside the blank safe zone
+                    art_fit = (production_img or rendered_img).convert("RGBA").resize((sw, sh), Image.Resampling.LANCZOS)
+                    blank_canvas.alpha_composite(art_fit, (sx0, sy0))
+
+                blank_mockup_img = blank_canvas
+
+        return {
+            "production_img": production_img,
+            "blank_mockup_img": blank_mockup_img
+        }
+
+
 

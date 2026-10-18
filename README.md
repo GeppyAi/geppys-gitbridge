@@ -1,4 +1,4 @@
-# 🌉 Geppy's GitBridge
+# 🌉 Geppy's Git Bridge
 
 > **The missing link for Geppy's App Universe**: Cataloging, database sync, asset management, and Gemini context bridge for AI Studio projects & GitHub repositories.
 
@@ -23,7 +23,7 @@
 # Activate virtual environment
 .\.venv\Scripts\activate
 
-# Initialize GitBridge database and directories
+# Initialize Git Bridge database and directories
 python -m gitbridge.cli init
 ```
 
@@ -66,7 +66,7 @@ python -m uvicorn gitbridge.main:app --reload --port 8000
 ## 🏗️ Project Architecture
 
 ```
-Geppy's GitBridge/
+Geppy's Git Bridge/
 ├── gitbridge/
 │   ├── main.py                # FastAPI App & REST API Endpoints
 │   ├── cli.py                 # Typer & Rich Command Line Interface
@@ -84,4 +84,3 @@ Geppy's GitBridge/
 ├── gitbridge.db               # Local SQLite Database
 ├── .env.example               # Environment Configuration Template
 └── requirements.txt           # Python Dependencies
-```

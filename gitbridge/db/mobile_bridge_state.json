@@ -1,0 +1,26 @@
+{
+  "listener_enabled": true,
+  "auto_run": false,
+  "poll_interval_seconds": 15,
+  "watch_folder": "d:\\Geppy_Apps\\_Gemini_Bridge",
+  "google_doc_url": "",
+  "last_checked_at": "2026-10-18T17:33:42.567427",
+  "last_doc_hash": "",
+  "file_signatures": {
+    "d:\\Geppy_Apps\\_Gemini_Bridge\\GEMINI_UNIVERSE_BRIDGE.md": "edfae8c315114d19",
+    "d:\\Geppy_Apps\\_Gemini_Bridge\\app_universe_export.csv": "61a75194b6e6ae74"
+  },
+  "tasks": [
+    {
+      "id": "mod-94caf50e7348",
+      "app_slug": "app-universe-export",
+      "target_file": "auto",
+      "instruction": "Provides localized workflows, user interface components, and application data management.\",,,,,,0 active,0 done,0.1.0,2026-10-13 22:55:28.659050",
+      "source": "Local File: app_universe_export.csv",
+      "source_path": "d:\\Geppy_Apps\\_Gemini_Bridge\\app_universe_export.csv",
+      "raw_line": "- Provides localized workflows, user interface components, and application data management.\",,,,,,0 active,0 done,0.1.0,2026-10-13 22:55:28.659050",
+      "status": "pending",
+      "created_at": "2026-10-18T16:24:18.664960"
+    }
+  ]
+}

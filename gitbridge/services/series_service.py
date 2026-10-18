@@ -397,8 +397,8 @@ Example:
             item_filename = f"var_{item_num}_{uuid.uuid4().hex[:4]}.png"
             item_path = os.path.join(series_dir, item_filename)
 
-            # Check if baseball / trading card format
-            is_card = target_format == "trading_card" or "baseball" in anchor_prompt.lower() or "card" in anchor_prompt.lower()
+            # Check if baseball / trading card format (ONLY when explicitly requested as trading_card or 70s baseball card)
+            is_card = (target_format in ("trading_card", "baseball_card")) or ("baseball card" in anchor_prompt.lower()) or ("70s-baseball-card" in anchor_prompt.lower())
 
             if is_card:
                 card_img = AssetLabService._render_trading_card(

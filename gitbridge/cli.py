@@ -21,6 +21,18 @@ from gitbridge.services.analyzer_service import AppAnalyzerService
 from gitbridge.services.drive_service import GoogleDriveService
 
 app = typer.Typer(help="Geppy's GitBridge CLI - App Universe Catalog & Context Bridge")
+
+@app.callback(invoke_without_command=True)
+def main(ctx: typer.Context):
+    """Geppy's GitBridge: App Universe Catalog, Health Guardian, and Context Bridge."""
+    if ctx.invoked_subcommand is None:
+        console.print(Panel.fit(
+            "[bold cyan]Welcome to Geppy's GitBridge CLI![/bold cyan]\n\n"
+            "Use [bold green]gitbridge --help[/bold green] to explore available commands\n"
+            "like [bold yellow]sync-github[/bold yellow], [bold yellow]analyze-health[/bold yellow], or [bold yellow]export-context[/bold yellow].",
+            title="🪐 GitBridge Universe",
+            border_style="cyan"
+        ))
 console = Console()
 
 def get_db():

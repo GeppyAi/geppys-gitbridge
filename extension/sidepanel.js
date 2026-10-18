@@ -1,5 +1,347 @@
 // Geppy's GitBridge - Chrome Extension Side Panel Controller
 const SERVER_URL = "http://127.0.0.1:8000";
+const ANTIGRAVITY_SERVICE_URL = "http://127.0.0.1:8001";
+
+let _aiHudTimerInterval = null;
+let _aiHudPollInterval = null;
+let _aiHudHideTimeout = null;
+let _aiHudStartedAt = 0;
+let _aiHudSoundEnabled = localStorage.getItem("geppy_ai_hud_sound") !== "0";
+
+function playAiCompletionChime(success = true) {
+  if (!_aiHudSoundEnabled) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const notes = success ? [587.33, 880.0] : [330.0, 246.94]; // D5 -> A5 chime on success
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+      gain.gain.setValueAtTime(0.001, now + idx * 0.11);
+      gain.gain.exponentialRampToValueAtTime(0.11, now + idx * 0.11 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.11 + 0.28);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.11);
+      osc.stop(now + idx * 0.11 + 0.3);
+    });
+  } catch (e) {}
+}
+
+function showInPageAiCompletionToast(titleText, elapsedSec, modifiedFiles = []) {
+  try {
+    if (!chrome || !chrome.scripting || !activeTabId) return;
+    const filesLabel = Array.isArray(modifiedFiles) && modifiedFiles.length > 0
+      ? ` • Updated ${modifiedFiles.join(", ")}`
+      : "";
+    chrome.scripting.executeScript({
+      target: { tabId: activeTabId },
+      func: (msg, sub) => {
+        try {
+          const old = document.getElementById("geppy-ai-done-toast");
+          if (old) old.remove();
+          const t = document.createElement("div");
+          t.id = "geppy-ai-done-toast";
+          t.style.cssText = "position:fixed;top:16px;right:16px;z-index:2147483647;background:linear-gradient(135deg,#064e3b,#0f172a);color:#ecfdf5;border:1.5px solid #10b981;border-radius:12px;padding:10px 14px;box-shadow:0 12px 30px rgba(0,0,0,0.55);font-family:system-ui,-apple-system,sans-serif;font-size:12px;max-width:340px;display:flex;align-items:center;gap:10px;transition:opacity 0.3s ease;";
+          t.innerHTML = `<div style="width:26px;height:26px;border-radius:8px;background:rgba(16,185,129,0.25);color:#34d399;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">✅</div><div style="min-width:0;"><div style="font-weight:800;color:#6ee7b7;font-size:12px;">Geppy AI Task Complete!</div><div style="color:#cbd5e1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${msg}${sub}</div></div>`;
+          document.body.appendChild(t);
+          setTimeout(() => {
+            t.style.opacity = "0";
+            setTimeout(() => t.remove(), 350);
+          }, 5500);
+        } catch (e) {}
+      },
+      args: [titleText, ` (${elapsedSec}s)${filesLabel}`],
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+function initAiHudControls() {
+  const hud = document.getElementById("ai-live-flight-deck-hud");
+  if (!hud || hud.dataset.bound === "1") return;
+  hud.dataset.bound = "1";
+
+  const soundBtn = document.getElementById("btn-ai-hud-sound-toggle");
+  const jumpBtn = document.getElementById("btn-ai-hud-jump");
+  const dismissBtn = document.getElementById("btn-ai-hud-dismiss");
+
+  if (soundBtn) {
+    soundBtn.textContent = _aiHudSoundEnabled ? "🔔" : "🔕";
+    soundBtn.style.opacity = _aiHudSoundEnabled ? "1" : "0.55";
+    soundBtn.addEventListener("click", () => {
+      _aiHudSoundEnabled = !_aiHudSoundEnabled;
+      localStorage.setItem("geppy_ai_hud_sound", _aiHudSoundEnabled ? "1" : "0");
+      soundBtn.textContent = _aiHudSoundEnabled ? "🔔" : "🔕";
+      soundBtn.style.opacity = _aiHudSoundEnabled ? "1" : "0.55";
+      if (_aiHudSoundEnabled) playAiCompletionChime(true);
+    });
+  }
+  if (jumpBtn) {
+    jumpBtn.addEventListener("click", () => {
+      const chatContainer = document.getElementById("chat-history");
+      if (chatContainer) {
+        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
+      }
+    });
+  }
+  if (dismissBtn) {
+    dismissBtn.addEventListener("click", () => {
+      hud.classList.add("hidden");
+    });
+  }
+}
+
+function startAiLiveHud(taskTitle = "AI Task Running", targetFile = "", modeLabel = "⚡ AI RUNNING") {
+  initAiHudControls();
+  const hud = document.getElementById("ai-live-flight-deck-hud");
+  if (!hud) return;
+
+  if (_aiHudHideTimeout) {
+    clearTimeout(_aiHudHideTimeout);
+    _aiHudHideTimeout = null;
+  }
+  if (_aiHudTimerInterval) clearInterval(_aiHudTimerInterval);
+  if (_aiHudPollInterval) clearInterval(_aiHudPollInterval);
+
+  _aiHudStartedAt = performance.now();
+  hud.classList.remove("hidden");
+  hud.style.background = "linear-gradient(135deg, rgba(30, 27, 75, 0.96), rgba(15, 23, 42, 0.98))";
+  hud.style.borderColor = "rgba(168, 85, 247, 0.75)";
+  hud.style.animation = "none";
+
+  const progressBar = document.getElementById("ai-hud-progress-bar");
+  const stateIcon = document.getElementById("ai-hud-state-icon");
+  const stateBadge = document.getElementById("ai-hud-state-badge");
+  const titleEl = document.getElementById("ai-hud-task-title");
+  const timerEl = document.getElementById("ai-hud-elapsed-timer");
+  const phaseEl = document.getElementById("ai-hud-phase-text");
+  const fileEl = document.getElementById("ai-hud-target-file");
+  const stepsEl = document.getElementById("ai-hud-live-steps");
+  const jumpBtn = document.getElementById("btn-ai-hud-jump");
+  const agHeaderBtn = document.getElementById("btn-antigravity-status");
+
+  if (progressBar) {
+    progressBar.style.background = "linear-gradient(90deg, #ec4899, #8b5cf6, #06b6d4, #10b981, #f59e0b)";
+    progressBar.style.backgroundSize = "200% 100%";
+    progressBar.style.animation = "geppyHudShimmer 1.4s linear infinite";
+  }
+  if (stateIcon) {
+    stateIcon.style.background = "rgba(168, 85, 247, 0.25)";
+    stateIcon.style.color = "#e879f9";
+    stateIcon.innerHTML = '<i class="fa-solid fa-atom fa-spin"></i>';
+  }
+  if (stateBadge) {
+    stateBadge.style.background = "rgba(168, 85, 247, 0.3)";
+    stateBadge.style.color = "#f5d0fe";
+    stateBadge.style.borderColor = "rgba(192, 132, 252, 0.5)";
+    stateBadge.textContent = modeLabel;
+  }
+  if (titleEl) titleEl.textContent = taskTitle;
+  if (timerEl) {
+    timerEl.style.color = "#38bdf8";
+    timerEl.textContent = "0.0s";
+  }
+  if (phaseEl) phaseEl.textContent = "Dispatching to warm Antigravity session on Port 8001...";
+  if (fileEl) {
+    fileEl.textContent = targetFile || "";
+    fileEl.style.display = targetFile ? "inline-block" : "none";
+  }
+  if (stepsEl) stepsEl.innerHTML = "";
+  if (jumpBtn) jumpBtn.classList.add("hidden");
+  if (agHeaderBtn) {
+    agHeaderBtn.style.borderColor = "#f59e0b";
+    agHeaderBtn.style.boxShadow = "0 0 10px rgba(245, 158, 11, 0.55)";
+  }
+
+  _aiHudTimerInterval = setInterval(() => {
+    const sec = ((performance.now() - _aiHudStartedAt) / 1000).toFixed(1);
+    if (timerEl) timerEl.textContent = `${sec}s`;
+  }, 100);
+
+  _aiHudPollInterval = setInterval(async () => {
+    try {
+      const r = await fetch(`${ANTIGRAVITY_SERVICE_URL}/live`).catch(() => fetch(`${SERVER_URL}/api/extension/antigravity/live`));
+      if (!r || !r.ok) return;
+      const live = await r.json();
+      if (!live || !live.is_busy) return;
+      if (phaseEl && live.phase) phaseEl.textContent = live.phase;
+      if (fileEl && live.target_file) {
+        fileEl.textContent = live.target_file;
+        fileEl.style.display = "inline-block";
+      }
+      if (stepsEl && Array.isArray(live.live_steps) && live.live_steps.length > 0) {
+        stepsEl.innerHTML = live.live_steps.slice(-4).map((s) =>
+          `<span style="font-size:9.5px; padding:1px 6px; border-radius:4px; background:rgba(30,41,59,0.95); color:#e2e8f0; border:1px solid rgba(148,163,184,0.25); white-space:nowrap;">${escapeHtml(s.label || s.tool || "Step")} <code style="color:#67e8f9;">${escapeHtml((s.detail || s.file || "").slice(0, 28))}</code></span>`
+        ).join("");
+      }
+    } catch (e) {}
+  }, 450);
+}
+
+function finishAiLiveHud({ success = true, title = "Task Complete", summary = "", modifiedFiles = [] } = {}) {
+  if (_aiHudTimerInterval) {
+    clearInterval(_aiHudTimerInterval);
+    _aiHudTimerInterval = null;
+  }
+  if (_aiHudPollInterval) {
+    clearInterval(_aiHudPollInterval);
+    _aiHudPollInterval = null;
+  }
+
+  const elapsedSec = _aiHudStartedAt ? ((performance.now() - _aiHudStartedAt) / 1000).toFixed(1) : "0.0";
+  const hud = document.getElementById("ai-live-flight-deck-hud");
+  const agHeaderBtn = document.getElementById("btn-antigravity-status");
+  if (agHeaderBtn) {
+    agHeaderBtn.style.borderColor = "rgba(168, 85, 247, 0.55)";
+    agHeaderBtn.style.boxShadow = "none";
+  }
+  if (!hud) return;
+
+  const progressBar = document.getElementById("ai-hud-progress-bar");
+  const stateIcon = document.getElementById("ai-hud-state-icon");
+  const stateBadge = document.getElementById("ai-hud-state-badge");
+  const titleEl = document.getElementById("ai-hud-task-title");
+  const timerEl = document.getElementById("ai-hud-elapsed-timer");
+  const phaseEl = document.getElementById("ai-hud-phase-text");
+  const fileEl = document.getElementById("ai-hud-target-file");
+  const jumpBtn = document.getElementById("btn-ai-hud-jump");
+
+  if (success) {
+    hud.style.background = "linear-gradient(135deg, rgba(6, 78, 59, 0.96), rgba(15, 23, 42, 0.98))";
+    hud.style.borderColor = "#10b981";
+    hud.style.animation = "geppyDonePulse 1.6s ease-in-out 3";
+    if (progressBar) {
+      progressBar.style.animation = "none";
+      progressBar.style.background = "linear-gradient(90deg, #10b981, #34d399, #06b6d4)";
+    }
+    if (stateIcon) {
+      stateIcon.style.background = "rgba(16, 185, 129, 0.25)";
+      stateIcon.style.color = "#34d399";
+      stateIcon.innerHTML = '<i class="fa-solid fa-check"></i>';
+    }
+    if (stateBadge) {
+      stateBadge.style.background = "rgba(16, 185, 129, 0.28)";
+      stateBadge.style.color = "#a7f3d0";
+      stateBadge.style.borderColor = "rgba(52, 211, 153, 0.65)";
+      stateBadge.textContent = "✅ AI DONE!";
+    }
+    if (timerEl) {
+      timerEl.style.color = "#34d399";
+      timerEl.textContent = `${elapsedSec}s`;
+    }
+    if (jumpBtn) jumpBtn.classList.remove("hidden");
+  } else {
+    hud.style.background = "linear-gradient(135deg, rgba(127, 29, 29, 0.95), rgba(15, 23, 42, 0.98))";
+    hud.style.borderColor = "#f87171";
+    if (progressBar) {
+      progressBar.style.animation = "none";
+      progressBar.style.background = "#ef4444";
+    }
+    if (stateIcon) {
+      stateIcon.style.background = "rgba(239, 68, 68, 0.25)";
+      stateIcon.style.color = "#fca5a5";
+      stateIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+    }
+    if (stateBadge) {
+      stateBadge.style.background = "rgba(239, 68, 68, 0.28)";
+      stateBadge.style.color = "#fecaca";
+      stateBadge.style.borderColor = "rgba(248, 113, 113, 0.6)";
+      stateBadge.textContent = "⚠️ AI ERROR";
+    }
+  }
+
+  if (titleEl) titleEl.textContent = title;
+  if (phaseEl) {
+    phaseEl.textContent = summary || (success ? `Finished in ${elapsedSec}s — Ready in Chat below!` : "Task encountered an error.");
+  }
+  if (fileEl && Array.isArray(modifiedFiles) && modifiedFiles.length > 0) {
+    fileEl.textContent = modifiedFiles.join(", ");
+    fileEl.style.display = "inline-block";
+  }
+
+  playAiCompletionChime(success);
+  if (success) {
+    showInPageAiCompletionToast(title, elapsedSec, modifiedFiles);
+  }
+
+  _aiHudHideTimeout = setTimeout(() => {
+    if (hud) hud.classList.add("hidden");
+  }, 14000);
+}
+
+async function fetchAntigravityApi(path, options = {}) {
+  const isAiHeavyAction = /\/(brainstorm|apply-design|edit|execute|agents\/run|agents\/council)/i.test(path);
+  let hudTitle = "Running AI Task...";
+  let hudTargetFile = "";
+  let hudMode = "⚡ AI RUNNING";
+
+  if (isAiHeavyAction) {
+    try {
+      const bodyObj = options && options.body ? JSON.parse(options.body) : {};
+      hudTargetFile = bodyObj.file_path || "";
+      if (/apply-design|edit/i.test(path)) {
+        hudMode = "✏️ SURGICAL EDIT";
+        hudTitle = (bodyObj.instruction || "Applying code modification").slice(0, 75);
+      } else if (/brainstorm/i.test(path)) {
+        hudMode = bodyObj.agent_id ? `🤖 @${bodyObj.agent_id.toUpperCase()}` : "🧠 AI BRAINSTORM";
+        hudTitle = (bodyObj.message || bodyObj.prompt || "Analyzing & brainstorming").slice(0, 75);
+      } else {
+        hudTitle = (bodyObj.task_title || bodyObj.prompt || "Executing AI Mission").slice(0, 75);
+      }
+    } catch (e) {}
+    startAiLiveHud(hudTitle, hudTargetFile, hudMode);
+  }
+
+  try {
+    let res = null;
+    try {
+      res = await fetch(`${ANTIGRAVITY_SERVICE_URL}${path}`, options);
+      if (!res.ok && res.status !== 400 && res.status !== 404) {
+        res = null;
+      }
+    } catch (e) {
+      res = null;
+    }
+    if (!res) {
+      res = await fetch(`${SERVER_URL}${path}`, options);
+    }
+
+    if (isAiHeavyAction) {
+      try {
+        const cloned = res.clone();
+        const d = await cloned.json();
+        if (d && d.antigravity_error && typeof window.showAntigravityErrorInGalactic === "function") {
+          window.showAntigravityErrorInGalactic(d.antigravity_error);
+        }
+        const modFiles = d.modified_files || (d.target_file ? [d.target_file] : []);
+        const tasksCount = Array.isArray(d.extracted_tasks) ? d.extracted_tasks.length : 0;
+        const doneSummary = modFiles.length > 0
+          ? `Updated ${modFiles.join(", ")} — Live in Studio!`
+          : tasksCount > 0
+          ? `Response ready + ${tasksCount} Proceed task${tasksCount === 1 ? "" : "s"} queued!`
+          : "Response ready in Chat!";
+        finishAiLiveHud({
+          success: res.ok && d.success !== false,
+          title: hudTitle,
+          summary: doneSummary,
+          modifiedFiles: modFiles,
+        });
+      } catch (e) {
+        finishAiLiveHud({ success: res.ok, title: hudTitle });
+      }
+    }
+    return res;
+  } catch (err) {
+    if (isAiHeavyAction) {
+      finishAiLiveHud({ success: false, title: hudTitle, summary: String(err) });
+    }
+    throw err;
+  }
+}
 
 let currentMode = "brainstorm";
 let apps = [];
@@ -19,6 +361,15 @@ const connectionText = document.getElementById("connection-text");
 const appSelect = document.getElementById("app-select");
 const appLiveBadge = document.getElementById("app-live-badge");
 const btnLaunchApp = document.getElementById("btn-launch-app");
+const btnStopApp = document.getElementById("btn-stop-app");
+const btnTogglePortDrawer = document.getElementById("btn-toggle-port-drawer");
+const runningPortsCount = document.getElementById("running-ports-count");
+const galacticPortDrawer = document.getElementById("galactic-port-drawer");
+const galacticPortList = document.getElementById("galactic-port-list");
+const btnRefreshPortDrawer = document.getElementById("btn-refresh-port-drawer");
+const btnOpenFullPortWatcher = document.getElementById("btn-open-full-port-watcher");
+const btnStopAllPorts = document.getElementById("btn-stop-all-ports");
+const btnClosePortDrawer = document.getElementById("btn-close-port-drawer");
 const btnDetectTab = document.getElementById("btn-detect-tab");
 
 const btnModeBrainstorm = document.getElementById("btn-mode-brainstorm");
@@ -167,8 +518,13 @@ const chatHistoryEl = document.getElementById("chat-history");
 const brainstormInput = document.getElementById("brainstorm-input");
 const btnSendBrainstorm = document.getElementById("btn-send-brainstorm");
 const btnChatModeImage = document.getElementById("btn-chat-mode-image");
+const chatContextDrawer = document.getElementById("chat-context-drawer");
+const btnToggleContextDrawer = document.getElementById("btn-toggle-context-drawer");
+const btnCloseContextDrawer = document.getElementById("btn-close-context-drawer");
 let isChatImageMode = false;
 const backlogCount = document.getElementById("backlog-count");
+const backlogSummaryDone = document.getElementById("backlog-summary-done");
+const backlogHeader = document.getElementById("backlog-header");
 const backlogList = document.getElementById("backlog-list");
 const btnAddCustomTask = document.getElementById("btn-add-custom-task");
 const btnToggleBacklog = document.getElementById("btn-toggle-backlog");
@@ -193,6 +549,12 @@ let currentBacklogTab = "active"; // "active" | "done"
 let isDoneFolderExpanded = false;
 
 // Designer Elements
+const proactiveSuggestionsDrawer = document.getElementById("proactive-suggestions-drawer");
+const btnToggleSuggestionsDrawer = document.getElementById("btn-toggle-suggestions-drawer");
+const btnCloseSuggestionsDrawer = document.getElementById("btn-close-suggestions-drawer");
+const btnToggleCodeDrawer = document.getElementById("btn-toggle-code-drawer");
+const btnCloseCodeDrawer = document.getElementById("btn-close-code-drawer");
+const btnChatDirectEdit = document.getElementById("btn-chat-direct-edit");
 const suggestionsCarousel = document.getElementById("suggestions-carousel");
 const btnRefreshSuggestions = document.getElementById("btn-refresh-suggestions");
 const designerTaskPicker = document.getElementById("designer-task-picker");
@@ -236,7 +598,8 @@ const commitFeedback = document.getElementById("commit-feedback");
 const btnCommitPcOnly = document.getElementById("btn-commit-pc-only");
 const btnDoCommitAndPush = document.getElementById("btn-do-commit-and-push");
 
-// Central API Key Vault elements
+// Central API Key Vault & Antigravity SDK elements
+const btnAntigravityStatus = document.getElementById("btn-antigravity-status");
 const btnCentralKeyVault = document.getElementById("btn-central-key-vault");
 const centralKeyLabel = document.getElementById("central-key-label");
 const centralKeyModal = document.getElementById("central-key-modal");
@@ -250,15 +613,24 @@ const btnSyncAllAppsKey = document.getElementById("btn-sync-all-apps-key");
 const btnOpenGitbridgeSettings = document.getElementById("btn-open-gitbridge-settings");
 const vaultActionFeedback = document.getElementById("vault-action-feedback");
 
-// Unrecognized Tab Bar & Registration Modal Elements
+// Unrecognized Tab Bar, Off-Target Page Banner & Registration Modal Elements
 let lastDetectedUnrecognized = null;
 let activeTabInstance = { tabId: null, url: null, port: null, slug: null };
+let currentBrowserTabUrl = "";
+let currentTabDetectedApp = null;
 const unrecognizedAppBar = document.getElementById("unrecognized-app-bar");
 const unrecognizedUrlLabel = document.getElementById("unrecognized-url-label");
 const btnReassociateTab = document.getElementById("btn-reassociate-tab");
 const reassociateBtnText = document.getElementById("reassociate-btn-text");
 const btnShowAddAppModal = document.getElementById("btn-show-add-app-modal");
 const btnHeaderAddApp = document.getElementById("btn-header-add-app");
+
+const offTargetPageBanner = document.getElementById("off-target-page-banner");
+const offTargetPageText = document.getElementById("off-target-page-text");
+const btnOffTargetOpenApp = document.getElementById("btn-off-target-open-app");
+const btnOffTargetOpenLabel = document.getElementById("btn-off-target-open-label");
+const btnOffTargetSwitchApp = document.getElementById("btn-off-target-switch-app");
+const btnOffTargetSwitchLabel = document.getElementById("btn-off-target-switch-label");
 
 const modalRegisterApp = document.getElementById("modal-register-app");
 const btnCloseRegisterModal = document.getElementById("btn-close-register-modal");
@@ -288,53 +660,208 @@ let currentSotFilter = "all";
 // --- Initialization ---
 document.addEventListener("DOMContentLoaded", async () => {
   setupEventListeners();
-  await checkServerConnection();
-  await checkCentralKeyStatus();
-
-  await loadApps();
-  await loadContextiles();
-  await detectActiveTabApp();
+  // Fire initial startup queries in parallel so Galactic opens near-instantly
+  await Promise.allSettled([
+    checkServerConnection(),
+    checkCentralKeyStatus(),
+    checkAntigravityStatus(),
+    loadApps(),
+    loadContextiles(),
+    refreshRunningServersState()
+  ]);
+  await detectActiveTabApp({ autoSwitchApp: true });
+  setInterval(() => refreshRunningServersState(), 6000);
 });
 
-// Listen for tab change events from background.js
-if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage) {
-  chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.type === "TAB_CHANGED") {
-      activeTabId = msg.tabId;
-      detectAppFromUrl(msg.url);
+// Track tab switches so Watchdog ignores browser background-tab timer throttling when leaving/returning to a tab
+let lastTabSwitchTimestamp = Date.now();
+
+// Listen for tab change events from background.js and chrome.tabs directly
+if (typeof chrome !== "undefined") {
+  if (chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg.type === "TAB_CHANGED") {
+        lastTabSwitchTimestamp = Date.now();
+        consecutiveHeartbeatTimeouts = 0;
+        activeTabId = msg.tabId;
+        detectAppFromUrl(msg.url, msg.tabId, { autoSwitchApp: !activeApp });
+      }
+    });
+  }
+  if (chrome.tabs) {
+    if (chrome.tabs.onActivated) {
+      chrome.tabs.onActivated.addListener(async (activeInfo) => {
+        lastTabSwitchTimestamp = Date.now();
+        consecutiveHeartbeatTimeouts = 0;
+        try {
+          const tab = await chrome.tabs.get(activeInfo.tabId);
+          if (tab && tab.url) {
+            activeTabId = tab.id;
+            detectAppFromUrl(tab.url, tab.id, { autoSwitchApp: !activeApp });
+          }
+        } catch (e) {}
+      });
     }
-  });
+    if (chrome.tabs.onUpdated) {
+      chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+        if (tab && tab.active && (changeInfo.url || changeInfo.status === "complete") && tab.url) {
+          lastTabSwitchTimestamp = Date.now();
+          consecutiveHeartbeatTimeouts = 0;
+          activeTabId = tabId;
+          detectAppFromUrl(tab.url, tabId, { autoSwitchApp: !activeApp });
+        }
+      });
+    }
+  }
+}
+
+function toggleChatContextDrawer(forceOpen = null) {
+  if (!chatContextDrawer) return;
+  const isHidden = chatContextDrawer.classList.contains("hidden");
+  const shouldOpen = forceOpen !== null ? forceOpen : isHidden;
+  if (shouldOpen) {
+    chatContextDrawer.classList.remove("hidden");
+    if (btnToggleContextDrawer) btnToggleContextDrawer.classList.add("active");
+  } else {
+    chatContextDrawer.classList.add("hidden");
+    if (btnToggleContextDrawer) btnToggleContextDrawer.classList.remove("active");
+  }
 }
 
 function setupEventListeners() {
   btnModeBrainstorm.addEventListener("click", () => switchMode("brainstorm"));
   btnModeDesigner.addEventListener("click", () => switchMode("designer"));
+  if (btnAntigravityStatus) {
+    btnAntigravityStatus.addEventListener("click", () => openActiveAppInAntigravityIde());
+  }
 
   appSelect.addEventListener("change", (e) => onAppSelected(e.target.value));
-  btnDetectTab.addEventListener("click", () => detectActiveTabApp());
+  btnDetectTab.addEventListener("click", () => detectActiveTabApp({ autoSwitchApp: true }));
   btnLaunchApp.addEventListener("click", () => launchSelectedApp());
+  if (btnStopApp) btnStopApp.addEventListener("click", () => stopSelectedApp());
+  if (appLiveBadge) appLiveBadge.addEventListener("click", () => toggleGalacticPortDrawer());
+  if (btnTogglePortDrawer) btnTogglePortDrawer.addEventListener("click", () => toggleGalacticPortDrawer());
+  if (btnRefreshPortDrawer) btnRefreshPortDrawer.addEventListener("click", () => refreshRunningServersState());
+  if (btnOpenFullPortWatcher) {
+    btnOpenFullPortWatcher.addEventListener("click", () => {
+      window.open(`${SERVER_URL}/#monitor`, "_blank");
+    });
+  }
+  if (btnStopAllPorts) btnStopAllPorts.addEventListener("click", () => stopAllRunningAppsFromGalactic());
+  if (btnClosePortDrawer) btnClosePortDrawer.addEventListener("click", () => toggleGalacticPortDrawer(false));
 
-  // Brainstorm
+  if (btnOffTargetOpenApp) {
+    btnOffTargetOpenApp.addEventListener("click", async () => {
+      if (!activeApp) return;
+      if (isGitBridgeApp(activeApp)) {
+        await openOrFocusAppPortTab(SERVER_URL, activeApp.slug, 8000);
+        currentBrowserTabUrl = SERVER_URL;
+        currentTabDetectedApp = activeApp;
+        updatePageMatchIndicator();
+      } else if (activeApp.is_live && activeApp.live_url) {
+        let portNum = null;
+        try { portNum = new URL(activeApp.live_url).port; } catch (e) {}
+        await openOrFocusAppPortTab(activeApp.live_url, activeApp.slug, portNum);
+        currentBrowserTabUrl = activeApp.live_url;
+        currentTabDetectedApp = activeApp;
+        updatePageMatchIndicator();
+      } else {
+        await launchSelectedApp();
+      }
+    });
+  }
+
+  if (btnOffTargetSwitchApp) {
+    btnOffTargetSwitchApp.addEventListener("click", async () => {
+      if (currentTabDetectedApp) {
+        const appInCatalog = (apps || []).find((a) => a.slug === currentTabDetectedApp.slug) || currentTabDetectedApp;
+        await setActiveApp(appInCatalog);
+      } else {
+        await detectActiveTabApp({ autoSwitchApp: true });
+      }
+    });
+  }
+
+  // Brainstorm & Unified Studio Input + Context/Prompt Drawer
+  if (btnToggleContextDrawer) btnToggleContextDrawer.addEventListener("click", () => toggleChatContextDrawer());
+  if (btnCloseContextDrawer) btnCloseContextDrawer.addEventListener("click", () => toggleChatContextDrawer(false));
   if (btnChatModeImage) btnChatModeImage.addEventListener("click", () => toggleChatImageMode());
-  btnSendBrainstorm.addEventListener("click", () => submitBrainstorm());
+  btnSendBrainstorm.addEventListener("click", () => {
+    toggleChatContextDrawer(false);
+    submitBrainstorm();
+  });
+  if (btnChatDirectEdit) {
+    btnChatDirectEdit.addEventListener("click", () => {
+      const prompt = brainstormInput ? brainstormInput.value.trim() : "";
+      if (!prompt) {
+        if (brainstormInput) brainstormInput.focus();
+        return;
+      }
+      toggleChatContextDrawer(false);
+      brainstormInput.value = "";
+      applyDesignerAiEdit(prompt);
+    });
+  }
+  brainstormInput.addEventListener("input", () => {
+    const val = brainstormInput.value;
+    if (val.endsWith("@")) {
+      toggleChatContextDrawer(true);
+    }
+  });
   brainstormInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      submitBrainstorm();
+      toggleChatContextDrawer(false);
+      if ((e.ctrlKey || e.metaKey) && btnChatDirectEdit) {
+        btnChatDirectEdit.click();
+      } else {
+        submitBrainstorm();
+      }
     }
   });
 
   document.querySelectorAll(".pill-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const prompt = btn.dataset.prompt;
+      toggleChatContextDrawer(false);
       if (prompt) submitBrainstorm(prompt);
     });
   });
 
-  btnAddCustomTask.addEventListener("click", () => promptAddCustomTask());
-  btnToggleBacklog.addEventListener("click", () => toggleBacklogDrawer());
+  btnAddCustomTask.addEventListener("click", (e) => {
+    e.stopPropagation();
+    promptAddCustomTask();
+  });
+  btnToggleBacklog.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleBacklogDrawer();
+  });
+  if (backlogHeader) {
+    backlogHeader.addEventListener("click", (e) => {
+      if (backlogDrawer && backlogDrawer.dataset.justDragged === "1") {
+        backlogDrawer.dataset.justDragged = "0";
+        return;
+      }
+      if (e.target.closest("#btn-add-custom-task") || e.target.closest("#btn-toggle-backlog")) return;
+      toggleBacklogDrawer();
+    });
+  }
+  initBacklogDrawerResize();
 
-  // Designer
+  // Inline Designer Drawers & File Bar
+  if (btnToggleSuggestionsDrawer) {
+    btnToggleSuggestionsDrawer.addEventListener("click", () => toggleSuggestionsDrawer());
+  }
+  if (btnCloseSuggestionsDrawer) {
+    btnCloseSuggestionsDrawer.addEventListener("click", () => toggleSuggestionsDrawer(false));
+  }
+  if (btnToggleCodeDrawer) {
+    btnToggleCodeDrawer.addEventListener("click", () => toggleCodeDrawer());
+  }
+  if (btnCloseCodeDrawer) {
+    btnCloseCodeDrawer.addEventListener("click", () => toggleCodeDrawer(false));
+  }
+
   fileSelect.addEventListener("change", (e) => openFile(e.target.value));
   btnSaveFile.addEventListener("click", () => saveCurrentFile());
   btnReloadTab.addEventListener("click", () => reloadActiveTab());
@@ -731,37 +1258,89 @@ function setupEventListeners() {
   });
 }
 
-// --- Mode Switcher ---
-function switchMode(mode) {
-  currentMode = mode;
-  if (mode === "brainstorm") {
-    btnModeBrainstorm.classList.add("active");
-    btnModeDesigner.classList.remove("active");
-    if (btnModeAssets) btnModeAssets.classList.remove("active");
-    viewBrainstorm.classList.remove("hidden");
-    viewDesigner.classList.add("hidden");
-    if (viewAssets) viewAssets.classList.add("hidden");
-  } else if (mode === "designer") {
-    btnModeDesigner.classList.add("active");
-    btnModeBrainstorm.classList.remove("active");
-    if (btnModeAssets) btnModeAssets.classList.remove("active");
-    viewDesigner.classList.remove("hidden");
-    viewBrainstorm.classList.add("hidden");
-    if (viewAssets) viewAssets.classList.add("hidden");
+// --- Mode Switcher & Inline Studio Drawers ---
+function toggleSuggestionsDrawer(forceOpen = null) {
+  if (!proactiveSuggestionsDrawer) return;
+  const isHidden = proactiveSuggestionsDrawer.classList.contains("hidden");
+  const shouldOpen = forceOpen !== null ? forceOpen : isHidden;
+  if (shouldOpen) {
+    proactiveSuggestionsDrawer.classList.remove("hidden");
+    if (btnToggleSuggestionsDrawer) btnToggleSuggestionsDrawer.classList.add("active");
+    updateDesignerTaskPicker();
+    if (activeApp && activeFilePath && (!proactiveSuggestions || proactiveSuggestions.length === 0)) {
+      fetchProactiveSuggestions(activeApp.slug, activeFilePath, codeEditor ? codeEditor.value : "");
+    }
+  } else {
+    proactiveSuggestionsDrawer.classList.add("hidden");
+    if (btnToggleSuggestionsDrawer) btnToggleSuggestionsDrawer.classList.remove("active");
+  }
+}
 
-    // Ensure file tree is loaded for current app
+function toggleCodeDrawer(forceOpen = null) {
+  if (!viewDesigner) return;
+  const isHidden = viewDesigner.classList.contains("hidden");
+  const shouldOpen = forceOpen !== null ? forceOpen : isHidden;
+  if (shouldOpen) {
+    viewBrainstorm.classList.remove("hidden");
+    if (viewAssets) viewAssets.classList.add("hidden");
+    viewDesigner.classList.remove("hidden");
+    if (btnToggleCodeDrawer) btnToggleCodeDrawer.classList.add("active");
+    if (btnModeDesigner) btnModeDesigner.classList.add("active");
+    if (btnModeBrainstorm) btnModeBrainstorm.classList.remove("active");
+    if (btnModeAssets) btnModeAssets.classList.remove("active");
+    currentMode = "designer";
+
     if (activeApp && (!fileSelect.options || fileSelect.options.length <= 1)) {
       loadFileTree(activeApp.slug);
     }
-    // Sync backlog picker dropdown in designer
     updateDesignerTaskPicker();
+  } else {
+    viewDesigner.classList.add("hidden");
+    if (btnToggleCodeDrawer) btnToggleCodeDrawer.classList.remove("active");
+    if (btnModeDesigner) btnModeDesigner.classList.remove("active");
+    if (!viewAssets || viewAssets.classList.contains("hidden")) {
+      if (btnModeBrainstorm) btnModeBrainstorm.classList.add("active");
+      currentMode = "brainstorm";
+    }
+  }
+}
+
+function ensureStudioChatVisible() {
+  if (viewAssets && !viewAssets.classList.contains("hidden")) {
+    viewAssets.classList.add("hidden");
+  }
+  if (viewBrainstorm) {
+    viewBrainstorm.classList.remove("hidden");
+  }
+  if (btnModeAssets) btnModeAssets.classList.remove("active");
+  if (viewDesigner && !viewDesigner.classList.contains("hidden")) {
+    if (btnModeDesigner) btnModeDesigner.classList.add("active");
+  } else {
+    if (btnModeBrainstorm) btnModeBrainstorm.classList.add("active");
+  }
+}
+
+function switchMode(mode) {
+  currentMode = mode;
+  if (mode === "brainstorm") {
+    viewBrainstorm.classList.remove("hidden");
+    if (viewAssets) viewAssets.classList.add("hidden");
+    toggleCodeDrawer(false);
+    btnModeBrainstorm.classList.add("active");
+    btnModeDesigner.classList.remove("active");
+    if (btnModeAssets) btnModeAssets.classList.remove("active");
+  } else if (mode === "designer") {
+    viewBrainstorm.classList.remove("hidden");
+    if (viewAssets) viewAssets.classList.add("hidden");
+    // Toggle inline Code Drawer open while keeping Central Chat visible!
+    const isCurrentlyOpen = !viewDesigner.classList.contains("hidden");
+    toggleCodeDrawer(!isCurrentlyOpen ? true : true);
   } else if (mode === "assets") {
     if (btnModeAssets) btnModeAssets.classList.add("active");
     btnModeBrainstorm.classList.remove("active");
     btnModeDesigner.classList.remove("active");
     if (viewAssets) viewAssets.classList.remove("hidden");
     viewBrainstorm.classList.add("hidden");
-    viewDesigner.classList.add("hidden");
 
     populateExtLabBrandSelect();
     if (activeApp) {
@@ -789,8 +1368,9 @@ async function checkServerConnection() {
   try {
     const res = await fetch(`${SERVER_URL}/api/settings`, { method: "GET" });
     if (res.ok) {
-      connectionStatus.className = "status-indicator";
-      connectionText.innerText = "Geppy's Galactic Online";
+      connectionStatus.className = "status-indicator status-dot-pill";
+      connectionStatus.title = "Geppy's Galactic Online";
+      if (connectionText) connectionText.innerText = "Geppy's Galactic Online";
     } else {
       setOfflineState();
     }
@@ -800,8 +1380,9 @@ async function checkServerConnection() {
 }
 
 function setOfflineState() {
-  connectionStatus.className = "status-indicator offline";
-  connectionText.innerText = "Geppy's Galactic Offline";
+  connectionStatus.className = "status-indicator status-dot-pill offline";
+  connectionStatus.title = "Geppy's Galactic Offline";
+  if (connectionText) connectionText.innerText = "Geppy's Galactic Offline";
 }
 
 // --- Central API Key Vault Handlers ---
@@ -813,8 +1394,8 @@ async function checkCentralKeyStatus() {
       const data = await res.json();
       if (data.configured) {
         if (btnCentralKeyVault) {
-          btnCentralKeyVault.className = "key-vault-badge active";
-          btnCentralKeyVault.title = `Central Vault Active (${data.masked_key}) - Click for options`;
+          btnCentralKeyVault.className = "key-vault-badge status-dot-pill active";
+          btnCentralKeyVault.title = `Gemini 2.5 Active (${data.masked_key}) — Click for Central Key Vault options`;
         }
         centralKeyLabel.innerText = "Gemini 2.5 Active";
         if (vaultStatusBadge) {
@@ -825,8 +1406,8 @@ async function checkCentralKeyStatus() {
         if (vaultActiveModel) vaultActiveModel.innerText = data.active_model || "gemini-2.5-flash";
       } else {
         if (btnCentralKeyVault) {
-          btnCentralKeyVault.className = "key-vault-badge missing";
-          btnCentralKeyVault.title = "No Gemini API Key found in Central Vault - Click to configure";
+          btnCentralKeyVault.className = "key-vault-badge status-dot-pill missing";
+          btnCentralKeyVault.title = "Key Missing — No Gemini API Key found in Central Vault (Click to configure)";
         }
         centralKeyLabel.innerText = "Key Missing";
         if (vaultStatusBadge) {
@@ -837,8 +1418,83 @@ async function checkCentralKeyStatus() {
       }
     }
   } catch (err) {
-    if (btnCentralKeyVault) btnCentralKeyVault.className = "key-vault-badge missing";
+    if (btnCentralKeyVault) {
+      btnCentralKeyVault.className = "key-vault-badge status-dot-pill missing";
+      btnCentralKeyVault.title = "Gemini Key Vault Offline";
+    }
     if (centralKeyLabel) centralKeyLabel.innerText = "Key: Offline";
+  }
+}
+
+async function checkAntigravityStatus() {
+  if (!btnAntigravityStatus) return;
+  try {
+    const res = await fetchAntigravityApi("/api/extension/antigravity/status");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.sdk_available) {
+        btnAntigravityStatus.className = "key-vault-badge status-dot-pill active";
+        btnAntigravityStatus.style.borderColor = "rgba(139, 92, 246, 0.6)";
+        btnAntigravityStatus.style.color = "#c4b5fd";
+        const portBadge = data.service_port ? `:${data.service_port}` : ":8001";
+        const warmCount = data.warm_session_count || 0;
+        const speedInfo = data.last_turn_ms ? ` • Last turn: ${data.last_turn_ms}ms` : "";
+        btnAntigravityStatus.title = `Antigravity Service (${portBadge}) • ${warmCount} Warm Session(s) Active${speedInfo} — Click to open active app in Antigravity IDE`;
+      } else {
+        btnAntigravityStatus.className = "key-vault-badge status-dot-pill missing";
+        btnAntigravityStatus.title = "Antigravity SDK not loaded — Click to open active app in Antigravity IDE";
+      }
+    }
+  } catch (e) {
+    // Keep default badge if server is still booting
+  }
+}
+
+async function prewarmAntigravityForApp(app) {
+  if (!app || !app.slug) return;
+  try {
+    await fetchAntigravityApi("/api/extension/antigravity/warm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug: app.slug,
+        name: app.name || app.slug,
+        local_path: app.local_path || ""
+      })
+    });
+    setTimeout(() => checkAntigravityStatus(), 700);
+  } catch (e) {}
+}
+
+async function openActiveAppInAntigravityIde(targetFileOverride = null) {
+  const slug = activeApp ? activeApp.slug : (appSelect ? appSelect.value : "");
+  if (!slug) {
+    alert("Please select an application first to open in Antigravity IDE.");
+    return;
+  }
+  const fileToOpen = targetFileOverride || activeFilePath || null;
+  if (btnAntigravityStatus) {
+    btnAntigravityStatus.style.opacity = "0.6";
+  }
+  try {
+    const res = await fetch(`${SERVER_URL}/api/extension/antigravity/open-ide`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug: slug,
+        file_path: fileToOpen
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || data.status === "error") {
+      alert(data.detail || data.message || "Could not launch Antigravity IDE.");
+    }
+  } catch (e) {
+    alert(`Error launching Antigravity IDE: ${e}`);
+  } finally {
+    if (btnAntigravityStatus) {
+      btnAntigravityStatus.style.opacity = "1";
+    }
   }
 }
 
@@ -1066,6 +1722,7 @@ function renderSOTChips() {
     chip.innerHTML = `<span style="font-size: 10px; margin-right: 2px;">${icon}</span>@${escapeHtml(c.name)}`;
     chip.addEventListener("click", () => {
       insertContextileMention(`@${c.name}`);
+      toggleChatContextDrawer(false);
     });
     container.appendChild(chip);
   });
@@ -1077,7 +1734,10 @@ function renderSOTChips() {
   viewAllChip.style.borderColor = "rgba(99, 102, 241, 0.4)";
   viewAllChip.style.color = "#c7d2fe";
   viewAllChip.innerHTML = '<i class="fa-solid fa-list-ul"></i> View All...';
-  viewAllChip.addEventListener("click", () => openSotFleetModal());
+  viewAllChip.addEventListener("click", () => {
+    toggleChatContextDrawer(false);
+    openSotFleetModal();
+  });
   container.appendChild(viewAllChip);
 }
 
@@ -1291,98 +1951,222 @@ function populateAppDropdown() {
   }
 }
 
-// --- Active Tab App Detection & Instance Tracking ---
+// --- Active Tab App Detection, Off-Target Page Indicator & Instance Tracking ---
 let tabAppMap = {};   // tabId -> appSlug
 let hostAppMap = {};  // hostname:port -> appSlug
 
-async function detectActiveTabApp() {
+function doesUrlMatchApp(url, app) {
+  if (!url || !app) return false;
+  try {
+    const parsedTab = new URL(url);
+    if (parsedTab.protocol === "chrome-extension:") return true;
+    const isLocal = ["localhost", "127.0.0.1", "0.0.0.0"].includes(parsedTab.hostname);
+    const tabPort = parsedTab.port || (parsedTab.protocol === "https:" ? "443" : "80");
+
+    // 1. Control plane (Geppy's GitBridge) runs on port 8000
+    if (isGitBridgeApp(app)) {
+      if (isLocal && String(tabPort) === "8000") return true;
+    }
+
+    // 2. Check live_url host or localhost port match
+    if (app.live_url) {
+      try {
+        const parsedLive = new URL(app.live_url);
+        const liveIsLocal = ["localhost", "127.0.0.1", "0.0.0.0"].includes(parsedLive.hostname);
+        const livePort = parsedLive.port || (parsedLive.protocol === "https:" ? "443" : "80");
+        if (parsedTab.host === parsedLive.host) return true;
+        if (isLocal && liveIsLocal && String(tabPort) === String(livePort)) return true;
+      } catch (e) {}
+    }
+
+    // 3. Check known hostAppMap or backend-detected app for current tab
+    if (parsedTab.host && hostAppMap[parsedTab.host] === app.slug) return true;
+    if (currentTabDetectedApp && currentTabDetectedApp.slug === app.slug) return true;
+
+    // 4. Check GitHub repo URL match
+    if (app.github_url && url.toLowerCase().startsWith(app.github_url.toLowerCase())) return true;
+  } catch (e) {}
+  return false;
+}
+
+function formatTabShortLabel(url) {
+  if (!url) return "another tab";
+  try {
+    const u = new URL(url);
+    if (u.protocol === "chrome:" || u.protocol === "edge:" || u.protocol === "about:") {
+      return "Browser Page";
+    }
+    const isLocal = ["localhost", "127.0.0.1", "0.0.0.0"].includes(u.hostname);
+    if (isLocal) {
+      const port = u.port || "80";
+      if (String(port) === "8000") return "GitBridge (:8000)";
+      if (currentTabDetectedApp && currentTabDetectedApp.name) {
+        return `${currentTabDetectedApp.name} (:${port})`;
+      }
+      return `localhost:${port}`;
+    }
+    return u.hostname.replace(/^www\./, "");
+  } catch (e) {
+    return "another tab";
+  }
+}
+
+function updatePageMatchIndicator() {
+  if (!offTargetPageBanner) return;
+  if (!activeApp || !currentBrowserTabUrl) {
+    offTargetPageBanner.classList.add("hidden");
+    document.body.classList.remove("page-mismatch-dimmed");
+    return;
+  }
+
+  try {
+    const u = new URL(currentBrowserTabUrl);
+    if (u.protocol === "chrome-extension:") {
+      offTargetPageBanner.classList.add("hidden");
+      document.body.classList.remove("page-mismatch-dimmed");
+      return;
+    }
+  } catch (e) {}
+
+  const matched = doesUrlMatchApp(currentBrowserTabUrl, activeApp);
+  if (matched) {
+    offTargetPageBanner.classList.add("hidden");
+    document.body.classList.remove("page-mismatch-dimmed");
+    return;
+  }
+
+  // Browser tab is NOT on the app currently selected in Galactic!
+  offTargetPageBanner.classList.remove("hidden");
+  document.body.classList.add("page-mismatch-dimmed");
+
+  const tabLabel = formatTabShortLabel(currentBrowserTabUrl);
+  if (offTargetPageText) {
+    offTargetPageText.innerHTML = `Viewing <strong>${escapeHtml(tabLabel)}</strong> • Editing <strong>${escapeHtml(activeApp.name)}</strong>`;
+  }
+
+  if (btnOffTargetOpenLabel) {
+    if (isGitBridgeApp(activeApp)) {
+      btnOffTargetOpenLabel.innerText = "Go to GitBridge (:8000)";
+    } else if (activeApp.is_live && activeApp.live_url) {
+      let portStr = "";
+      try {
+        const p = new URL(activeApp.live_url).port;
+        if (p) portStr = ` (:${p})`;
+      } catch (e) {}
+      btnOffTargetOpenLabel.innerText = `Go to ${activeApp.name}${portStr}`;
+    } else {
+      btnOffTargetOpenLabel.innerText = `Launch ${activeApp.name}`;
+    }
+  }
+
+  if (btnOffTargetSwitchApp && btnOffTargetSwitchLabel) {
+    if (currentTabDetectedApp && currentTabDetectedApp.slug && currentTabDetectedApp.slug !== activeApp.slug) {
+      btnOffTargetSwitchLabel.innerText = `Edit ${currentTabDetectedApp.name}`;
+      btnOffTargetSwitchApp.classList.remove("hidden");
+    } else {
+      btnOffTargetSwitchApp.classList.add("hidden");
+    }
+  }
+}
+
+async function detectActiveTabApp(options = { autoSwitchApp: true }) {
   if (typeof chrome === "undefined" || !chrome.tabs) return;
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab && tab.url) {
       activeTabId = tab.id;
-      await detectAppFromUrl(tab.url, tab.id);
+      currentBrowserTabUrl = tab.url;
+      await detectAppFromUrl(tab.url, tab.id, options);
     }
   } catch (e) {
     console.warn("Could not query active tab:", e);
   }
 }
 
-async function detectAppFromUrl(url, explicitTabId = null) {
+async function detectAppFromUrl(url, explicitTabId = null, options = { autoSwitchApp: true }) {
   if (!url) return;
+  const autoSwitch = options && typeof options.autoSwitchApp === "boolean" ? options.autoSwitchApp : true;
   const currentTabId = explicitTabId || activeTabId;
   if (currentTabId) activeTabId = currentTabId;
+  currentBrowserTabUrl = url;
 
   let parsedHost = null;
+  let parsedPort = null;
   let isLocal = false;
   try {
     const parsedTab = new URL(url);
     parsedHost = parsedTab.host;
+    parsedPort = parsedTab.port;
     isLocal = ["localhost", "127.0.0.1", "0.0.0.0"].includes(parsedTab.hostname);
   } catch (e) {}
 
-  // 1. Check if tabId or host was already mapped to a specific app
-  if (currentTabId && tabAppMap[currentTabId]) {
-    const mappedSlug = tabAppMap[currentTabId];
-    const targetApp = apps.find((a) => a.slug === mappedSlug);
-    if (targetApp) {
+  // Fast check: Port 8000 is always Geppy's GitBridge
+  if (isLocal && String(parsedPort) === "8000") {
+    const gbApp = (apps || []).find((a) => isGitBridgeApp(a));
+    if (gbApp) {
+      currentTabDetectedApp = gbApp;
       if (unrecognizedAppBar) unrecognizedAppBar.classList.add("hidden");
       lastDetectedUnrecognized = null;
-      activeTabInstance.tabId = currentTabId;
-      activeTabInstance.url = url;
-      activeTabInstance.slug = targetApp.slug;
-      if (!activeApp || activeApp.slug !== targetApp.slug) {
-        await setActiveApp(targetApp);
+      if (currentTabId) tabAppMap[currentTabId] = gbApp.slug;
+      if (parsedHost) hostAppMap[parsedHost] = gbApp.slug;
+      if (autoSwitch || !activeApp) {
+        await setActiveApp(gbApp);
+      } else {
+        updatePageMatchIndicator();
       }
       return;
     }
   }
 
+  // 1. Check if host was already mapped to a specific app
   if (parsedHost && hostAppMap[parsedHost]) {
     const mappedSlug = hostAppMap[parsedHost];
-    const targetApp = apps.find((a) => a.slug === mappedSlug);
+    const targetApp = (apps || []).find((a) => a.slug === mappedSlug);
     if (targetApp) {
+      currentTabDetectedApp = targetApp;
       if (unrecognizedAppBar) unrecognizedAppBar.classList.add("hidden");
       lastDetectedUnrecognized = null;
-      activeTabInstance.tabId = currentTabId;
-      activeTabInstance.url = url;
-      activeTabInstance.slug = targetApp.slug;
       if (currentTabId) tabAppMap[currentTabId] = targetApp.slug;
-      if (!activeApp || activeApp.slug !== targetApp.slug) {
-        await setActiveApp(targetApp);
+      if (autoSwitch || !activeApp) {
+        activeTabInstance.tabId = currentTabId;
+        activeTabInstance.url = url;
+        activeTabInstance.slug = targetApp.slug;
+        if (!activeApp || activeApp.slug !== targetApp.slug) {
+          await setActiveApp(targetApp);
+        }
       }
+      updatePageMatchIndicator();
       return;
     }
   }
 
-  // 2. Is this tab URL or tabId already known to be our active app instance?
-  if (activeApp) {
-    let isSameAppInstance = false;
-    try {
-      if (activeApp.live_url) {
-        const parsedLive = new URL(activeApp.live_url);
-        if (parsedHost && parsedHost === parsedLive.host) {
-          isSameAppInstance = true;
-        } else if (isLocal && parsedLive.port) {
-          const u = new URL(url);
-          if (u.port === parsedLive.port) isSameAppInstance = true;
-        }
+  // 2. Does this tab URL match any loaded app's live_url?
+  if (apps && apps.length > 0) {
+    const liveMatchedApp = apps.find((a) => {
+      if (!a.live_url) return false;
+      try {
+        const u = new URL(a.live_url);
+        return (parsedHost && u.host === parsedHost) || (isLocal && parsedPort && u.port === parsedPort);
+      } catch (e) {
+        return false;
       }
-
-      if (activeTabInstance.tabId && activeTabInstance.tabId === currentTabId && activeTabInstance.slug === activeApp.slug && isLocal) {
-        isSameAppInstance = true;
-      }
-    } catch (e) {}
-
-    if (isSameAppInstance) {
+    });
+    if (liveMatchedApp) {
+      currentTabDetectedApp = liveMatchedApp;
       if (unrecognizedAppBar) unrecognizedAppBar.classList.add("hidden");
       lastDetectedUnrecognized = null;
-      activeTabInstance.tabId = currentTabId;
-      activeTabInstance.url = url;
-      activeTabInstance.slug = activeApp.slug;
-      if (currentTabId) tabAppMap[currentTabId] = activeApp.slug;
-      if (parsedHost) hostAppMap[parsedHost] = activeApp.slug;
+      if (currentTabId) tabAppMap[currentTabId] = liveMatchedApp.slug;
+      if (parsedHost) hostAppMap[parsedHost] = liveMatchedApp.slug;
+      if (autoSwitch || !activeApp) {
+        activeTabInstance.tabId = currentTabId;
+        activeTabInstance.url = url;
+        activeTabInstance.slug = liveMatchedApp.slug;
+        if (!activeApp || activeApp.slug !== liveMatchedApp.slug) {
+          await setActiveApp(liveMatchedApp);
+        }
+      }
+      updatePageMatchIndicator();
       return;
     }
   }
@@ -1393,16 +2177,23 @@ async function detectAppFromUrl(url, explicitTabId = null) {
     if (res.ok) {
       const data = await res.json();
       if (data.matched && data.app) {
+        const catalogApp = (apps || []).find((a) => a.slug === data.app.slug) || data.app;
+        currentTabDetectedApp = catalogApp;
         if (unrecognizedAppBar) unrecognizedAppBar.classList.add("hidden");
         lastDetectedUnrecognized = null;
-        activeTabInstance.tabId = currentTabId;
-        activeTabInstance.url = url;
-        activeTabInstance.slug = data.app.slug;
-        if (currentTabId) tabAppMap[currentTabId] = data.app.slug;
-        if (parsedHost) hostAppMap[parsedHost] = data.app.slug;
-        await setActiveApp(data.app);
+        if (currentTabId) tabAppMap[currentTabId] = catalogApp.slug;
+        if (parsedHost) hostAppMap[parsedHost] = catalogApp.slug;
+        if (autoSwitch || !activeApp) {
+          activeTabInstance.tabId = currentTabId;
+          activeTabInstance.url = url;
+          activeTabInstance.slug = catalogApp.slug;
+          await setActiveApp(catalogApp);
+        } else {
+          updatePageMatchIndicator();
+        }
         return;
       } else {
+        currentTabDetectedApp = null;
         if (isLocal && unrecognizedAppBar) {
           lastDetectedUnrecognized = { ...data, tabId: currentTabId, url: url };
           if (unrecognizedUrlLabel) {
@@ -1432,6 +2223,7 @@ async function detectAppFromUrl(url, explicitTabId = null) {
   if (!activeApp && apps.length > 0) {
     await setActiveApp(apps[0]);
   }
+  updatePageMatchIndicator();
 }
 
 async function onAppSelected(slug) {
@@ -1441,6 +2233,11 @@ async function onAppSelected(slug) {
 }
 
 async function setActiveApp(app) {
+  if (isGitBridgeApp(app)) {
+    app.is_live = true;
+    app.live_url = app.live_url || SERVER_URL;
+  }
+
   // If already active app and same slug, just sync instance info
   if (activeApp && activeApp.slug === app.slug) {
     if (app.live_url) {
@@ -1451,19 +2248,22 @@ async function setActiveApp(app) {
         hostAppMap[u.host] = app.slug;
       } catch (e) {}
     }
-    if (activeTabId) tabAppMap[activeTabId] = app.slug;
+    if (activeTabId && doesUrlMatchApp(currentBrowserTabUrl, app)) {
+      tabAppMap[activeTabId] = app.slug;
+    }
+    updatePageMatchIndicator();
     return;
   }
 
-  // 1. If switching away from another app, save its chat history first!
+  // 1. If switching away from another app, save its chat history first (non-blocking)
   if (activeApp && activeApp.slug) {
-    await saveAppChatHistory(activeApp.slug, chatHistory);
+    saveAppChatHistory(activeApp.slug, chatHistory);
   }
 
   activeApp = app;
   appSelect.value = app.slug;
 
-  // Track active app instance & mappings
+  // Track active app instance & mappings without falsely overwriting tabAppMap for unrelated tabs
   activeTabInstance.slug = app.slug;
   if (app.live_url) {
     activeTabInstance.url = app.live_url;
@@ -1473,7 +2273,7 @@ async function setActiveApp(app) {
       hostAppMap[u.host] = app.slug;
     } catch (e) {}
   }
-  if (activeTabId) {
+  if (activeTabId && doesUrlMatchApp(currentBrowserTabUrl, app)) {
     tabAppMap[activeTabId] = app.slug;
   }
 
@@ -1486,24 +2286,37 @@ async function setActiveApp(app) {
   if (app.is_live) {
     appLiveBadge.style.display = "inline-block";
     appLiveBadge.innerText = app.live_url ? `Live (${new URL(app.live_url).port || "80"})` : "Live";
+    if (btnStopApp) {
+      btnStopApp.style.display = isGitBridgeApp(app) ? "none" : "inline-flex";
+    }
   } else {
     appLiveBadge.style.display = "none";
+    if (btnStopApp) btnStopApp.style.display = "none";
   }
 
-  // 2. Load dedicated Chat History for this specific app
-  await loadAppChatHistory(app.slug);
+  updatePageMatchIndicator();
+  refreshRunningServersState();
+  prewarmAntigravityForApp(app);
 
-  // 3. Load backlog
+  // 2. Load Session Changelog & Watchdog Error Log immediately from localStorage
+  loadSessionLog(app.slug);
+  if (typeof loadWatchdogLog === "function") {
+    loadWatchdogLog(app.slug);
+  }
+
+  // 3. Reset & load Backlog FIRST so activeApp's saved tasks are authoritative before Chat History renders
+  backlogTasks = [];
+  selectedTaskIds.clear();
+  renderBacklog();
   await loadBacklog(app.slug);
 
-  // 4. Load file tree for designer
-  await loadFileTree(app.slug);
+  await Promise.allSettled([
+    loadAppChatHistory(app.slug),
+    loadFileTree(app.slug),
+    refreshGitStatus()
+  ]);
 
-  // 5. Load Git status & Session Changelog
-  loadSessionLog(app.slug);
-  await refreshGitStatus();
-
-  // 6. If in Asset Lab mode, load app images
+  // 4. If in Asset Lab mode, load app images
   if (currentMode === "assets") {
     loadAppImages(app.slug);
   }
@@ -1564,39 +2377,104 @@ async function saveAppChatHistory(slug, history) {
   }
 }
 
+function isGitBridgeApp(app = activeApp) {
+  if (!app) return false;
+  const s = (app.slug || "").toLowerCase();
+  const n = (app.name || "").toLowerCase();
+  return s === "geppys-gitbridge" || s === "gitbridge" || n.includes("gitbridge");
+}
+
+function getGeppyName(app = activeApp) {
+  return isGitBridgeApp(app) ? "Captain Geppy" : "Geppy";
+}
+
+function getGeppyTitle(app = activeApp) {
+  return isGitBridgeApp(app) ? "Galactic Commander" : "AI App Co-Pilot";
+}
+
 function renderChatHistoryForActiveApp() {
   if (!chatHistoryEl) return;
   chatHistoryEl.innerHTML = "";
 
   const appName = activeApp ? activeApp.name : "Active Application";
+  const isGb = isGitBridgeApp(activeApp);
+  const gName = getGeppyName(activeApp);
+  const gTitle = getGeppyTitle(activeApp);
 
-  // Captain Geppy Welcome Banner personalized for this app
+  if (brainstormInput && !isChatImageMode) {
+    brainstormInput.placeholder = `Ask ${gName} or type /image to generate visuals...`;
+  }
+
+  // Welcome Banner personalized for this app (Captain Geppy only in GitBridge; Geppy everywhere else)
   const welcomeBubble = document.createElement("div");
   welcomeBubble.className = "chat-bubble ai";
   welcomeBubble.innerHTML = `
     <div class="captain-badge">
-      <span class="captain-avatar"><img src="icons/icon48.png" alt="Captain Geppy" class="captain-avatar-img" /></span>
+      <span class="captain-avatar"><img src="icons/icon48.png" alt="${escapeHtml(gName)}" class="captain-avatar-img" /></span>
       <div>
-        <strong style="color: #818cf8;">Captain Geppy</strong>
-        <span class="captain-sub">Galactic Commander &bull; ${escapeHtml(appName)}</span>
+        <strong style="color: #818cf8;">${escapeHtml(gName)}</strong>
+        <span class="captain-sub">${escapeHtml(gTitle)} &bull; ${escapeHtml(appName)}</span>
       </div>
     </div>
     <div class="ai-body">
-      <p>Greetings, Commander! Welcome aboard <strong>Geppy's Galactic</strong> for <strong>${escapeHtml(appName)}</strong>.</p>
-      <p>I am Captain Geppy, your pilot for <em>${escapeHtml(appName)}</em>. Click the ideation pills above or ask me for visual makeovers, UX polish, and killer features tailored specifically to this project!</p>
-      <p>🛸 <strong>Source of Truth:</strong> Click <strong>SOT Fleet</strong> above or type <code>@contextile_name</code> to anchor ideas in your saved standards.</p>
+      ${isGb
+        ? `<p>Greetings, Commander! Welcome aboard <strong>Geppy's GitBridge</strong>.</p>
+           <p>I am <strong>Captain Geppy</strong>, your commander for <em>${escapeHtml(appName)}</em>. Click the ideation pills above or ask me for visual makeovers, UX polish, and killer features!</p>`
+        : `<p>Hey there! Ready to build and polish <strong>${escapeHtml(appName)}</strong>.</p>
+           <p>I'm <strong>Geppy</strong>, your AI co-pilot for <em>${escapeHtml(appName)}</em>. Click the ideation pills above or ask me for visual makeovers, bug fixes, UX polish, and features tailored specifically to this app!</p>`
+      }
+      <p>✨ <strong>Source of Truth:</strong> Click <strong>SOT Fleet</strong> above or type <code>@contextile_name</code> to anchor ideas in your saved standards.</p>
     </div>
   `;
   chatHistoryEl.appendChild(welcomeBubble);
 
-  // Render each conversation turn for this app
+  // Collect all completion messages so we know which tasks were already applied in chat history
+  const completedTextCorpus = chatHistory
+    .filter((m) => m && m.sender === "ai" && /Finished updating|Successfully applied|Applied targeted patch/i.test(m.text || ""))
+    .map((m) => (m.text || "").toLowerCase())
+    .join("\n");
+
+  // Render each conversation turn for this app without overwriting the authoritative backlogTasks
   chatHistory.forEach((msg) => {
+    const sysOpt = { isSystemTriggered: Boolean(msg.isSystemTriggered) };
     if (msg.sender === "user") {
-      appendChatBubble("user", escapeHtml(msg.text));
+      appendChatBubble("user", escapeHtml(msg.text), sysOpt);
     } else {
-      const bubble = appendChatBubble("ai", formatMarkdown(msg.text));
-      if (msg.extracted_tasks && msg.extracted_tasks.length > 0) {
-        attachIdeasDockToBubble(bubble, msg.extracted_tasks);
+      const rawText = msg.text || "";
+      const isCompletionTurn = /Finished updating|Could not finish updating|Successfully applied|Applied targeted patch/i.test(rawText);
+      const parsedFromText = isCompletionTurn ? { cleanText: rawText, tasks: [] } : extractAndStripEmbeddedTasks(rawText);
+      const displayMarkdown = parsedFromText.cleanText || rawText;
+      const bubble = appendChatBubble("ai", formatMarkdown(displayMarkdown), sysOpt);
+      if (Array.isArray(msg.tool_steps) && msg.tool_steps.length > 0) {
+        attachAntigravityToolTraceToBubble(bubble, msg.tool_steps, msg.engine || "antigravity_sdk", msg.modified_files || []);
+      }
+      const seriesTasks = isCompletionTurn
+        ? []
+        : msg.extracted_tasks && msg.extracted_tasks.length > 0
+        ? msg.extracted_tasks
+        : parsedFromText.tasks.length > 0
+        ? parsedFromText.tasks
+        : extractActionSeriesFromText(displayMarkdown);
+
+      if (seriesTasks && seriesTasks.length > 0) {
+        const objTitle = msg.objective_title || deriveObjectiveTitle(seriesTasks, displayMarkdown);
+        const fallbackObjId = `obj-hist-${msg.timestamp || Date.now()}`;
+        seriesTasks.forEach((t, idx) => {
+          if (!t.id) t.id = `task-hist-${msg.timestamp || Date.now()}-${idx}`;
+          if (!t.objective_id) t.objective_id = fallbackObjId;
+          if (!t.objective_title) t.objective_title = objTitle;
+          const matchingSaved = backlogTasks.find(
+            (bt) => bt.id === t.id || (bt.title && t.title && bt.title.toLowerCase() === t.title.toLowerCase())
+          );
+          if (matchingSaved) {
+            t.completed = Boolean(matchingSaved.completed);
+          } else if (t.title && completedTextCorpus.includes(t.title.toLowerCase())) {
+            t.completed = true;
+          }
+        });
+        msg.extracted_tasks = seriesTasks;
+        msg.text = displayMarkdown;
+        attachIdeasDockToBubble(bubble, seriesTasks, objTitle);
       }
       if (msg.image_data) {
         attachImageCardToBubble(bubble, msg.image_data);
@@ -1607,26 +2485,189 @@ function renderChatHistoryForActiveApp() {
   chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
 }
 
-function attachIdeasDockToBubble(aiBubble, extractedTasks) {
+function deriveObjectiveTitle(tasks = [], contextText = "") {
+  if (!tasks || tasks.length === 0) return "Implementation Objective";
+  const fromTask = tasks.find((t) => t && t.objective_title)?.objective_title;
+  if (fromTask) return fromTask;
+
+  if (contextText && typeof contextText === "string") {
+    const headingMatch = contextText.match(/(?:^|\n)#{1,3}\s+([^\n]+)/);
+    if (headingMatch && headingMatch[1]) {
+      const cleanHeading = headingMatch[1].replace(/[*`_~]/g, "").trim();
+      if (cleanHeading.length >= 4 && cleanHeading.length <= 72) {
+        return cleanHeading;
+      }
+    }
+    if (/Watchdog|runtime error|UI freeze/i.test(contextText)) {
+      return `Watchdog Diagnostic & Fix Plan`;
+    }
+  }
+
+  if (tasks.length === 1) {
+    return tasks[0].title || "Implementation Task";
+  }
+  return `${tasks[0].title || "Action Plan"} (+${tasks.length - 1} step${tasks.length - 1 === 1 ? "" : "s"})`;
+}
+
+function extractAndStripEmbeddedTasks(text = "") {
+  if (!text || typeof text !== "string") {
+    return { cleanText: "", tasks: [] };
+  }
+  const fenceRegex = /```(?:tasks|json)?\s*(\[\s*\{[\s\S]*?\}\s*\])\s*```/i;
+  const match = fenceRegex.exec(text);
+  if (match && match[1]) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (
+        Array.isArray(parsed) &&
+        parsed.some((item) => item && typeof item === "object" && (item.title || item.suggested_prompt))
+      ) {
+        const cleanText = (text.slice(0, match.index) + text.slice(match.index + match[0].length)).trim();
+        return { cleanText, tasks: parsed };
+      }
+    } catch (e) {}
+  }
+  return { cleanText: text, tasks: [] };
+}
+
+function extractActionSeriesFromText(text = "") {
+  if (!text || typeof text !== "string") return [];
+  const embedded = extractAndStripEmbeddedTasks(text);
+  if (embedded.tasks && embedded.tasks.length > 0) {
+    return embedded.tasks;
+  }
+  const results = [];
+  const regex = /(?:^|\n)\s*(?:\d+[\.\)]|[-*•])\s*\*\*([^*:\n]{3,85}):?\*\*[:\s—–-]*(.+?)(?=\n\s*(?:\d+[\.\)]|[-*•]|\n|#|$))/gs;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const rawTitle = (match[1] || "").trim().replace(/:$/, "");
+    const rawDesc = (match[2] || "").replace(/\s+/g, " ").trim();
+    if (rawTitle && rawDesc.length > 8) {
+      const isFix = /\b(fix|error|bug|crash|freeze|watchdog|resolve|patch|issue)\b/i.test(`${rawTitle} ${rawDesc}`);
+      results.push({
+        title: rawTitle.slice(0, 75),
+        category: isFix ? "fix" : "feature",
+        description: rawDesc.slice(0, 200),
+        suggested_prompt: `${rawTitle}: ${rawDesc.slice(0, 300)}`
+      });
+    }
+  }
+  return results.length >= 2 ? results.slice(0, 10) : [];
+}
+
+function attachIdeasDockToBubble(aiBubble, extractedTasks, objectiveTitleOverride = null) {
   if (!aiBubble || !extractedTasks || extractedTasks.length === 0) return;
   const targetContainer = aiBubble.querySelector(".ai-body") || aiBubble;
 
   // Avoid duplicate docks
   if (targetContainer.querySelector(".chat-ideas-box")) return;
 
+  const mainObjectiveTitle = objectiveTitleOverride || deriveObjectiveTitle(extractedTasks);
+  const stepPreviewText = extractedTasks
+    .map((t, idx) => `#${idx + 1} ${t.title}`)
+    .join("  →  ");
+
   const ideasDock = document.createElement("div");
-  ideasDock.className = "chat-ideas-box";
+  ideasDock.className = "chat-ideas-box objective-card";
   ideasDock.innerHTML = `
     <div class="chat-ideas-header">
-      <i class="fa-solid fa-list-check" style="color: #818cf8;"></i>
-      <span>Proposed Ideas (${extractedTasks.length})</span>
-      <span class="chat-ideas-sub">Select or click to implement directly</span>
+      <div class="chat-ideas-header-left" style="flex: 1; min-width: 0;">
+        <span class="task-tag objective"><i class="fa-solid fa-bullseye"></i> Objective</span>
+        <span class="objective-card-title" title="${escapeHtml(mainObjectiveTitle)}">${escapeHtml(mainObjectiveTitle)}</span>
+        <span class="objective-steps-badge">${extractedTasks.length} step${extractedTasks.length === 1 ? "" : "s"}</span>
+      </div>
+      <div class="chat-ideas-header-actions">
+        <button type="button" class="btn-toggle-objective-outline" title="Expand or collapse the step-by-step outline to inspect or check/uncheck individual steps">
+          <i class="fa-solid fa-list-ol"></i>
+          <span class="outline-btn-text">Outline</span>
+          <i class="fa-solid fa-chevron-down outline-chevron" style="font-size: 8px;"></i>
+        </button>
+        <button type="button" class="btn-series-proceed" title="Run all checked steps in this objective systematically in order">
+          <i class="fa-solid fa-bolt"></i>
+          <span class="btn-series-proceed-label">Proceed</span>
+        </button>
+        <button type="button" class="btn-series-stop hidden" title="Stop after the current step finishes">
+          <i class="fa-solid fa-stop"></i>
+          <span>Stop</span>
+        </button>
+      </div>
     </div>
-    <div class="chat-ideas-list"></div>
+    <div class="objective-compact-preview" title="Click to toggle step-by-step outline: ${escapeHtml(stepPreviewText)}">
+      <i class="fa-solid fa-route" style="color: #818cf8; margin-right: 4px;"></i>${escapeHtml(stepPreviewText)}
+    </div>
+    <div class="chat-series-progress hidden">
+      <div class="chat-series-progress-top">
+        <span class="chat-series-progress-status"><i class="fa-solid fa-spinner animate-spin"></i> Preparing series...</span>
+        <span class="chat-series-progress-pct">0%</span>
+      </div>
+      <div class="chat-series-progress-track">
+        <div class="chat-series-progress-fill"></div>
+      </div>
+    </div>
+    <div class="chat-ideas-list hidden"></div>
   `;
   const listEl = ideasDock.querySelector(".chat-ideas-list");
+  const previewBar = ideasDock.querySelector(".objective-compact-preview");
+  const btnOutline = ideasDock.querySelector(".btn-toggle-objective-outline");
+  const outlineChevron = ideasDock.querySelector(".outline-chevron");
+  const stepsBadge = ideasDock.querySelector(".objective-steps-badge");
+  const btnProceed = ideasDock.querySelector(".btn-series-proceed");
+  const btnProceedLabel = ideasDock.querySelector(".btn-series-proceed-label");
+  const btnStop = ideasDock.querySelector(".btn-series-stop");
+  const progressBox = ideasDock.querySelector(".chat-series-progress");
+  const progressStatus = ideasDock.querySelector(".chat-series-progress-status");
+  const progressPct = ideasDock.querySelector(".chat-series-progress-pct");
+  const progressFill = ideasDock.querySelector(".chat-series-progress-fill");
 
-  extractedTasks.forEach((t) => {
+  function toggleOutlineDrawer(forceOpen = null) {
+    if (!listEl) return;
+    const isHidden = listEl.classList.contains("hidden");
+    const shouldOpen = forceOpen !== null ? forceOpen : isHidden;
+    if (shouldOpen) {
+      listEl.classList.remove("hidden");
+      if (btnOutline) btnOutline.classList.add("active");
+      if (outlineChevron) outlineChevron.className = "fa-solid fa-chevron-up outline-chevron";
+    } else {
+      listEl.classList.add("hidden");
+      if (btnOutline) btnOutline.classList.remove("active");
+      if (outlineChevron) outlineChevron.className = "fa-solid fa-chevron-down outline-chevron";
+    }
+  }
+
+  if (btnOutline) {
+    btnOutline.addEventListener("click", () => toggleOutlineDrawer());
+  }
+  if (previewBar) {
+    previewBar.addEventListener("click", () => toggleOutlineDrawer());
+  }
+
+  const seriesEntries = [];
+  let isSeriesRunning = false;
+  let stopRequested = false;
+
+  function updateProceedButtonState() {
+    if (!btnProceed) return;
+    const enabledPending = seriesEntries.filter((e) => !e.taskObj.completed && e.includeInRun !== false);
+    const doneCount = seriesEntries.filter((e) => e.taskObj.completed).length;
+    if (stepsBadge) {
+      stepsBadge.innerText = doneCount > 0 ? `${doneCount}/${seriesEntries.length} done` : `${seriesEntries.length} step${seriesEntries.length === 1 ? "" : "s"}`;
+    }
+    if (isSeriesRunning) {
+      btnProceed.disabled = true;
+      return;
+    }
+    btnProceed.disabled = false;
+    if (enabledPending.length > 0) {
+      btnProceed.innerHTML = `<i class="fa-solid fa-bolt"></i> <span class="btn-series-proceed-label">Proceed (${enabledPending.length === seriesEntries.length ? `All ${enabledPending.length}` : `${enabledPending.length}`})</span>`;
+    } else if (doneCount === seriesEntries.length) {
+      btnProceed.innerHTML = `<i class="fa-solid fa-check text-emerald-300"></i> <span class="btn-series-proceed-label">Done (Re-run)</span>`;
+    } else {
+      btnProceed.innerHTML = `<i class="fa-solid fa-bolt"></i> <span class="btn-series-proceed-label">Proceed</span>`;
+    }
+  }
+
+  extractedTasks.forEach((t, index) => {
+    const stepNumber = index + 1;
     // Check if task exists in backlogTasks to mirror completion status
     const existingTask = backlogTasks.find((bt) => bt.id === t.id || bt.title === t.title);
     const isCompleted = existingTask ? existingTask.completed : (t.completed || false);
@@ -1636,21 +2677,47 @@ function attachIdeasDockToBubble(aiBubble, extractedTasks) {
       category: t.category || "feature",
       description: t.description || "",
       suggested_prompt: t.suggested_prompt || t.title,
+      objective_id: t.objective_id || null,
+      objective_title: t.objective_title || mainObjectiveTitle,
       completed: isCompleted
     };
 
     const ideaCard = document.createElement("div");
-    const catClass = ["design", "feature", "ux", "polish"].includes(taskObj.category?.toLowerCase())
+    const catClass = ["design", "feature", "ux", "polish", "fix"].includes(taskObj.category?.toLowerCase())
       ? taskObj.category.toLowerCase()
       : "feature";
 
+    const entryRecord = {
+      taskObj,
+      ideaCard,
+      stepNumber,
+      includeInRun: !taskObj.completed,
+      updateChatCardUi: null,
+      setStepRunning: null
+    };
+
+    function setStepRunning(running, currentIdx = stepNumber, totalSteps = extractedTasks.length) {
+      if (running) {
+        ideaCard.classList.add("running-step");
+        const impBtn = ideaCard.querySelector(".btn-chat-implement");
+        if (impBtn) {
+          impBtn.disabled = true;
+          impBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>Step ${currentIdx}/${totalSteps}...</span>`;
+        }
+      } else {
+        ideaCard.classList.remove("running-step");
+      }
+    }
+
     function updateChatCardUi() {
+      ideaCard.classList.remove("running-step");
       if (taskObj.completed) {
         ideaCard.className = "chat-idea-card completed";
         ideaCard.innerHTML = `
           <div class="chat-idea-info">
             <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
-              <span class="chat-idea-done-badge"><i class="fa-solid fa-check"></i> In Done Pile</span>
+              <span style="font-size: 9.5px; color: #64748b; font-family: monospace; font-weight: 700;">#${stepNumber}</span>
+              <span class="chat-idea-done-badge"><i class="fa-solid fa-check"></i> Done</span>
               <span class="task-tag ${catClass}">${escapeHtml(taskObj.category || "Task")}</span>
               <strong>${escapeHtml(taskObj.title)}</strong>
             </div>
@@ -1658,7 +2725,7 @@ function attachIdeasDockToBubble(aiBubble, extractedTasks) {
           </div>
           <div class="chat-idea-actions">
             <button type="button" class="btn-chat-view-done" title="Open and view this task in the Done Pile">
-              <i class="fa-solid fa-folder-closed"></i> View in Done
+              <i class="fa-solid fa-folder-closed"></i> Done Pile
             </button>
             <label class="chat-idea-done-label" title="Uncheck to restore to active tasks" style="color: #64748b;">
               <input type="checkbox" class="chk-chat-done" checked> Done
@@ -1676,35 +2743,48 @@ function attachIdeasDockToBubble(aiBubble, extractedTasks) {
         if (chk) {
           chk.addEventListener("change", async (e) => {
             taskObj.completed = e.target.checked;
+            entryRecord.includeInRun = !taskObj.completed;
             await saveBacklogToServer();
             renderBacklog();
             updateDesignerTaskPicker();
             updateChatCardUi();
+            updateProceedButtonState();
           });
         }
       } else {
         ideaCard.className = "chat-idea-card";
         ideaCard.innerHTML = `
           <div class="chat-idea-info">
-            <div style="display: flex; align-items: center; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+              <label title="Check to include this step when clicking Proceed" style="display: inline-flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" class="chk-step-include" ${entryRecord.includeInRun !== false ? "checked" : ""}>
+              </label>
+              <span style="font-size: 9.5px; color: #818cf8; font-family: monospace; font-weight: 700;">#${stepNumber}</span>
               <span class="task-tag ${catClass}">${escapeHtml(taskObj.category || "Task")}</span>
               <strong>${escapeHtml(taskObj.title)}</strong>
             </div>
             <div class="chat-idea-desc">${escapeHtml(taskObj.description || "")}</div>
           </div>
           <div class="chat-idea-actions">
-            <label class="chat-idea-done-label" title="File this idea directly to Done Pile">
+            <label class="chat-idea-done-label" title="File this step directly to Done Pile">
               <input type="checkbox" class="chk-chat-done"> Done
             </label>
-            <button type="button" class="btn-chat-implement" title="Automatically implement this idea into code, save to disk, and reload app">
+            <button type="button" class="btn-chat-implement" title="Run only this single step right now">
               <i class="fa-solid fa-wand-magic-sparkles"></i>
-              <span>Implement Now</span>
+              <span>Run Step</span>
             </button>
             <button type="button" class="btn-task-config btn-chat-config" title="Configure target file & implementation options">
               <i class="fa-solid fa-gear"></i>
             </button>
           </div>
         `;
+        const chkInc = ideaCard.querySelector(".chk-step-include");
+        if (chkInc) {
+          chkInc.addEventListener("change", (e) => {
+            entryRecord.includeInRun = Boolean(e.target.checked);
+            updateProceedButtonState();
+          });
+        }
         const chk = ideaCard.querySelector(".chk-chat-done");
         if (chk) {
           chk.addEventListener("change", async (e) => {
@@ -1716,6 +2796,7 @@ function attachIdeasDockToBubble(aiBubble, extractedTasks) {
             renderBacklog();
             updateDesignerTaskPicker();
             updateChatCardUi();
+            updateProceedButtonState();
           });
         }
         const btnCfg = ideaCard.querySelector(".btn-chat-config");
@@ -1733,14 +2814,222 @@ function attachIdeasDockToBubble(aiBubble, extractedTasks) {
             await implementTaskDirectly(taskObj, ideaCard);
             taskObj.completed = true;
             updateChatCardUi();
+            updateProceedButtonState();
           });
         }
       }
     }
 
+    entryRecord.updateChatCardUi = updateChatCardUi;
+    entryRecord.setStepRunning = setStepRunning;
     updateChatCardUi();
     listEl.appendChild(ideaCard);
+    seriesEntries.push(entryRecord);
   });
+
+  updateProceedButtonState();
+
+  if (btnStop) {
+    btnStop.addEventListener("click", () => {
+      stopRequested = true;
+      btnStop.disabled = true;
+      btnStop.innerHTML = '<i class="fa-solid fa-hand"></i> <span>Stopping...</span>';
+    });
+  }
+
+  if (btnProceed) {
+    btnProceed.addEventListener("click", async () => {
+      if (isSeriesRunning) return;
+      if (!activeApp) {
+        alert("Please select or detect an active app first.");
+        return;
+      }
+
+      // Determine checked pending steps (if all are already completed, allow re-running all)
+      let queue = seriesEntries.filter((e) => !e.taskObj.completed && e.includeInRun !== false);
+      if (queue.length === 0) {
+        const anyUncompleted = seriesEntries.filter((e) => !e.taskObj.completed);
+        if (anyUncompleted.length > 0) {
+          alert("Please check at least one step in the Outline to run.");
+          toggleOutlineDrawer(true);
+          return;
+        }
+        seriesEntries.forEach((e) => {
+          e.taskObj.completed = false;
+          e.includeInRun = true;
+          e.updateChatCardUi();
+        });
+        queue = [...seriesEntries];
+      }
+
+      isSeriesRunning = true;
+      stopRequested = false;
+      btnProceed.disabled = true;
+      btnProceed.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span class="btn-series-proceed-label">Running 1/${queue.length}...</span>`;
+      if (btnStop) {
+        btnStop.disabled = false;
+        btnStop.innerHTML = '<i class="fa-solid fa-stop"></i> <span>Stop</span>';
+        btnStop.classList.remove("hidden");
+      }
+      if (progressBox) progressBox.classList.remove("hidden");
+
+      ensureStudioChatVisible();
+
+      if (!appFileList || appFileList.length === 0) {
+        await loadFileTree(activeApp.slug);
+      }
+
+      const total = queue.length;
+      let completedCount = 0;
+      const stepSummaries = [];
+      const allToolSteps = [];
+      const allModifiedFiles = new Set();
+      const firstGuess = guessBestTargetFile(queue[0].taskObj, appFileList) || activeFilePath || (fileSelect && fileSelect.value);
+      if (firstGuess && firstGuess !== activeFilePath) {
+        if (fileSelect) fileSelect.value = firstGuess;
+        await openFile(firstGuess);
+      } else if (!activeFilePath && fileSelect && fileSelect.value) {
+        await openFile(fileSelect.value);
+      }
+
+      const initialBaseline = codeEditor ? codeEditor.value : "";
+      const seriesBubble = startActionChatBubble({
+        actionType: "batch",
+        title: `${mainObjectiveTitle} (${total} Step${total === 1 ? "" : "s"})`,
+        instruction: queue.map((q, idx) => `${idx + 1}. ${q.taskObj.title}`).join(" • "),
+        targetFile: activeFilePath || "app files"
+      });
+
+      for (let i = 0; i < total; i++) {
+        if (stopRequested) {
+          stepSummaries.push(`• ⏹️ **Stopped after ${completedCount}/${total} steps** by user.`);
+          break;
+        }
+
+        const entry = queue[i];
+        const { taskObj, ideaCard } = entry;
+        if (!backlogTasks.some((bt) => bt.id === taskObj.id)) {
+          backlogTasks.push(taskObj);
+        }
+
+        const pct = Math.round((i / total) * 100);
+        if (progressFill) progressFill.style.width = `${pct}%`;
+        if (progressPct) progressPct.innerText = `${pct}%`;
+        if (progressStatus) {
+          progressStatus.innerHTML = `<i class="fa-solid fa-spinner animate-spin text-sky-400"></i> Step ${i + 1} of ${total}: ${escapeHtml(taskObj.title)}`;
+        }
+        btnProceed.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span class="btn-series-proceed-label">Running ${i + 1}/${total}...</span>`;
+
+        entry.setStepRunning(true, i + 1, total);
+
+        // Smart-select target file for this specific step
+        const stepFile = guessBestTargetFile(taskObj, appFileList) || activeFilePath || (fileSelect && fileSelect.value);
+        if (stepFile && stepFile !== activeFilePath) {
+          if (fileSelect) fileSelect.value = stepFile;
+          await openFile(stepFile);
+        }
+
+        const targetFile = activeFilePath || stepFile || "index.html";
+        const beforeStepCode = codeEditor ? codeEditor.value : "";
+        const instruction = taskObj.suggested_prompt || `${taskObj.title}: ${taskObj.description || ""}`;
+
+        updateActionChatBubbleStep(
+          seriesBubble,
+          `[Step ${i + 1}/${total}] Antigravity Agent implementing <strong>${escapeHtml(taskObj.title)}</strong> in <code>${escapeHtml(targetFile)}</code>...`
+        );
+
+        try {
+          const res = await fetchAntigravityApi("/api/extension/apply-design", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              slug: activeApp.slug,
+              file_path: targetFile,
+              current_code: beforeStepCode,
+              instruction: instruction,
+              save_to_disk: true
+            })
+          });
+
+          const data = await res.json();
+          if (Array.isArray(data.tool_steps)) {
+            allToolSteps.push(...data.tool_steps);
+          }
+          if (Array.isArray(data.modified_files)) {
+            data.modified_files.forEach((f) => allModifiedFiles.add(f));
+          }
+          if (res.ok && data.success) {
+            const finalTargetFile = data.target_file || targetFile;
+            allModifiedFiles.add(finalTargetFile);
+            const baselineUsed = typeof data.baseline_code === "string" ? data.baseline_code : beforeStepCode;
+            if (finalTargetFile !== activeFilePath) {
+              activeFilePath = finalTargetFile;
+              if (fileSelect) fileSelect.value = finalTargetFile;
+            }
+            if (codeEditor) codeEditor.value = data.modified_code;
+            recordEditedFileState(finalTargetFile, baselineUsed, data.modified_code, true);
+            isUnsaved = false;
+            if (unsavedIndicator) unsavedIndicator.style.display = "none";
+            if (!data.saved_to_disk) {
+              await saveCurrentFile();
+            }
+
+            taskObj.completed = true;
+            selectedTaskIds.delete(taskObj.id);
+            completedCount++;
+            entry.updateChatCardUi();
+            stepSummaries.push(`• **Step ${i + 1} (${taskObj.title})** [\`${finalTargetFile}\`]: ${data.explanation || "Completed."}`);
+            logSessionChange(
+              taskObj.category === "fix" ? "watchdog_fix" : "ai_implementation",
+              `[Series ${i + 1}/${total}] Implemented "${taskObj.title}" in ${finalTargetFile}`,
+              finalTargetFile,
+              data.explanation
+            );
+          } else {
+            entry.setStepRunning(false);
+            entry.updateChatCardUi();
+            stepSummaries.push(`• ⚠️ **Step ${i + 1} (${taskObj.title})**: ${data.explanation || "Failed to generate code."}`);
+          }
+        } catch (err) {
+          entry.setStepRunning(false);
+          entry.updateChatCardUi();
+          stepSummaries.push(`• ⚠️ **Step ${i + 1} (${taskObj.title})**: ${String(err)}`);
+        }
+
+        await saveBacklogToServer();
+        renderBacklog();
+        updateDesignerTaskPicker();
+      }
+
+      if (progressFill) progressFill.style.width = "100%";
+      if (progressPct) progressPct.innerText = "100%";
+      if (progressStatus) {
+        progressStatus.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> Objective finished (${completedCount}/${total} steps completed & saved)`;
+      }
+      if (btnStop) btnStop.classList.add("hidden");
+
+      finishActionChatBubble(seriesBubble, {
+        success: completedCount > 0,
+        actionType: "batch",
+        title: `${mainObjectiveTitle} (${completedCount}/${total} Steps Completed)`,
+        targetFile: activeFilePath || "app files",
+        explanation: stepSummaries.join("\n"),
+        baselineCode: initialBaseline,
+        modifiedCode: codeEditor ? codeEditor.value : "",
+        toolSteps: allToolSteps,
+        modifiedFiles: Array.from(allModifiedFiles),
+        engine: "antigravity_sdk",
+        errorMsg: completedCount === 0 ? "Could not complete the steps in this objective." : ""
+      });
+
+      if (completedCount > 0) {
+        reloadActiveTab();
+      }
+      await refreshGitStatus();
+      isSeriesRunning = false;
+      updateProceedButtonState();
+    });
+  }
 
   targetContainer.appendChild(ideasDock);
 }
@@ -1752,12 +3041,13 @@ function toggleChatImageMode(forceVal = null) {
   if (btnChatModeImage) {
     btnChatModeImage.classList.toggle("active", isChatImageMode);
   }
+  const gName = getGeppyName(activeApp);
   if (brainstormInput) {
     if (isChatImageMode) {
-      brainstormInput.placeholder = "🎨 Describe image or icon to generate (e.g. Captain Geppy on Mars, Hex badge)...";
+      brainstormInput.placeholder = `🎨 Describe image or icon to generate (e.g. ${gName} badge, Hex icon)...`;
       brainstormInput.focus();
     } else {
-      brainstormInput.placeholder = "Ask Captain Geppy or type /image to generate visuals...";
+      brainstormInput.placeholder = `Ask ${gName} or type /image to generate visuals...`;
     }
   }
 }
@@ -1999,78 +3289,188 @@ async function reassociateCurrentTabToActiveApp() {
   }
 }
 
-async function launchSelectedApp() {
-  if (!activeApp) {
-    alert("Please select an application to launch from the dropdown.");
-    return;
+async function ensureServerAndTrayRunning() {
+  try {
+    const res = await fetch(`${SERVER_URL}/api/tray/ensure`, { method: "POST" });
+    if (res.ok) {
+      await checkServerConnection();
+      return true;
+    }
+  } catch (e) {
+    // Server / Tray Menu is offline — invoke the registered Windows gitbridge:// protocol handler to launch Tray App!
   }
 
+  // Trigger Windows custom URL protocol `gitbridge://launch-tray` via hidden iframe
+  try {
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = "gitbridge://launch-tray";
+    document.body.appendChild(iframe);
+    setTimeout(() => {
+      try { iframe.remove(); } catch (err) {}
+    }, 3000);
+  } catch (e) {}
+
+  // Poll up to 10 seconds for the Tray App & Server (port 8000) to come online
+  const startWait = Date.now();
+  while (Date.now() - startWait < 10000) {
+    await new Promise((r) => setTimeout(r, 700));
+    try {
+      const checkRes = await fetch(`${SERVER_URL}/api/tray/ensure`, { method: "POST" });
+      if (checkRes.ok) {
+        await checkServerConnection();
+        if (!apps || apps.length === 0) {
+          await loadApps();
+        }
+        return true;
+      }
+    } catch (e) {}
+  }
+  return false;
+}
+
+async function openOrFocusAppPortTab(targetUrl, appSlug, portNum) {
+  if (typeof chrome !== "undefined" && chrome.tabs) {
+    let targetPort = portNum ? String(portNum) : null;
+    try {
+      const parsed = new URL(targetUrl);
+      if (!targetPort && parsed.port) targetPort = parsed.port;
+    } catch (e) {}
+
+    // Check if a tab for this localhost port is already open so we can focus & refresh it
+    try {
+      const allTabs = await chrome.tabs.query({ currentWindow: true });
+      const existingTab = allTabs.find((t) => {
+        if (!t.url) return false;
+        try {
+          const u = new URL(t.url);
+          const isLoc = ["localhost", "127.0.0.1", "0.0.0.0"].includes(u.hostname);
+          return isLoc && targetPort && u.port === String(targetPort);
+        } catch (err) {
+          return false;
+        }
+      });
+
+      if (existingTab && existingTab.id) {
+        activeTabId = existingTab.id;
+        activeTabInstance.tabId = existingTab.id;
+        activeTabInstance.url = targetUrl;
+        activeTabInstance.slug = appSlug;
+        activeTabInstance.port = targetPort || "80";
+        tabAppMap[existingTab.id] = appSlug;
+        currentBrowserTabUrl = targetUrl;
+        if (targetPort) {
+          hostAppMap[`localhost:${targetPort}`] = appSlug;
+          hostAppMap[`127.0.0.1:${targetPort}`] = appSlug;
+        }
+        await chrome.tabs.update(existingTab.id, { active: true, url: targetUrl });
+        updatePageMatchIndicator();
+        return;
+      }
+    } catch (e) {}
+
+    chrome.tabs.create({ url: targetUrl }, (newTab) => {
+      if (newTab) {
+        activeTabId = newTab.id;
+        activeTabInstance.tabId = newTab.id;
+        activeTabInstance.url = targetUrl;
+        activeTabInstance.slug = appSlug;
+        activeTabInstance.port = targetPort || "80";
+        tabAppMap[newTab.id] = appSlug;
+        currentBrowserTabUrl = targetUrl;
+        if (targetPort) {
+          hostAppMap[`localhost:${targetPort}`] = appSlug;
+          hostAppMap[`127.0.0.1:${targetPort}`] = appSlug;
+        }
+        updatePageMatchIndicator();
+      }
+    });
+  } else {
+    currentBrowserTabUrl = targetUrl;
+    window.open(targetUrl, "_blank");
+    updatePageMatchIndicator();
+  }
+}
+
+async function launchSelectedApp() {
   const origHtml = btnLaunchApp.innerHTML;
   btnLaunchApp.disabled = true;
-  btnLaunchApp.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> <span>Launching...</span>';
+  btnLaunchApp.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> <span>Starting Tray &amp; App...</span>';
 
   try {
+    // 1. Ensure the Windows System Tray Menu & GitBridge Server are running!
+    const trayOnline = await ensureServerAndTrayRunning();
+    if (!trayOnline) {
+      alert("Could not reach or start Geppy's GitBridge Tray App on port 8000.");
+      btnLaunchApp.disabled = false;
+      btnLaunchApp.innerHTML = origHtml;
+      return;
+    }
+
+    // If activeApp was not selected yet (e.g. sidebar opened while server was offline), pick selected dropdown or first app
+    if (!activeApp && appSelect && appSelect.value) {
+      activeApp = apps.find((a) => a.slug === appSelect.value) || null;
+    }
+    if (!activeApp && apps && apps.length > 0) {
+      await setActiveApp(apps[0]);
+    }
+    if (!activeApp) {
+      alert("Tray Menu launched! Please select an application from the dropdown to launch on localhost.");
+      btnLaunchApp.disabled = false;
+      btnLaunchApp.innerHTML = origHtml;
+      return;
+    }
+
+    if (isGitBridgeApp(activeApp)) {
+      await openOrFocusAppPortTab(SERVER_URL, activeApp.slug, 8000);
+      activeApp.is_live = true;
+      activeApp.live_url = SERVER_URL;
+      if (appLiveBadge) {
+        appLiveBadge.style.display = "inline-block";
+        appLiveBadge.innerText = "Live (8000)";
+      }
+      if (btnStopApp) btnStopApp.style.display = "none";
+      btnLaunchApp.innerHTML = '<i class="fa-solid fa-check text-emerald-300"></i> <span>:8000</span>';
+      setTimeout(() => {
+        btnLaunchApp.disabled = false;
+        btnLaunchApp.innerHTML = '<i class="fa-solid fa-rocket"></i> <span>Launch</span>';
+      }, 1500);
+      updatePageMatchIndicator();
+      return;
+    }
+
+    btnLaunchApp.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> <span>Launching Port...</span>';
+
+    // 2. Launch the app on its dedicated localhost port via GitBridge's AppLauncherService
     const res = await fetch(`${SERVER_URL}/api/apps/${activeApp.slug}/launch`, {
       method: "POST"
     });
     const data = await res.json();
 
-    if (res.ok && data.launched && data.target) {
-      // Open in browser tab
-      if (typeof chrome !== "undefined" && chrome.tabs) {
-        chrome.tabs.create({ url: data.target }, (newTab) => {
-          if (newTab) {
-            activeTabId = newTab.id;
-            activeTabInstance.tabId = newTab.id;
-            activeTabInstance.url = data.target;
-            activeTabInstance.slug = activeApp.slug;
-            try {
-              const u = new URL(data.target);
-              activeTabInstance.port = u.port || "80";
-            } catch (e) {}
-          }
-        });
-      } else {
-        window.open(data.target, "_blank");
-      }
+    if (res.ok && (data.launched || data.target)) {
+      const targetUrl = data.target || activeApp.live_url;
+      await openOrFocusAppPortTab(targetUrl, activeApp.slug, data.port);
 
       activeApp.is_live = true;
-      activeApp.live_url = data.target;
+      activeApp.live_url = targetUrl;
       appLiveBadge.style.display = "inline-block";
-      appLiveBadge.innerText = data.port ? `Live (${data.port})` : "Live";
-
-      btnLaunchApp.innerHTML = '<i class="fa-solid fa-check text-emerald-300"></i> <span>Opened!</span>';
-      setTimeout(() => {
-        btnLaunchApp.disabled = false;
-        btnLaunchApp.innerHTML = '<i class="fa-solid fa-rocket"></i> <span>Launch</span>';
-      }, 1500);
-
-      // Refresh app catalog dropdown
-      await loadApps();
-    } else if (data.target) {
-      // Server already running or available, open or focus tab
-      if (typeof chrome !== "undefined" && chrome.tabs) {
-        chrome.tabs.create({ url: data.target }, (newTab) => {
-          if (newTab) {
-            activeTabId = newTab.id;
-            activeTabInstance.tabId = newTab.id;
-            activeTabInstance.url = data.target;
-            activeTabInstance.slug = activeApp.slug;
-            try {
-              const u = new URL(data.target);
-              activeTabInstance.port = u.port || "80";
-            } catch (e) {}
-          }
-        });
-      } else {
-        window.open(data.target, "_blank");
+      if (btnStopApp) btnStopApp.style.display = isGitBridgeApp(activeApp) ? "none" : "inline-flex";
+      let displayPort = data.port;
+      if (!displayPort && targetUrl) {
+        try { displayPort = new URL(targetUrl).port; } catch (e) {}
       }
+      appLiveBadge.innerText = displayPort ? `Live (${displayPort})` : "Live";
 
-      btnLaunchApp.innerHTML = '<i class="fa-solid fa-check text-emerald-300"></i> <span>Opened!</span>';
+      btnLaunchApp.innerHTML = `<i class="fa-solid fa-check text-emerald-300"></i> <span>:${displayPort || "Live"}</span>`;
       setTimeout(() => {
         btnLaunchApp.disabled = false;
         btnLaunchApp.innerHTML = '<i class="fa-solid fa-rocket"></i> <span>Launch</span>';
-      }, 1500);
+      }, 1800);
+
+      // Refresh app catalog dropdown and running ports drawer so System Tray, Port Watcher, and Galactic match
+      await loadApps();
+      await refreshRunningServersState();
+      updatePageMatchIndicator();
     } else {
       alert(`Launch status: ${data.message || data.detail || "Could not launch application"}`);
       btnLaunchApp.disabled = false;
@@ -2083,35 +3483,450 @@ async function launchSelectedApp() {
   }
 }
 
+async function closeLocalhostTabForApp(appSlug, port, liveUrl) {
+  if (typeof chrome === "undefined" || !chrome.tabs) return;
+  try {
+    const allTabs = await chrome.tabs.query({});
+    const targetPortStr = port ? String(port) : (liveUrl ? (() => { try { return new URL(liveUrl).port; } catch (e) { return ""; } })() : "");
+    for (const tab of allTabs) {
+      if (!tab.url) continue;
+      let shouldClose = false;
+      if (appSlug && tabAppMap[tab.id] === appSlug) {
+        try {
+          const u = new URL(tab.url);
+          if (["localhost", "127.0.0.1", "0.0.0.0"].includes(u.hostname) && u.port !== "8000") {
+            shouldClose = true;
+          }
+        } catch (e) {}
+      }
+      if (!shouldClose && targetPortStr && targetPortStr !== "8000") {
+        try {
+          const u = new URL(tab.url);
+          if (["localhost", "127.0.0.1", "0.0.0.0"].includes(u.hostname) && u.port === targetPortStr) {
+            shouldClose = true;
+          }
+        } catch (e) {}
+      }
+      if (shouldClose && tab.id) {
+        try {
+          await chrome.tabs.remove(tab.id);
+        } catch (e) {}
+        delete tabAppMap[tab.id];
+      }
+    }
+  } catch (e) {
+    console.warn("Could not close localhost tab:", e);
+  }
+}
+
+async function stopSelectedApp(targetSlug = null, targetPort = null, targetLiveUrl = null) {
+  const slug = targetSlug || (activeApp ? activeApp.slug : (appSelect ? appSelect.value : ""));
+  if (!slug) {
+    alert("No active application selected to stop.");
+    return;
+  }
+
+  const origHtml = btnStopApp ? btnStopApp.innerHTML : "";
+  if (btnStopApp && (!targetSlug || (activeApp && activeApp.slug === slug))) {
+    btnStopApp.disabled = true;
+    btnStopApp.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> <span>Stopping...</span>';
+  }
+
+  try {
+    const portToClose = targetPort || (activeApp && activeApp.slug === slug && activeApp.live_url ? (() => { try { return new URL(activeApp.live_url).port; } catch (e) { return null; } })() : null);
+    const urlToClose = targetLiveUrl || (activeApp && activeApp.slug === slug ? activeApp.live_url : null);
+
+    const res = await fetch(`${SERVER_URL}/api/servers/${slug}`, { method: "DELETE" });
+    await closeLocalhostTabForApp(slug, portToClose, urlToClose);
+
+    if (activeApp && activeApp.slug === slug) {
+      activeApp.is_live = false;
+      if (appLiveBadge) appLiveBadge.style.display = "none";
+      if (btnStopApp) btnStopApp.style.display = "none";
+    }
+
+    await loadApps();
+    await refreshRunningServersState();
+  } catch (e) {
+    console.error("Failed to stop app:", e);
+  } finally {
+    if (btnStopApp) {
+      btnStopApp.disabled = false;
+      btnStopApp.innerHTML = origHtml || '<i class="fa-solid fa-stop"></i> <span>Stop</span>';
+    }
+  }
+}
+
+function toggleGalacticPortDrawer(forceOpen = null) {
+  if (!galacticPortDrawer) return;
+  const isHidden = galacticPortDrawer.classList.contains("hidden");
+  const shouldOpen = forceOpen !== null ? forceOpen : isHidden;
+  if (shouldOpen) {
+    galacticPortDrawer.classList.remove("hidden");
+    refreshRunningServersState();
+  } else {
+    galacticPortDrawer.classList.add("hidden");
+  }
+}
+
+async function stopAllRunningAppsFromGalactic() {
+  if (btnStopAllPorts) {
+    btnStopAllPorts.disabled = true;
+    btnStopAllPorts.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Stopping...';
+  }
+  try {
+    const srvRes = await fetch(`${SERVER_URL}/api/servers`);
+    const runningList = srvRes.ok ? await srvRes.json() : [];
+    await fetch(`${SERVER_URL}/api/servers`, { method: "DELETE" });
+    for (const s of runningList) {
+      await closeLocalhostTabForApp(s.slug, s.port, s.url);
+    }
+    if (activeApp) {
+      activeApp.is_live = false;
+      if (appLiveBadge) appLiveBadge.style.display = "none";
+      if (btnStopApp) btnStopApp.style.display = "none";
+    }
+    await loadApps();
+    await refreshRunningServersState();
+  } catch (e) {
+    console.error("Failed to stop all apps:", e);
+  } finally {
+    if (btnStopAllPorts) {
+      btnStopAllPorts.disabled = false;
+      btnStopAllPorts.innerHTML = '<i class="fa-solid fa-power-off"></i> Stop All';
+    }
+  }
+}
+
+async function refreshRunningServersState() {
+  try {
+    const res = await fetch(`${SERVER_URL}/api/servers`);
+    if (!res.ok) return;
+    const servers = await res.json();
+    const count = Array.isArray(servers) ? servers.length : 0;
+
+    if (runningPortsCount) {
+      runningPortsCount.innerText = String(count);
+    }
+    if (btnTogglePortDrawer) {
+      btnTogglePortDrawer.style.borderColor = count > 0 ? "rgba(16, 185, 129, 0.55)" : "rgba(100, 116, 139, 0.35)";
+      btnTogglePortDrawer.style.color = count > 0 ? "#34d399" : "#94a3b8";
+      btnTogglePortDrawer.title = count > 0
+        ? `${count} Running App(s) on Localhost — Click to Select, Open, or Stop`
+        : "0 Running Localhost Apps — Click to open Port Watcher";
+    }
+
+    // Sync activeApp live state & Stop button visibility
+    if (activeApp) {
+      const match = (servers || []).find((s) => s.slug === activeApp.slug);
+      if (match || isGitBridgeApp(activeApp)) {
+        activeApp.is_live = true;
+        activeApp.live_url = (match && match.url) || activeApp.live_url || (isGitBridgeApp(activeApp) ? SERVER_URL : `http://localhost:${match.port}`);
+        if (appLiveBadge) {
+          appLiveBadge.style.display = "inline-block";
+          const allPorts = match && Array.isArray(match.all_ports) && match.all_ports.length > 1
+            ? match.all_ports.join(", ")
+            : (match ? match.port : "8000");
+          appLiveBadge.innerText = `Live (${allPorts})`;
+        }
+        if (btnStopApp) {
+          btnStopApp.style.display = isGitBridgeApp(activeApp) ? "none" : "inline-flex";
+        }
+      } else {
+        activeApp.is_live = false;
+        if (appLiveBadge) appLiveBadge.style.display = "none";
+        if (btnStopApp) btnStopApp.style.display = "none";
+      }
+      updatePageMatchIndicator();
+    }
+
+    // Populate Galactic Port Watcher Drawer if present
+    if (galacticPortList) {
+      if (count === 0) {
+        galacticPortList.innerHTML = `<div style="font-size: 10.5px; color: #94a3b8; text-align: center; padding: 8px;">No localhost app servers currently running. Use <strong>Launch</strong> to start an app.</div>`;
+      } else {
+        galacticPortList.innerHTML = "";
+        servers.forEach((srv) => {
+          const isSelectedInGalactic = Boolean(activeApp && activeApp.slug === srv.slug);
+          const isControlPlane = Boolean(srv.is_control_plane || Number(srv.port) === 8000 || srv.slug === "geppys-gitbridge");
+          const row = document.createElement("div");
+          row.style.cssText = isSelectedInGalactic
+            ? "display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 8px; background: rgba(49, 46, 129, 0.42); border: 1px solid rgba(129, 140, 248, 0.7); border-radius: 6px;"
+            : "display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 8px; background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 6px;";
+          const portsLabel = Array.isArray(srv.all_ports) && srv.all_ports.length > 1
+            ? `:${srv.all_ports.join(" / :")}`
+            : `:${srv.port}`;
+          const displayName = srv.name || srv.app_name || srv.slug;
+          row.innerHTML = `
+            <div class="port-row-title-click" style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; cursor: pointer;" title="Click to select ${escapeHtml(displayName)} in Galactic">
+              <span style="width: 7px; height: 7px; border-radius: 50%; background: ${isControlPlane ? "#38bdf8" : "#10b981"}; box-shadow: 0 0 6px ${isControlPlane ? "#38bdf8" : "#10b981"}; flex-shrink: 0;"></span>
+              <span style="font-size: 11px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(displayName)}</span>
+              <span style="font-size: 10px; font-family: monospace; color: ${isControlPlane ? "#7dd3fc" : "#34d399"}; background: ${isControlPlane ? "rgba(56, 189, 248, 0.15)" : "rgba(16, 185, 129, 0.14)"}; padding: 1px 5px; border-radius: 4px; flex-shrink: 0;">${escapeHtml(portsLabel)}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+              <button class="btn-mini-action btn-port-select" style="font-size: 9.5px; padding: 2px 6px; color: ${isSelectedInGalactic ? "#a7f3d0" : "#c7d2fe"}; border-color: ${isSelectedInGalactic ? "rgba(16, 185, 129, 0.55)" : "rgba(99, 102, 241, 0.55)"}; background: ${isSelectedInGalactic ? "rgba(16, 185, 129, 0.18)" : "rgba(99, 102, 241, 0.18)"};" title="Select ${escapeHtml(displayName)} as the active app to edit in Galactic">
+                <i class="fa-solid ${isSelectedInGalactic ? "fa-check" : "fa-crosshairs"}"></i> ${isSelectedInGalactic ? "Editing" : "Select"}
+              </button>
+              <button class="btn-mini-action btn-port-open" style="font-size: 9.5px; padding: 2px 6px; color: #93c5fd;" title="Focus or open browser tab">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
+              </button>
+              ${isControlPlane ? `
+                <span style="font-size: 9px; font-weight: 700; color: #7dd3fc; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); padding: 1px 5px; border-radius: 4px;" title="GitBridge Control Plane Server (Always Active)">Core</span>
+              ` : `
+                <button class="btn-mini-action btn-port-restart" style="font-size: 9.5px; padding: 2px 6px; color: #fcd34d;" title="Restart server">
+                  <i class="fa-solid fa-rotate-right"></i>
+                </button>
+                <button class="btn-mini-action btn-port-stop" style="font-size: 9.5px; padding: 2px 6px; color: #fca5a5; border-color: rgba(239, 68, 68, 0.45); background: rgba(239, 68, 68, 0.16);" title="Stop server and close browser tab">
+                  <i class="fa-solid fa-stop"></i> Stop
+                </button>
+              `}
+            </div>
+          `;
+          const titleClick = row.querySelector(".port-row-title-click");
+          const btnSelect = row.querySelector(".btn-port-select");
+          const btnOpen = row.querySelector(".btn-port-open");
+          const btnRestart = row.querySelector(".btn-port-restart");
+          const btnStop = row.querySelector(".btn-port-stop");
+
+          const selectPortAppInGalactic = async () => {
+            let targetApp = (apps || []).find((a) => a.slug === srv.slug);
+            if (!targetApp) {
+              await loadApps();
+              targetApp = (apps || []).find((a) => a.slug === srv.slug);
+            }
+            if (targetApp) {
+              targetApp.is_live = true;
+              targetApp.live_url = srv.url || `http://localhost:${srv.port}`;
+              await setActiveApp(targetApp);
+            }
+          };
+
+          if (titleClick) titleClick.addEventListener("click", selectPortAppInGalactic);
+          if (btnSelect) btnSelect.addEventListener("click", selectPortAppInGalactic);
+
+          if (btnOpen) {
+            btnOpen.addEventListener("click", async () => {
+              const targetUrl = srv.url || `http://localhost:${srv.port}`;
+              await openOrFocusAppPortTab(targetUrl, srv.slug, srv.port);
+              currentBrowserTabUrl = targetUrl;
+              await selectPortAppInGalactic();
+            });
+          }
+          if (btnRestart) {
+            btnRestart.addEventListener("click", async () => {
+              btnRestart.disabled = true;
+              btnRestart.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i>';
+              try {
+                await fetch(`${SERVER_URL}/api/servers/${srv.slug}/restart`, { method: "POST" });
+                await refreshRunningServersState();
+              } catch (e) {}
+            });
+          }
+          if (btnStop) {
+            btnStop.addEventListener("click", async () => {
+              btnStop.disabled = true;
+              btnStop.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i>';
+              await stopSelectedApp(srv.slug, srv.port, srv.url);
+            });
+          }
+          galacticPortList.appendChild(row);
+        });
+      }
+    }
+  } catch (e) {
+    // Ignore transient offline errors
+  }
+}
+
 // --- Brainstorm Mode Logic ---
-async function submitBrainstorm(overridePrompt = null) {
-  const prompt = overridePrompt || brainstormInput.value.trim();
+function isWatchdogOrSystemDiagnosticText(str = "") {
+  if (!str) return false;
+  return (
+    /Watchdog|Fix runtime|Look into this runtime issue|Review these \d+ runtime|runtime error|unhandledrejection|console_error|hard_freeze|hung_request|server_error|network_error/i.test(str) ||
+    /(🛠️|🎨|🚀|✅\s*(Fixed!|Finished!|\*\*Finished updating)|⚠️\s*(I ran into an issue|Could not finish updating))/u.test(str)
+  );
+}
+
+function shouldClampDiagnosticContent(str = "", forceSystem = false) {
+  if (!str) return false;
+  const isSys = forceSystem || isWatchdogOrSystemDiagnosticText(str);
+  if (!isSys) return false;
+  const plain = str.replace(/<[^>]+>/g, "").trim();
+  const lineBreaks = (plain.match(/\n/g) || []).length + (str.match(/<br\s*\/?>|<\/p>|<\/li>/gi) || []).length;
+  return plain.length > 150 || lineBreaks >= 3;
+}
+
+function buildClampedDiagnosticHtml(innerHtml) {
+  return `
+    <div class="chat-diagnostic-clamp-wrap">
+      <div class="chat-diagnostic-clamp">${innerHtml}</div>
+      <button type="button" class="btn-chat-show-more" aria-expanded="false">
+        <span>Show more</span>
+        <i class="fa-solid fa-chevron-down" style="font-size: 8px;"></i>
+      </button>
+    </div>
+  `;
+}
+
+function wireDiagnosticClampToggles(rootEl) {
+  if (!rootEl) return;
+  rootEl.querySelectorAll(".chat-diagnostic-clamp-wrap").forEach((wrap) => {
+    if (wrap.dataset.clampWired === "1") return;
+    wrap.dataset.clampWired = "1";
+    const clampEl = wrap.querySelector(".chat-diagnostic-clamp");
+    const btn = wrap.querySelector(".btn-chat-show-more");
+    if (!clampEl || !btn) return;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isExpanded = clampEl.classList.toggle("expanded");
+      btn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+      btn.innerHTML = isExpanded
+        ? '<span>Show less</span> <i class="fa-solid fa-chevron-up" style="font-size: 8px;"></i>'
+        : '<span>Show more</span> <i class="fa-solid fa-chevron-down" style="font-size: 8px;"></i>';
+    });
+  });
+}
+
+let activeGalacticAgentId = "";
+
+function initGalacticAgentCrewBar() {
+  const bar = document.getElementById("galactic-agent-crew-bar");
+  if (!bar || bar.dataset.initialized === "1") return;
+  bar.dataset.initialized = "1";
+
+  bar.addEventListener("click", (e) => {
+    const pill = e.target.closest(".galactic-agent-pill");
+    if (!pill) return;
+    const agentId = pill.getAttribute("data-agent-id") || "";
+    activeGalacticAgentId = agentId;
+
+    bar.querySelectorAll(".galactic-agent-pill").forEach((btn) => {
+      const id = btn.getAttribute("data-agent-id") || "";
+      const isSelected = id === activeGalacticAgentId;
+      btn.classList.toggle("active", isSelected);
+      if (isSelected) {
+        btn.style.background = "rgba(217,70,239,0.28)";
+        btn.style.color = "#f5d0fe";
+        btn.style.borderColor = "rgba(217,70,239,0.65)";
+        btn.style.fontWeight = "700";
+      } else {
+        btn.style.background = id === "crew-council" ? "rgba(134,25,143,0.3)" : "rgba(30,41,59,0.9)";
+        btn.style.color = id === "crew-council" ? "#f0abfc" : "#cbd5e1";
+        btn.style.borderColor = id === "crew-council" ? "rgba(217,70,239,0.4)" : "rgba(148,163,184,0.25)";
+        btn.style.fontWeight = "500";
+      }
+    });
+
+    if (brainstormInput) {
+      if (activeGalacticAgentId === "crew-council") {
+        brainstormInput.placeholder = "⚡ Briefing Full AI Crew Council (@design + @arch + @social + @strategy)...";
+      } else if (activeGalacticAgentId) {
+        brainstormInput.placeholder = `Briefing ${pill.textContent.trim()} specialist...`;
+      } else {
+        brainstormInput.placeholder = "Chat with Geppy or @design / @arch / @social / @crew...";
+      }
+      brainstormInput.focus();
+    }
+  });
+}
+
+function attachSocialKitCardToBubble(bubble, kit) {
+  if (!bubble || !kit) return;
+  const card = document.createElement("div");
+  card.style.cssText = "margin-top:10px; padding:10px; border-radius:10px; background:rgba(15,23,42,0.95); border:1px solid rgba(245,158,11,0.4); display:flex; flex-direction:column; gap:8px;";
+
+  const xThreadText = Array.isArray(kit.x_thread) ? kit.x_thread.join("\n\n---\n\n") : (kit.x_thread || "");
+  const linkedinText = kit.linkedin_post || "";
+  const phRedditText = kit.reddit_producthunt || "";
+  const videoScript = kit.short_video_script || "";
+  const hashtagsText = Array.isArray(kit.hashtags) ? kit.hashtags.join(" ") : (kit.hashtags || "");
+
+  card.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(245,158,11,0.2); padding-bottom:5px;">
+      <span style="font-size:11px; font-weight:700; color:#fbbf24;">📣 Social Media Launch Kit</span>
+      <span style="font-size:9px; color:#94a3b8; font-family:monospace;">1-Click Copy</span>
+    </div>
+    ${kit.hook_headline ? `<div style="font-size:11px; font-weight:600; color:#f8fafc; background:rgba(30,41,59,0.8); padding:6px 8px; border-radius:6px;">🔥 ${escapeHtml(kit.hook_headline)}</div>` : ""}
+    <div style="display:flex; flex-wrap:wrap; gap:5px;">
+      <button type="button" class="btn-copy-social-field" data-field="x" style="padding:4px 8px; border-radius:6px; font-size:10px; font-weight:600; background:rgba(56,189,248,0.18); color:#7dd3fc; border:1px solid rgba(56,189,248,0.35); cursor:pointer;">🐦 Copy X Thread</button>
+      <button type="button" class="btn-copy-social-field" data-field="linkedin" style="padding:4px 8px; border-radius:6px; font-size:10px; font-weight:600; background:rgba(59,130,246,0.18); color:#93c5fd; border:1px solid rgba(59,130,246,0.35); cursor:pointer;">💼 Copy LinkedIn</button>
+      <button type="button" class="btn-copy-social-field" data-field="ph" style="padding:4px 8px; border-radius:6px; font-size:10px; font-weight:600; background:rgba(249,115,22,0.18); color:#fdba74; border:1px solid rgba(249,115,22,0.35); cursor:pointer;">🚀 Copy PH/Reddit</button>
+      <button type="button" class="btn-copy-social-field" data-field="video" style="padding:4px 8px; border-radius:6px; font-size:10px; font-weight:600; background:rgba(236,72,153,0.18); color:#f9a8d4; border:1px solid rgba(236,72,153,0.35); cursor:pointer;">🎬 Copy 30s Script</button>
+      ${hashtagsText ? `<button type="button" class="btn-copy-social-field" data-field="tags" style="padding:4px 8px; border-radius:6px; font-size:10px; font-weight:600; background:rgba(245,158,11,0.18); color:#fcd34d; border:1px solid rgba(245,158,11,0.35); cursor:pointer;">#️⃣ Copy Tags</button>` : ""}
+    </div>
+  `;
+
+  card.querySelectorAll(".btn-copy-social-field").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const f = btn.getAttribute("data-field");
+      const map = { x: xThreadText, linkedin: linkedinText, ph: phRedditText, video: videoScript, tags: hashtagsText };
+      navigator.clipboard.writeText(map[f] || "");
+      const orig = btn.textContent;
+      btn.textContent = "✅ Copied!";
+      setTimeout(() => { btn.textContent = orig; }, 1400);
+    });
+  });
+
+  bubble.appendChild(card);
+}
+
+setTimeout(initGalacticAgentCrewBar, 150);
+
+async function submitBrainstorm(overridePrompt = null, extraOptions = {}) {
+  initGalacticAgentCrewBar();
+  let prompt = overridePrompt || brainstormInput.value.trim();
   if (!prompt) return;
 
+  // If user is replying to an active Antigravity error via the main chat input (when reply mode is toggled or prompt starts with @antigravity)
+  if (!overridePrompt && (window._replyingToAntigravityErrorId || /^@antigravity\b/i.test(prompt))) {
+    const cleanReply = prompt.replace(/^@antigravity\s*/i, "").trim() || prompt;
+    brainstormInput.value = "";
+    const errId = window._replyingToAntigravityErrorId || (window._latestAntigravityError && window._latestAntigravityError.id) || null;
+    window._replyingToAntigravityErrorId = null;
+    await sendResponseToAntigravityInChat(cleanReply, errId, "reply");
+    return;
+  }
+
+  if (!overridePrompt && activeGalacticAgentId === "crew-council" && !prompt.toLowerCase().includes("@crew")) {
+    prompt = `@crew ${prompt}`;
+  }
+
+  const isSystemTriggered = Boolean(overridePrompt) || isWatchdogOrSystemDiagnosticText(prompt);
   if (!overridePrompt) brainstormInput.value = "";
 
-  appendChatBubble("user", prompt);
-  chatHistory.push({ sender: "user", text: prompt, timestamp: Date.now() });
+  appendChatBubble("user", escapeHtml(prompt), { isSystemTriggered });
+  chatHistory.push({ sender: "user", text: prompt, isSystemTriggered, timestamp: Date.now() });
   if (activeApp && activeApp.slug) {
     saveAppChatHistory(activeApp.slug, chatHistory);
   }
 
-  logSessionChange("brainstorm", `Chat with Captain Geppy: "${prompt.substring(0, 45)}${prompt.length > 45 ? "..." : ""}"`);
+  const gName = getGeppyName(activeApp);
+  logSessionChange("brainstorm", `Chat with ${gName}: "${prompt.substring(0, 45)}${prompt.length > 45 ? "..." : ""}"`);
 
   const isImgReq = isChatImageMode ||
     prompt.startsWith("/image") || prompt.startsWith("/img") || prompt.startsWith("/icon") || prompt.startsWith("/draw") || prompt.startsWith("/pic") ||
     /\b(generate|create|make|draw|synthesize|design)\s+(an?\s+)?(app\s+)?(image|icon|logo|badge|mascot|graphic|sticker|artwork)\b/i.test(prompt);
 
+  const useConsultCrew = Boolean(extraOptions.consult_crew !== undefined ? extraOptions.consult_crew : window._galacticConsultCrewEnabled);
+  const useVoiceMode = Boolean(extraOptions.voice_mode !== undefined ? extraOptions.voice_mode : (window._galacticVoiceChatActive || window._galacticTtsEnabled));
+
   const loadingText = isImgReq
-    ? '<i class="fa-solid fa-spinner animate-spin text-amber"></i> Captain Geppy is synthesizing your visual asset...'
-    : '<i class="fa-solid fa-spinner animate-spin"></i> Captain Geppy is navigating the Galactic stars...';
+    ? `<i class="fa-solid fa-spinner animate-spin text-amber"></i> ${gName} is synthesizing your visual asset...`
+    : useConsultCrew
+    ? `<i class="fa-solid fa-spinner animate-spin text-cyan"></i> ${gName} is consulting with the Agent Crew...`
+    : `<i class="fa-solid fa-spinner animate-spin"></i> ${activeGalacticAgentId ? "Specialist Agent" : gName} is thinking...`;
 
   const loadingBubble = appendChatBubble("ai", loadingText);
 
   btnSendBrainstorm.disabled = true;
 
   try {
-    const res = await fetch(`${SERVER_URL}/api/extension/brainstorm`, {
+    let liveFrameB64 = extraOptions.screen_frame_b64 || window._latestGalacticStreamFrameB64 || null;
+    if (!liveFrameB64 && window._galacticScreenStreamActive && typeof window.captureGalacticTabFrameB64 === "function") {
+      liveFrameB64 = await window.captureGalacticTabFrameB64();
+    }
+
+    const res = await fetchAntigravityApi("/api/extension/brainstorm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2119,7 +3934,11 @@ async function submitBrainstorm(overridePrompt = null) {
         message: prompt,
         history: chatHistory,
         file_path: activeFilePath,
-        is_image: isImgReq
+        is_image: isImgReq,
+        agent_id: (activeGalacticAgentId && activeGalacticAgentId !== "crew-council") ? activeGalacticAgentId : null,
+        screen_frame_b64: liveFrameB64,
+        voice_mode: useVoiceMode,
+        consult_crew: useConsultCrew
       })
     });
 
@@ -2127,13 +3946,71 @@ async function submitBrainstorm(overridePrompt = null) {
     loadingBubble.remove();
 
     if (res.ok) {
-      const aiBubble = appendChatBubble("ai", formatMarkdown(data.text));
+      const parsedFromText = extractAndStripEmbeddedTasks(data.text || "");
+      const displayMarkdown = parsedFromText.cleanText || data.text || "";
+      const seriesTasks =
+        data.extracted_tasks && data.extracted_tasks.length > 0
+          ? data.extracted_tasks
+          : parsedFromText.tasks.length > 0
+          ? parsedFromText.tasks
+          : extractActionSeriesFromText(displayMarkdown);
+      const objectiveTitle =
+        seriesTasks && seriesTasks.length > 0
+          ? deriveObjectiveTitle(seriesTasks, displayMarkdown || prompt)
+          : null;
+      const objectiveId = `obj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+      if (seriesTasks && seriesTasks.length > 0) {
+        seriesTasks.forEach((t) => {
+          t.objective_id = t.objective_id || objectiveId;
+          t.objective_title = t.objective_title || objectiveTitle;
+        });
+      }
+
+      const consultedBadgesHtml = Array.isArray(data.consulted_agents) && data.consulted_agents.length > 0
+        ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+             ${data.consulted_agents.map((ca) => `<span style="font-size:9.5px; padding:1px 6px; border-radius:999px; background:rgba(6,182,212,0.18); color:#67e8f9; border:1px solid rgba(6,182,212,0.4);">${escapeHtml(ca.icon || "🤖")} @${escapeHtml(ca.handle || ca.id)}</span>`).join("")}
+           </div>`
+        : "";
+
+      const streamSeenBadgeHtml = data.live_stream_seen
+        ? `<span style="font-size:9px; padding:1px 5px; border-radius:4px; background:rgba(16,185,129,0.2); color:#6ee7b7; border:1px solid rgba(16,185,129,0.4); margin-left:auto;">📺 Live Screen Seen</span>`
+        : "";
+
+      const agentBadgeHtml = data.agent
+        ? `<div style="display:flex; align-items:center; gap:6px; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid rgba(148,163,184,0.18);">
+             <span style="font-size:13px;">${data.agent.icon || "🤖"}</span>
+             <span style="font-size:11px; font-weight:700; color:#f5d0fe;">${escapeHtml(data.agent.name || "Specialist Agent")}</span>
+             <span style="font-size:9px; padding:1px 5px; border-radius:4px; background:rgba(217,70,239,0.2); color:#e879f9; font-family:monospace;">${escapeHtml(data.agent.role || data.agent.handle || "")}</span>
+             ${streamSeenBadgeHtml}
+           </div>${consultedBadgesHtml}`
+        : (streamSeenBadgeHtml || consultedBadgesHtml)
+        ? `<div style="display:flex; align-items:center; gap:6px; margin-bottom:5px;">${consultedBadgesHtml}${streamSeenBadgeHtml}</div>`
+        : "";
+
+      const aiBubble = appendChatBubble("ai", agentBadgeHtml + formatMarkdown(displayMarkdown), { isSystemTriggered });
+      if (Array.isArray(data.tool_steps) && data.tool_steps.length > 0) {
+        attachAntigravityToolTraceToBubble(aiBubble, data.tool_steps, data.engine || "antigravity_sdk", []);
+      }
+      if (data.social_kit) {
+        attachSocialKitCardToBubble(aiBubble, data.social_kit);
+      }
+      if (data.antigravity_error && typeof window.showAntigravityErrorInGalactic === "function") {
+        window.showAntigravityErrorInGalactic(data.antigravity_error, aiBubble);
+      }
+      if (useVoiceMode && typeof window.speakGeppyText === "function") {
+        window.speakGeppyText(data.spoken_reply || displayMarkdown);
+      }
       chatHistory.push({
         sender: "ai",
-        text: data.text,
+        text: displayMarkdown,
+        isSystemTriggered,
         is_image: data.is_image || false,
         image_data: data.image_data || null,
-        extracted_tasks: data.extracted_tasks || [],
+        objective_title: objectiveTitle,
+        extracted_tasks: seriesTasks || [],
+        tool_steps: data.tool_steps || [],
+        engine: data.engine || "antigravity_sdk",
         timestamp: Date.now()
       });
       if (activeApp && activeApp.slug) {
@@ -2147,21 +4024,26 @@ async function submitBrainstorm(overridePrompt = null) {
         if (isChatImageMode) toggleChatImageMode(false);
       }
 
-      // Automatically incorporate newly extracted ideas into backlog & chat dock!
-      if (data.extracted_tasks && data.extracted_tasks.length > 0) {
-        logSessionChange("tasks", `Extracted ${data.extracted_tasks.length} new ideas from Captain Geppy chat`);
-        data.extracted_tasks.forEach((t) => {
+      // Automatically incorporate newly extracted ideas/series into backlog & chat dock!
+      if (seriesTasks && seriesTasks.length > 0) {
+        logSessionChange("tasks", `Extracted "${objectiveTitle}" (${seriesTasks.length} steps) from ${gName} chat`);
+        seriesTasks.forEach((t) => {
+          const newId = t.id || `task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+          t.id = newId;
           backlogTasks.push({
-            id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            id: newId,
             title: t.title,
             category: t.category || "feature",
+            target_file: t.target_file || "",
             description: t.description || "",
-            suggested_prompt: t.suggested_prompt || t.title,
+            suggested_prompt: t.suggested_prompt || t.prompt || t.title,
+            objective_id: t.objective_id || objectiveId,
+            objective_title: t.objective_title || objectiveTitle,
             completed: false
           });
         });
 
-        attachIdeasDockToBubble(aiBubble, data.extracted_tasks);
+        attachIdeasDockToBubble(aiBubble, seriesTasks, objectiveTitle);
         chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
 
         await saveBacklogToServer();
@@ -2178,45 +4060,466 @@ async function submitBrainstorm(overridePrompt = null) {
   }
 }
 
-function appendChatBubble(sender, htmlContent) {
+function renderAntigravityToolTraceHtml(toolSteps = [], engine = "antigravity_sdk", modifiedFiles = []) {
+  const steps = Array.isArray(toolSteps) ? toolSteps.filter(Boolean) : [];
+  const modFiles = Array.isArray(modifiedFiles) ? modifiedFiles.filter(Boolean) : [];
+  const isAg = String(engine || "").includes("antigravity") || steps.length > 0;
+  if (!isAg && steps.length === 0 && modFiles.length === 0) return "";
+
+  const stepItemsHtml = steps.map((st, idx) => {
+    const label = st.label || st.tool || `Step ${idx + 1}`;
+    const detail = st.detail || st.path || "";
+    return `
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding: 2px 0; font-size: 10.5px; color: #cbd5e1; border-bottom: 1px dashed rgba(139, 92, 246, 0.16);">
+        <span style="color: #a78bfa; font-family: monospace; font-weight: 700; flex-shrink: 0;">#${idx + 1}</span>
+        <span style="font-weight: 600; color: #e2e8f0;">${escapeHtml(label)}</span>
+        ${detail ? `<code style="font-size: 9.5px; color: #93c5fd; background: rgba(15, 23, 42, 0.65); padding: 0 4px; border-radius: 3px; word-break: break-all;">${escapeHtml(detail)}</code>` : ""}
+      </div>
+    `;
+  }).join("");
+
+  const multiFileBadges = modFiles.length > 1
+    ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+         ${modFiles.map((fp) => `<span class="chat-action-badge file" style="font-size: 9.5px;"><i class="fa-solid fa-file-pen"></i> ${escapeHtml(fp)}</span>`).join("")}
+       </div>`
+    : "";
+
+  return `
+    <div class="antigravity-trace-box" style="margin: 5px 0; background: rgba(46, 16, 101, 0.25); border: 1px solid rgba(139, 92, 246, 0.42); border-radius: 7px; padding: 5px 8px;">
+      <div class="antigravity-trace-header" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: ${steps.length > 0 ? "pointer" : "default"};">
+        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+          <i class="fa-solid fa-atom" style="color: #c4b5fd; font-size: 11px;"></i>
+          <span style="font-size: 10.5px; font-weight: 700; color: #ddd6fe;">Antigravity Agent</span>
+          ${steps.length > 0 ? `<span style="font-size: 9.5px; background: rgba(139, 92, 246, 0.28); color: #ede9fe; padding: 1px 6px; border-radius: 999px; font-family: monospace;">${steps.length} surgical tool step${steps.length === 1 ? "" : "s"}</span>` : ""}
+        </div>
+        ${steps.length > 0 ? `<span class="ag-trace-toggle-label" style="font-size: 9.5px; color: #a78bfa; display: inline-flex; align-items: center; gap: 3px;"><span>Trace</span> <i class="fa-solid fa-chevron-down" style="font-size: 8px;"></i></span>` : ""}
+      </div>
+      ${multiFileBadges}
+      ${steps.length > 0 ? `<div class="antigravity-trace-steps hidden" style="margin-top: 5px; padding-top: 4px; border-top: 1px solid rgba(139, 92, 246, 0.28); max-height: 165px; overflow-y: auto;">${stepItemsHtml}</div>` : ""}
+    </div>
+  `;
+}
+
+function wireAntigravityTraceToggles(rootEl) {
+  if (!rootEl) return;
+  rootEl.querySelectorAll(".antigravity-trace-box").forEach((box) => {
+    if (box.dataset.agWired === "1") return;
+    box.dataset.agWired = "1";
+    const hdr = box.querySelector(".antigravity-trace-header");
+    const stepsEl = box.querySelector(".antigravity-trace-steps");
+    const toggleLbl = box.querySelector(".ag-trace-toggle-label");
+    if (hdr && stepsEl) {
+      hdr.addEventListener("click", () => {
+        const isHidden = stepsEl.classList.toggle("hidden");
+        if (toggleLbl) {
+          toggleLbl.innerHTML = isHidden
+            ? '<span>Trace</span> <i class="fa-solid fa-chevron-down" style="font-size: 8px;"></i>'
+            : '<span>Hide</span> <i class="fa-solid fa-chevron-up" style="font-size: 8px;"></i>';
+        }
+      });
+    }
+  });
+}
+
+function attachAntigravityToolTraceToBubble(aiBubble, toolSteps = [], engine = "antigravity_sdk", modifiedFiles = []) {
+  if (!aiBubble) return;
+  const target = aiBubble.querySelector(".ai-body") || aiBubble;
+  if (target.querySelector(".antigravity-trace-box")) return;
+  const html = renderAntigravityToolTraceHtml(toolSteps, engine, modifiedFiles);
+  if (!html) return;
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = html;
+  const traceEl = wrapper.firstElementChild;
+  if (traceEl) {
+    target.insertBefore(traceEl, target.firstChild);
+    wireAntigravityTraceToggles(target);
+  }
+}
+
+function appendChatBubble(sender, htmlContent, options = {}) {
   const bubble = document.createElement("div");
   bubble.className = `chat-bubble ${sender}`;
+  const alreadyHasClamp = typeof htmlContent === "string" && htmlContent.includes("chat-diagnostic-clamp-wrap");
+  const processedHtml =
+    !alreadyHasClamp && shouldClampDiagnosticContent(htmlContent, Boolean(options.isSystemTriggered))
+      ? buildClampedDiagnosticHtml(htmlContent)
+      : htmlContent;
+
   if (sender === "ai") {
+    const gName = getGeppyName(activeApp);
+    const gTitle = getGeppyTitle(activeApp);
     bubble.innerHTML = `
       <div class="captain-badge">
-        <span class="captain-avatar"><img src="icons/icon48.png" alt="Captain Geppy" class="captain-avatar-img" /></span>
+        <span class="captain-avatar"><img src="icons/icon48.png" alt="${escapeHtml(gName)}" class="captain-avatar-img" /></span>
         <div>
-          <strong style="color: #818cf8;">Captain Geppy</strong>
-          <span class="captain-sub">Galactic Commander</span>
+          <strong style="color: #818cf8;">${escapeHtml(gName)}</strong>
+          <span class="captain-sub">${escapeHtml(gTitle)}</span>
         </div>
       </div>
-      <div class="ai-body">${htmlContent}</div>
+      <div class="ai-body">${processedHtml}</div>
     `;
+    // Wire inline code block actions (Copy, Load in </> Code Drawer)
+    bubble.querySelectorAll(".chat-code-block-wrapper").forEach((wrap) => {
+      const codeEl = wrap.querySelector("pre code");
+      const btnCopy = wrap.querySelector(".btn-code-copy");
+      const btnLoad = wrap.querySelector(".btn-code-load-drawer");
+      if (btnCopy && codeEl) {
+        btnCopy.addEventListener("click", () => {
+          navigator.clipboard.writeText(codeEl.innerText || "");
+          const orig = btnCopy.innerHTML;
+          btnCopy.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Copied';
+          setTimeout(() => { btnCopy.innerHTML = orig; }, 1400);
+        });
+      }
+      if (btnLoad && codeEl) {
+        btnLoad.addEventListener("click", () => {
+          toggleCodeDrawer(true);
+          if (codeEditor) {
+            codeEditor.value = codeEl.innerText || "";
+            isUnsaved = true;
+            if (unsavedIndicator) unsavedIndicator.style.display = "inline-block";
+          }
+        });
+      }
+    });
   } else {
-    bubble.innerHTML = htmlContent;
+    bubble.innerHTML = processedHtml;
   }
+  wireDiagnosticClampToggles(bubble);
+  wireAntigravityTraceToggles(bubble);
   chatHistoryEl.appendChild(bubble);
   chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
   return bubble;
 }
 
+// --- Conversational Action Progress & Completion Bubbles in Central Chat ---
+function computeCodeDiffStats(beforeCode = "", afterCode = "") {
+  const beforeLines = (beforeCode || "").split("\n");
+  const afterLines = (afterCode || "").split("\n");
+  const beforeSet = new Set(beforeLines.map((l) => l.trim()).filter(Boolean));
+  const afterSet = new Set(afterLines.map((l) => l.trim()).filter(Boolean));
+
+  let added = 0;
+  let removed = 0;
+  afterSet.forEach((l) => {
+    if (!beforeSet.has(l)) added++;
+  });
+  beforeSet.forEach((l) => {
+    if (!afterSet.has(l)) removed++;
+  });
+
+  const delta = afterLines.length - beforeLines.length;
+  const deltaLabel = delta > 0 ? `+${delta} net lines` : (delta < 0 ? `${delta} net lines` : `${afterLines.length} lines`);
+  return {
+    added,
+    removed,
+    totalLines: afterLines.length,
+    summary: `+${added} / -${removed} lines (${deltaLabel})`
+  };
+}
+
+function startActionChatBubble({ actionType = "implement", title = "Code Update", instruction = "", targetFile = "", userPromptText = null }) {
+  ensureStudioChatVisible();
+
+  if (userPromptText) {
+    appendChatBubble("user", escapeHtml(userPromptText), { isSystemTriggered: true });
+    chatHistory.push({ sender: "user", text: userPromptText, isSystemTriggered: true, timestamp: Date.now() });
+    if (activeApp && activeApp.slug) {
+      saveAppChatHistory(activeApp.slug, chatHistory);
+    }
+  }
+
+  const gName = getGeppyName(activeApp);
+  const fileLabel = targetFile || activeFilePath || "target file";
+  const verbPhrase =
+    actionType === "fix"
+      ? `🛠️ <strong>I'm fixing that now with Antigravity!</strong> Searching &amp; surgically updating <code>${escapeHtml(fileLabel)}</code> to resolve: <strong>${escapeHtml(title)}</strong>...`
+      : actionType === "suggestion"
+      ? `🎨 <strong>I'm applying that design now with Antigravity!</strong> Updating <code>${escapeHtml(fileLabel)}</code> with <strong>${escapeHtml(title)}</strong>...`
+      : actionType === "batch"
+      ? `🚀 <strong>I'm running your batch of tasks now with Antigravity!</strong> Updating <code>${escapeHtml(fileLabel)}</code> starting with <strong>${escapeHtml(title)}</strong>...`
+      : `🛠️ <strong>I'm working on that now with Antigravity!</strong> Surgically updating <code>${escapeHtml(fileLabel)}</code> to implement <strong>${escapeHtml(title)}</strong>...`;
+
+  const verbHtml = shouldClampDiagnosticContent(verbPhrase, true)
+    ? buildClampedDiagnosticHtml(`<p style="margin:0;">${verbPhrase}</p>`)
+    : `<p>${verbPhrase}</p>`;
+
+  const instructionHtml =
+    instruction && instruction !== title
+      ? shouldClampDiagnosticContent(instruction, true)
+        ? `<div style="width: 100%; margin-top: 2px; font-size: 11px; color: #94a3b8;">${buildClampedDiagnosticHtml(escapeHtml(instruction))}</div>`
+        : `<span class="chat-action-badge" style="max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(instruction.slice(0, 85))}${instruction.length > 85 ? "..." : ""}</span>`
+      : "";
+
+  const html = `
+    ${verbHtml}
+    <div class="chat-action-card running">
+      <div class="chat-action-step-pill">
+        <i class="fa-solid fa-atom animate-spin" style="color: #c4b5fd;"></i>
+        <span class="chat-action-step-text">${escapeHtml(gName)} + Antigravity Agent is inspecting <code>${escapeHtml(fileLabel)}</code> &amp; applying surgical edits...</span>
+      </div>
+      <div class="chat-action-meta-row">
+        <span class="chat-action-badge file"><i class="fa-solid fa-file-code"></i> ${escapeHtml(fileLabel)}</span>
+        <span class="chat-action-badge" style="color: #c4b5fd; border-color: rgba(139, 92, 246, 0.45); background: rgba(139, 92, 246, 0.14);"><i class="fa-solid fa-atom"></i> Antigravity SDK</span>
+        ${instructionHtml}
+      </div>
+    </div>
+  `;
+
+  const bubble = appendChatBubble("ai", html);
+  if (chatHistoryEl) {
+    chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+  }
+  return bubble;
+}
+
+function updateActionChatBubbleStep(bubble, stepHtml) {
+  if (!bubble) return;
+  const stepEl = bubble.querySelector(".chat-action-step-text");
+  if (stepEl) {
+    stepEl.innerHTML = stepHtml;
+  }
+  if (chatHistoryEl) {
+    chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+  }
+}
+
+function finishActionChatBubble(bubble, {
+  success = true,
+  actionType = "implement",
+  title = "Code Update",
+  targetFile = "",
+  explanation = "",
+  baselineCode = "",
+  modifiedCode = "",
+  toolSteps = [],
+  modifiedFiles = [],
+  engine = "antigravity_sdk",
+  errorMsg = ""
+}) {
+  if (!bubble) return;
+  const aiBody = bubble.querySelector(".ai-body") || bubble;
+  const fileLabel = targetFile || activeFilePath || "file";
+
+  if (!success) {
+    const errText = errorMsg || explanation || "Could not complete the requested code change.";
+    const errHtml = shouldClampDiagnosticContent(errText, true)
+      ? buildClampedDiagnosticHtml(escapeHtml(errText))
+      : escapeHtml(errText);
+    const traceHtml = renderAntigravityToolTraceHtml(toolSteps, engine, modifiedFiles);
+    aiBody.innerHTML = `
+      <p>⚠️ <strong>I ran into an issue while updating <code>${escapeHtml(fileLabel)}</code>:</strong></p>
+      ${traceHtml}
+      <div class="chat-action-card error">
+        <div style="font-size: 11.5px; color: #fca5a5;">${errHtml}</div>
+        <div class="chat-action-meta-row">
+          <span class="chat-action-badge file"><i class="fa-solid fa-file-code"></i> ${escapeHtml(fileLabel)}</span>
+          <button type="button" class="btn-chat-action-ctrl btn-bubble-open-ag-ide" title="Open this project and file directly in Antigravity IDE">
+            <i class="fa-solid fa-atom" style="color: #c4b5fd;"></i>
+            <span>Open in Antigravity IDE</span>
+          </button>
+        </div>
+      </div>
+    `;
+    wireDiagnosticClampToggles(aiBody);
+    wireAntigravityTraceToggles(aiBody);
+    const btnOpenAgErr = aiBody.querySelector(".btn-bubble-open-ag-ide");
+    if (btnOpenAgErr) {
+      btnOpenAgErr.addEventListener("click", () => openActiveAppInAntigravityIde(fileLabel));
+    }
+    chatHistory.push({
+      sender: "ai",
+      text: `⚠️ Could not finish updating \`${fileLabel}\` for **${title}**: ${errText}`,
+      isSystemTriggered: true,
+      tool_steps: toolSteps || [],
+      engine: engine,
+      timestamp: Date.now()
+    });
+    if (activeApp && activeApp.slug) {
+      saveAppChatHistory(activeApp.slug, chatHistory);
+    }
+    if (chatHistoryEl) chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+    return;
+  }
+
+  const diffStats = computeCodeDiffStats(baselineCode, modifiedCode);
+  const cleanSummary = explanation || `Successfully updated ${fileLabel} to implement "${title}".`;
+  const introLine =
+    actionType === "fix"
+      ? `✅ <strong>Fixed! Here's what I changed in <code>${escapeHtml(fileLabel)}</code>:</strong>`
+      : `✅ <strong>Finished! Here's what happened in <code>${escapeHtml(fileLabel)}</code>:</strong>`;
+
+  const formattedSummary = formatMarkdown(cleanSummary);
+  const summaryHtml = shouldClampDiagnosticContent(cleanSummary, true)
+    ? buildClampedDiagnosticHtml(formattedSummary)
+    : formattedSummary;
+  const traceHtml = renderAntigravityToolTraceHtml(toolSteps, engine, modifiedFiles);
+
+  aiBody.innerHTML = `
+    <p>${introLine}</p>
+    ${traceHtml}
+    <div style="margin: 4px 0 6px 0; font-size: 12px; color: #e2e8f0; line-height: 1.45;">
+      ${summaryHtml}
+    </div>
+    <div class="chat-action-card completed">
+      <div class="chat-action-meta-row">
+        <span class="chat-action-badge file"><i class="fa-solid fa-file-code"></i> ${escapeHtml(fileLabel)}</span>
+        <span class="chat-action-badge success"><i class="fa-solid fa-code-commit"></i> ${escapeHtml(diffStats.summary)}</span>
+        <span class="chat-action-badge preview-state-badge" style="color: ${isLivePreviewEnabled ? "#34d399" : "#94a3b8"};">
+          <i class="fa-solid fa-shield-check"></i> ${isLivePreviewEnabled ? "Saved to Disk • Live (No Page Reset)" : "Staged in Editor (Preview Paused)"}
+        </span>
+      </div>
+      <div class="chat-action-btn-row">
+        <button type="button" class="btn-chat-action-ctrl primary btn-bubble-inspect-code" title="Open or collapse the inline Code Drawer to inspect this change">
+          <i class="fa-solid fa-code"></i>
+          <span>Inspect Code</span>
+        </button>
+        <button type="button" class="btn-chat-action-ctrl btn-bubble-open-ag-ide" title="Open this file in Antigravity IDE" style="border-color: rgba(139, 92, 246, 0.5); color: #ddd6fe;">
+          <i class="fa-solid fa-atom" style="color: #c4b5fd;"></i>
+          <span>Antigravity IDE</span>
+        </button>
+        <button type="button" class="btn-chat-action-ctrl emerald btn-bubble-toggle-preview" title="Toggle Live Preview ON/OFF in the paired browser window">
+          <i class="fa-solid fa-eye"></i>
+          <span>Live Preview: ${isLivePreviewEnabled ? "ON" : "OFF"}</span>
+        </button>
+        <button type="button" class="btn-chat-action-ctrl btn-bubble-save-disk" title="Ensure these changes are permanently saved to disk">
+          <i class="fa-solid ${isLivePreviewEnabled ? "fa-check text-emerald-400" : "fa-floppy-disk"}"></i>
+          <span>${isLivePreviewEnabled ? "Saved to Disk" : "Save to Disk"}</span>
+        </button>
+        <button type="button" class="btn-chat-action-ctrl btn-bubble-undo-edit" title="Revert this file back to how it was before this action">
+          <i class="fa-solid fa-rotate-left"></i>
+          <span>Undo</span>
+        </button>
+      </div>
+    </div>
+  `;
+  wireDiagnosticClampToggles(aiBody);
+  wireAntigravityTraceToggles(aiBody);
+
+  // Wire interactive buttons inside the completion chat bubble
+  const btnInspect = aiBody.querySelector(".btn-bubble-inspect-code");
+  if (btnInspect) {
+    btnInspect.addEventListener("click", () => {
+      const willOpen = viewDesigner ? viewDesigner.classList.contains("hidden") : true;
+      toggleCodeDrawer(willOpen);
+      if (willOpen && codeEditor) {
+        codeEditor.focus();
+      }
+    });
+  }
+
+  const btnOpenAg = aiBody.querySelector(".btn-bubble-open-ag-ide");
+  if (btnOpenAg) {
+    btnOpenAg.addEventListener("click", () => openActiveAppInAntigravityIde(fileLabel));
+  }
+
+  const btnPreview = aiBody.querySelector(".btn-bubble-toggle-preview");
+  const previewBadge = aiBody.querySelector(".preview-state-badge");
+  if (btnPreview) {
+    btnPreview.addEventListener("click", async () => {
+      await onLivePreviewCheckboxChanged(!isLivePreviewEnabled);
+      btnPreview.innerHTML = `<i class="fa-solid fa-eye"></i> <span>Live Preview: ${isLivePreviewEnabled ? "ON" : "OFF"}</span>`;
+      if (previewBadge) {
+        previewBadge.style.color = isLivePreviewEnabled ? "#34d399" : "#94a3b8";
+        previewBadge.innerHTML = `<i class="fa-solid fa-shield-check"></i> ${isLivePreviewEnabled ? "Saved to Disk • Live (No Page Reset)" : "Staged in Editor (Preview Paused)"}`;
+      }
+    });
+  }
+
+  const btnSave = aiBody.querySelector(".btn-bubble-save-disk");
+  if (btnSave) {
+    btnSave.addEventListener("click", async () => {
+      btnSave.disabled = true;
+      btnSave.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> <span>Saving...</span>';
+      const ok = await saveCurrentFile();
+      if (ok) {
+        btnSave.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> <span>Saved to Disk</span>';
+      } else {
+        btnSave.disabled = false;
+        btnSave.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>Save to Disk</span>';
+      }
+    });
+  }
+
+  const btnUndo = aiBody.querySelector(".btn-bubble-undo-edit");
+  if (btnUndo) {
+    btnUndo.addEventListener("click", async () => {
+      if (baselineCode !== undefined && baselineCode !== null) {
+        activeFilePath = fileLabel;
+        if (fileSelect) fileSelect.value = fileLabel;
+        codeEditor.value = baselineCode;
+        recordEditedFileState(fileLabel, baselineCode, baselineCode, true);
+        isUnsaved = false;
+        if (unsavedIndicator) unsavedIndicator.style.display = "none";
+        await syncLivePreviewToWindow(false, false);
+        btnUndo.disabled = true;
+        btnUndo.innerHTML = '<i class="fa-solid fa-check"></i> <span>Reverted</span>';
+        if (previewBadge) {
+          previewBadge.style.color = "#fbbf24";
+          previewBadge.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Reverted to Pre-Edit Code';
+        }
+      }
+    });
+  }
+
+  // Persist conversational summary to app chat history
+  chatHistory.push({
+    sender: "ai",
+    text: `✅ **Finished updating \`${fileLabel}\` (${diffStats.summary}):**\n${cleanSummary}`,
+    isSystemTriggered: true,
+    tool_steps: toolSteps || [],
+    modified_files: modifiedFiles || [fileLabel],
+    engine: engine,
+    timestamp: Date.now()
+  });
+  if (activeApp && activeApp.slug) {
+    saveAppChatHistory(activeApp.slug, chatHistory);
+  }
+
+  if (chatHistoryEl) {
+    chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+  }
+}
+
+
 // --- Ideas & Tasks Backlog System ---
 async function loadBacklog(slug) {
+  if (!slug) return;
   try {
     const res = await fetch(`${SERVER_URL}/api/apps/${slug}/backlog`);
     if (res.ok) {
       const data = await res.json();
-      backlogTasks = data.tasks || [];
+      backlogTasks = Array.isArray(data.tasks) ? data.tasks : [];
+      try {
+        localStorage.setItem(`galactic_backlog_${slug}`, JSON.stringify(backlogTasks));
+      } catch (e) {}
+      renderBacklog();
+      updateDesignerTaskPicker();
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to load backlog from server:", e);
+  }
+  try {
+    const cached = localStorage.getItem(`galactic_backlog_${slug}`);
+    if (cached) {
+      backlogTasks = JSON.parse(cached) || [];
       renderBacklog();
       updateDesignerTaskPicker();
     }
-  } catch (e) {
-    console.error("Failed to load backlog:", e);
-  }
+  } catch (e) {}
 }
 
-async function saveBacklogToServer() {
-  if (!activeApp) return;
+async function saveBacklogToServer(showFlash = false) {
+  if (!activeApp || !activeApp.slug) return;
+  const statusEl = document.getElementById("backlog-save-status");
+  if (statusEl) {
+    statusEl.textContent = "⏳ Saving...";
+    statusEl.style.color = "#fbbf24";
+  }
+  try {
+    localStorage.setItem(`galactic_backlog_${activeApp.slug}`, JSON.stringify(backlogTasks));
+  } catch (e) {}
   try {
     await fetch(`${SERVER_URL}/api/apps/${activeApp.slug}/backlog`, {
       method: "POST",
@@ -2224,8 +4527,16 @@ async function saveBacklogToServer() {
       body: JSON.stringify({ tasks: backlogTasks })
     });
     updateDesignerTaskPicker();
+    if (statusEl) {
+      statusEl.textContent = showFlash ? "💾 Saved!" : "✓ Saved";
+      statusEl.style.color = "#34d399";
+    }
   } catch (e) {
     console.error("Failed to save backlog:", e);
+    if (statusEl) {
+      statusEl.textContent = "✓ Saved (Local)";
+      statusEl.style.color = "#38bdf8";
+    }
   }
 }
 
@@ -2319,6 +4630,7 @@ function renderBacklog() {
   const doneTasks = backlogTasks.filter((t) => t.completed);
 
   if (backlogCount) backlogCount.innerText = `${activeTasks.length} active`;
+  if (backlogSummaryDone) backlogSummaryDone.innerText = `${doneTasks.length} Done`;
   if (badgeActiveTasksCount) badgeActiveTasksCount.innerText = activeTasks.length;
   if (badgeDoneTasksCount) badgeDoneTasksCount.innerText = doneTasks.length;
   if (doneFolderCountBadge) doneFolderCountBadge.innerText = `${doneTasks.length} completed`;
@@ -2340,90 +4652,299 @@ function renderBacklog() {
           </div>`;
       }
     } else {
+      // Group active tasks into Main Objective sets so multi-chunk plans take up only 1 compact card!
+      const objectiveGroups = [];
+      const groupMap = new Map();
+      const ungroupedTasks = [];
+
       activeTasks.forEach((t) => {
+        if (t.objective_id) {
+          if (!groupMap.has(t.objective_id)) {
+            const grp = {
+              id: t.objective_id,
+              title: t.objective_title || deriveObjectiveTitle([t]),
+              tasks: []
+            };
+            groupMap.set(t.objective_id, grp);
+            objectiveGroups.push(grp);
+          }
+          groupMap.get(t.objective_id).tasks.push(t);
+        } else {
+          ungroupedTasks.push(t);
+        }
+      });
+
+      if (ungroupedTasks.length >= 2) {
+        objectiveGroups.push({
+          id: "obj-active-plan",
+          title: deriveObjectiveTitle(ungroupedTasks),
+          tasks: ungroupedTasks
+        });
+      } else if (ungroupedTasks.length === 1) {
+        objectiveGroups.push({
+          id: ungroupedTasks[0].id,
+          title: ungroupedTasks[0].title,
+          tasks: ungroupedTasks
+        });
+      }
+
+      objectiveGroups.forEach((grp) => {
+        const steps = grp.tasks;
+        const isMultiStep = steps.length > 1;
         const card = document.createElement("div");
         card.className = "task-card";
-        const catClass = ["design", "feature", "ux", "polish"].includes(t.category?.toLowerCase())
-          ? t.category.toLowerCase()
-          : "feature";
+
+        if (!isMultiStep) {
+          // Single standalone task card
+          const t = steps[0];
+          const catClass = ["design", "feature", "ux", "polish", "fix"].includes(t.category?.toLowerCase())
+            ? t.category.toLowerCase()
+            : "feature";
+
+          card.innerHTML = `
+            <div class="task-card-top">
+              <label class="task-select-wrapper" title="Select task for batch execution" style="display: inline-flex; align-items: center; margin-right: 6px; cursor: pointer;">
+                <input type="checkbox" class="chk-task-select" data-task-id="${t.id}" ${selectedTaskIds.has(t.id) ? "checked" : ""}>
+              </label>
+              <span class="task-tag ${catClass}">${escapeHtml(t.category || "Task")}</span>
+              <span class="task-title">${escapeHtml(t.title)}</span>
+              <button class="btn-icon-subtle btn-delete-task" title="Delete task"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+            <div class="task-desc">${escapeHtml(t.description || "")}</div>
+            <div class="task-actions">
+              <label style="font-size: 10px; color: #94a3b8; display: flex; align-items: center; gap: 4px; cursor: pointer;" title="File this task directly to the Done Pile">
+                <input type="checkbox" class="chk-task-done"> Done
+              </label>
+              <button class="btn-push-designer" title="Automatically implement this idea into code, save to disk, and reload app">
+                <i class="fa-solid fa-bolt"></i> Proceed
+              </button>
+              <button type="button" class="btn-task-config" title="Configure target file & implementation options">
+                <i class="fa-solid fa-gear"></i>
+              </button>
+            </div>
+          `;
+
+          const chkSelect = card.querySelector(".chk-task-select");
+          if (chkSelect) {
+            chkSelect.addEventListener("change", (e) => {
+              if (e.target.checked) selectedTaskIds.add(t.id);
+              else selectedTaskIds.delete(t.id);
+              updateBatchBarState();
+            });
+          }
+          const chkDone = card.querySelector(".chk-task-done");
+          if (chkDone) {
+            chkDone.addEventListener("change", async (e) => {
+              if (e.target.checked) {
+                t.completed = true;
+                selectedTaskIds.delete(t.id);
+                updateBatchBarState();
+                await saveBacklogToServer();
+                renderBacklog();
+                updateDesignerTaskPicker();
+                logSessionChange("tasks", `Filed "${t.title}" to Done Pile`);
+              }
+            });
+          }
+          const btnDelete = card.querySelector(".btn-delete-task");
+          if (btnDelete) {
+            btnDelete.addEventListener("click", async () => {
+              selectedTaskIds.delete(t.id);
+              const idx = backlogTasks.findIndex((bt) => bt.id === t.id);
+              if (idx !== -1) backlogTasks.splice(idx, 1);
+              renderBacklog();
+              await saveBacklogToServer();
+            });
+          }
+          const btnCfg = card.querySelector(".btn-task-config");
+          if (btnCfg) {
+            btnCfg.addEventListener("click", () => openImplementationModal(t, card));
+          }
+          const btnImplement = card.querySelector(".btn-push-designer");
+          if (btnImplement) {
+            btnImplement.addEventListener("click", () => implementTaskDirectly(t, card));
+          }
+          backlogList.appendChild(card);
+          return;
+        }
+
+        // Multi-Step Main Objective Card with Collapsible Outline & Systematic Proceed!
+        const allSelected = steps.every((s) => selectedTaskIds.has(s.id));
+        const stepPreview = steps.map((s, idx) => `#${idx + 1} ${s.title}`).join("  →  ");
 
         card.innerHTML = `
           <div class="task-card-top">
-            <label class="task-select-wrapper" title="Select task for batch execution" style="display: inline-flex; align-items: center; margin-right: 6px; cursor: pointer;">
-              <input type="checkbox" class="chk-task-select" data-task-id="${t.id}" ${selectedTaskIds.has(t.id) ? "checked" : ""}>
+            <label class="task-select-wrapper" title="Select all steps in this objective" style="display: inline-flex; align-items: center; margin-right: 6px; cursor: pointer;">
+              <input type="checkbox" class="chk-objective-select" ${allSelected ? "checked" : ""}>
             </label>
-            <span class="task-tag ${catClass}">${escapeHtml(t.category || "Task")}</span>
-            <span class="task-title">${escapeHtml(t.title)}</span>
-            <button class="btn-icon-subtle btn-delete-task" title="Delete task"><i class="fa-solid fa-trash-can"></i></button>
+            <span class="task-tag objective"><i class="fa-solid fa-bullseye"></i> Objective</span>
+            <span class="task-title" title="${escapeHtml(grp.title)}">${escapeHtml(grp.title)}</span>
+            <span class="objective-steps-badge">${steps.length} steps</span>
+            <button class="btn-icon-subtle btn-delete-objective" title="Delete entire objective set"><i class="fa-solid fa-trash-can"></i></button>
           </div>
-          <div class="task-desc">${escapeHtml(t.description || "")}</div>
-          <div class="task-actions">
-            <label style="font-size: 10px; color: #94a3b8; display: flex; align-items: center; gap: 4px; cursor: pointer;" title="File this task directly to the Done Pile">
-              <input type="checkbox" class="chk-task-done"> Done
+          <div class="objective-compact-preview" title="Click to toggle step-by-step outline: ${escapeHtml(stepPreview)}">
+            <i class="fa-solid fa-route" style="color: #818cf8; margin-right: 4px;"></i>${escapeHtml(stepPreview)}
+          </div>
+          <div class="task-actions" style="justify-content: space-between; margin-top: 2px;">
+            <label style="font-size: 10px; color: #94a3b8; display: flex; align-items: center; gap: 4px; cursor: pointer;" title="File all steps in this objective to the Done Pile">
+              <input type="checkbox" class="chk-objective-done"> Done All
             </label>
-            <button class="btn-push-designer" title="Automatically implement this idea into code, save to disk, and reload app">
-              <i class="fa-solid fa-wand-magic-sparkles"></i> Implement Now
-            </button>
-            <button type="button" class="btn-task-config" title="Configure target file & implementation options">
-              <i class="fa-solid fa-gear"></i>
-            </button>
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <button type="button" class="btn-toggle-objective-outline" title="Open or close the step-by-step outline to check/uncheck individual chunks">
+                <i class="fa-solid fa-list-ol"></i>
+                <span>Outline (${steps.length})</span>
+                <i class="fa-solid fa-chevron-down outline-chevron" style="font-size: 8px;"></i>
+              </button>
+              <button type="button" class="btn-series-proceed" title="Run all checked steps in this objective systematically in order">
+                <i class="fa-solid fa-bolt"></i>
+                <span class="btn-obj-proceed-label">Proceed (${steps.length})</span>
+              </button>
+            </div>
           </div>
+          <div class="backlog-objective-outline hidden"></div>
         `;
 
-        // Batch Select Checkbox
-        const chkSelect = card.querySelector(".chk-task-select");
-        if (chkSelect) {
-          chkSelect.addEventListener("change", (e) => {
-            if (e.target.checked) {
-              selectedTaskIds.add(t.id);
-            } else {
-              selectedTaskIds.delete(t.id);
-            }
+        const outlineContainer = card.querySelector(".backlog-objective-outline");
+        const btnOutline = card.querySelector(".btn-toggle-objective-outline");
+        const outlineChevron = card.querySelector(".outline-chevron");
+        const previewEl = card.querySelector(".objective-compact-preview");
+        const btnProceed = card.querySelector(".btn-series-proceed");
+        const btnProceedLabel = card.querySelector(".btn-obj-proceed-label");
+        const chkObjSelect = card.querySelector(".chk-objective-select");
+        const chkObjDone = card.querySelector(".chk-objective-done");
+        const btnDelObj = card.querySelector(".btn-delete-objective");
+
+        const stepIncluded = new Map(steps.map((s) => [s.id, true]));
+
+        function updateObjectiveProceedLabel() {
+          if (!btnProceedLabel) return;
+          const activeIncluded = steps.filter((s) => !s.completed && stepIncluded.get(s.id) !== false);
+          btnProceedLabel.innerText = `Proceed (${activeIncluded.length})`;
+          if (btnProceed) btnProceed.disabled = activeIncluded.length === 0 || isBatchRunning;
+        }
+
+        function toggleObjOutline(forceOpen = null) {
+          if (!outlineContainer) return;
+          const isHidden = outlineContainer.classList.contains("hidden");
+          const shouldOpen = forceOpen !== null ? forceOpen : isHidden;
+          if (shouldOpen) {
+            outlineContainer.classList.remove("hidden");
+            if (btnOutline) btnOutline.classList.add("active");
+            if (outlineChevron) outlineChevron.className = "fa-solid fa-chevron-up outline-chevron";
+          } else {
+            outlineContainer.classList.add("hidden");
+            if (btnOutline) btnOutline.classList.remove("active");
+            if (outlineChevron) outlineChevron.className = "fa-solid fa-chevron-down outline-chevron";
+          }
+        }
+
+        if (btnOutline) btnOutline.addEventListener("click", () => toggleObjOutline());
+        if (previewEl) previewEl.addEventListener("click", () => toggleObjOutline());
+
+        // Populate step-by-step outline items
+        steps.forEach((s, idx) => {
+          const stepRow = document.createElement("div");
+          stepRow.className = "backlog-outline-step";
+          const catClass = ["design", "feature", "ux", "polish", "fix"].includes(s.category?.toLowerCase())
+            ? s.category.toLowerCase()
+            : "feature";
+
+          stepRow.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+                <input type="checkbox" class="chk-outline-step-inc" checked title="Include this step when clicking Proceed">
+                <span style="font-family: monospace; font-weight: 700; color: #818cf8; font-size: 9.5px;">#${idx + 1}</span>
+                <span class="task-tag ${catClass}">${escapeHtml(s.category || "Step")}</span>
+                <strong style="color: #f1f5f9; font-size: 11px;">${escapeHtml(s.title)}</strong>
+              </div>
+              ${s.description ? `<div style="color: #94a3b8; font-size: 10px; padding-left: 18px;">${escapeHtml(s.description)}</div>` : ""}
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+              <button type="button" class="btn-push-designer btn-run-single-step" style="font-size: 9.5px; padding: 2px 6px;" title="Run only this step">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Run
+              </button>
+              <button type="button" class="btn-task-config btn-cfg-single-step" title="Configure target file & options">
+                <i class="fa-solid fa-gear"></i>
+              </button>
+              <button type="button" class="btn-icon-subtle btn-done-single-step" title="Mark this single step Done">
+                <i class="fa-solid fa-check"></i>
+              </button>
+            </div>
+          `;
+
+          const chkInc = stepRow.querySelector(".chk-outline-step-inc");
+          if (chkInc) {
+            chkInc.addEventListener("change", (e) => {
+              stepIncluded.set(s.id, Boolean(e.target.checked));
+              updateObjectiveProceedLabel();
+            });
+          }
+          const btnRunStep = stepRow.querySelector(".btn-run-single-step");
+          if (btnRunStep) {
+            btnRunStep.addEventListener("click", () => implementTaskDirectly(s, stepRow));
+          }
+          const btnCfgStep = stepRow.querySelector(".btn-cfg-single-step");
+          if (btnCfgStep) {
+            btnCfgStep.addEventListener("click", () => openImplementationModal(s, stepRow));
+          }
+          const btnDoneStep = stepRow.querySelector(".btn-done-single-step");
+          if (btnDoneStep) {
+            btnDoneStep.addEventListener("click", async () => {
+              s.completed = true;
+              selectedTaskIds.delete(s.id);
+              await saveBacklogToServer();
+              renderBacklog();
+              updateDesignerTaskPicker();
+            });
+          }
+
+          outlineContainer.appendChild(stepRow);
+        });
+
+        if (chkObjSelect) {
+          chkObjSelect.addEventListener("change", (e) => {
+            steps.forEach((s) => {
+              if (e.target.checked) selectedTaskIds.add(s.id);
+              else selectedTaskIds.delete(s.id);
+            });
             updateBatchBarState();
           });
         }
 
-        // Done Checkbox (Files directly to Done Pile)
-        const chkDone = card.querySelector(".chk-task-done");
-        if (chkDone) {
-          chkDone.addEventListener("change", async (e) => {
+        if (chkObjDone) {
+          chkObjDone.addEventListener("change", async (e) => {
             if (e.target.checked) {
-              t.completed = true;
-              selectedTaskIds.delete(t.id);
+              steps.forEach((s) => {
+                s.completed = true;
+                selectedTaskIds.delete(s.id);
+              });
               updateBatchBarState();
               await saveBacklogToServer();
               renderBacklog();
               updateDesignerTaskPicker();
-              logSessionChange("tasks", `Filed "${t.title}" to Done Pile`);
+              logSessionChange("tasks", `Filed objective "${grp.title}" (${steps.length} steps) to Done Pile`);
             }
           });
         }
 
-        // Delete Button
-        const btnDelete = card.querySelector(".btn-delete-task");
-        if (btnDelete) {
-          btnDelete.addEventListener("click", async () => {
-            selectedTaskIds.delete(t.id);
-            const idx = backlogTasks.findIndex((bt) => bt.id === t.id);
-            if (idx !== -1) backlogTasks.splice(idx, 1);
+        if (btnDelObj) {
+          btnDelObj.addEventListener("click", async () => {
+            const idsToRemove = new Set(steps.map((s) => s.id));
+            idsToRemove.forEach((id) => selectedTaskIds.delete(id));
+            backlogTasks = backlogTasks.filter((bt) => !idsToRemove.has(bt.id));
             renderBacklog();
             await saveBacklogToServer();
           });
         }
 
-        // Configure Button (Gear)
-        const btnCfg = card.querySelector(".btn-task-config");
-        if (btnCfg) {
-          btnCfg.addEventListener("click", () => {
-            openImplementationModal(t, card);
-          });
-        }
-
-        // Implement Now Button
-        const btnImplement = card.querySelector(".btn-push-designer");
-        if (btnImplement) {
-          btnImplement.addEventListener("click", () => {
-            implementTaskDirectly(t, card);
+        if (btnProceed) {
+          btnProceed.addEventListener("click", async () => {
+            const chosenSteps = steps.filter((s) => !s.completed && stepIncluded.get(s.id) !== false);
+            if (chosenSteps.length === 0) return;
+            selectedTaskIds.clear();
+            chosenSteps.forEach((s) => selectedTaskIds.add(s.id));
+            updateBatchBarState();
+            await runSelectedBatch();
           });
         }
 
@@ -2510,51 +5031,218 @@ function promptAddCustomTask() {
   saveBacklogToServer();
 }
 
+let customBacklogHeightPx = Number(localStorage.getItem("galactic_backlog_height_px")) || 260;
+
 function toggleBacklogDrawer(forceExpand = null) {
   if (!backlogDrawer) return;
-  const isCollapsed = (backlogDrawer.style.maxHeight === "38px");
+  const isCollapsed = backlogDrawer.classList.contains("collapsed");
   const shouldExpand = (forceExpand !== null) ? forceExpand : isCollapsed;
   if (shouldExpand) {
-    backlogDrawer.style.maxHeight = "45%";
+    backlogDrawer.classList.remove("collapsed");
+    const targetH = Math.min(Math.max(customBacklogHeightPx || 260, 140), Math.round(window.innerHeight * 0.75));
+    backlogDrawer.style.height = `${targetH}px`;
+    backlogDrawer.style.maxHeight = `${targetH}px`;
     if (btnToggleBacklog) btnToggleBacklog.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
   } else {
-    backlogDrawer.style.maxHeight = "38px";
+    backlogDrawer.classList.add("collapsed");
+    backlogDrawer.style.height = "";
+    backlogDrawer.style.maxHeight = "";
     if (btnToggleBacklog) btnToggleBacklog.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
   }
 }
 
+function initBacklogDrawerResize() {
+  if (!backlogDrawer) return;
+  const btnSaveBacklog = document.getElementById("btn-save-backlog");
+  if (btnSaveBacklog) {
+    btnSaveBacklog.addEventListener("click", (e) => {
+      e.stopPropagation();
+      saveBacklogToServer(true);
+    });
+  }
+  const handleEl = document.getElementById("backlog-resize-handle");
+  const dragTargets = [handleEl, backlogHeader].filter(Boolean);
+  if (dragTargets.length === 0) return;
+
+  let isPointerDown = false;
+  let isDragging = false;
+  let startY = 0;
+  let startHeight = 36;
+
+  const onPointerDown = (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (e.target.closest("#btn-save-backlog") || e.target.closest("#btn-add-custom-task") || e.target.closest("#btn-toggle-backlog")) return;
+
+    isPointerDown = true;
+    isDragging = false;
+    startY = e.clientY;
+    startHeight = backlogDrawer.getBoundingClientRect().height || 36;
+
+    // If pointer started directly on the resize handle, begin dragging immediately
+    if (handleEl && (e.target === handleEl || handleEl.contains(e.target))) {
+      isDragging = true;
+      backlogDrawer.classList.add("resizing");
+      e.preventDefault();
+    }
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  };
+
+  const onPointerMove = (e) => {
+    if (!isPointerDown) return;
+    const deltaY = startY - e.clientY; // positive = dragging UP
+    if (!isDragging && Math.abs(deltaY) > 4) {
+      isDragging = true;
+      backlogDrawer.classList.add("resizing");
+      backlogDrawer.dataset.justDragged = "1";
+    }
+    if (!isDragging) return;
+
+    const maxAllowed = Math.round(window.innerHeight * 0.78);
+    const desiredHeight = Math.min(maxAllowed, Math.max(36, Math.round(startHeight + deltaY)));
+
+    if (desiredHeight < 64) {
+      backlogDrawer.classList.add("collapsed");
+      backlogDrawer.style.height = "";
+      backlogDrawer.style.maxHeight = "";
+      if (btnToggleBacklog) btnToggleBacklog.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
+    } else {
+      backlogDrawer.classList.remove("collapsed");
+      backlogDrawer.style.height = `${desiredHeight}px`;
+      backlogDrawer.style.maxHeight = `${desiredHeight}px`;
+      customBacklogHeightPx = desiredHeight;
+      if (btnToggleBacklog) btnToggleBacklog.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
+    }
+  };
+
+  const onPointerUp = () => {
+    if (!isPointerDown) return;
+    isPointerDown = false;
+    backlogDrawer.classList.remove("resizing");
+    if (isDragging && !backlogDrawer.classList.contains("collapsed") && customBacklogHeightPx >= 100) {
+      try {
+        localStorage.setItem("galactic_backlog_height_px", String(customBacklogHeightPx));
+      } catch (e) {}
+    }
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
+  };
+
+  dragTargets.forEach((el) => {
+    el.addEventListener("pointerdown", onPointerDown);
+  });
+}
+
 // --- Implementation Control Center & Smart Target File Guessing ---
 function guessBestTargetFile(task, fileList = []) {
-  if (!fileList || fileList.length === 0) return activeFilePath || "";
+  if (!fileList || fileList.length === 0) return (task && task.target_file) || activeFilePath || "";
   const paths = fileList.map(f => (typeof f === "object" && f ? f.path : f)).filter(Boolean);
+  if (paths.length === 0) return (task && task.target_file) || activeFilePath || "";
+
   const text = `${task.title || ""} ${task.description || ""} ${task.suggested_prompt || ""} ${task.category || ""}`.toLowerCase();
 
-  // 1. Icon or Favicon or Head or Metadata -> index.html / public/index.html / manifest.json
-  if (/icon|favicon|meta|head|title|header|manifest/i.test(text)) {
-    const m = paths.find(p => /index\.html$/i.test(p)) || paths.find(p => /manifest\.json$/i.test(p));
-    if (m) return m;
+  // 0. If task already has an explicit target_file from Geppy's backend file-tree analysis, honor it
+  if (task && task.target_file) {
+    const tfNorm = String(task.target_file).replace(/\\/g, "/").trim();
+    const exactMatch = paths.find(p => p.toLowerCase() === tfNorm.toLowerCase());
+    if (exactMatch && !(/^index\.html$/i.test(exactMatch) && paths.some(p => /\.(jsx|tsx|js|ts|vue)$/i.test(p)) && !/index\.html|favicon|meta|head|title/i.test(text))) {
+      return exactMatch;
+    }
   }
-  // 2. Styling, CSS, Theme, Color, Font -> CSS files
-  if (/style|css|theme|color|dark mode|font|gradient|background|border/i.test(text)) {
-    const m = paths.find(p => /\.(css|scss|sass|less)$/i.test(p));
-    if (m) return m;
-  }
-  // 3. Backend, API, Route, Database, Endpoint -> Python / Node server files
-  if (/api|endpoint|route|backend|database|query|db|server|controller|handler/i.test(text)) {
-    const m = paths.find(p => /(main|app|server|api|routes)\.(py|js|ts)$/i.test(p));
-    if (m) return m;
-  }
-  // 4. UI Component, Button, Modal, Drawer, View -> Frontend components or App.jsx/index.html
-  if (/component|button|modal|drawer|navbar|footer|card|table|view|page|screen/i.test(text)) {
-    const m = paths.find(p => /(app|index|home|main)\.(jsx|tsx|vue|svelte|html)$/i.test(p)) ||
-              paths.find(p => /\.(jsx|tsx|vue|svelte)$/i.test(p));
-    if (m) return m;
-  }
-  // 5. If activeFilePath is valid and in the list, keep it
-  if (activeFilePath && paths.includes(activeFilePath)) return activeFilePath;
 
-  // 6. Otherwise preferred default
-  const defaultFile = paths.find(p => /index\.html$/i.test(p)) ||
+  // 1. Check if the task text explicitly names a file path or basename from the project (longest first)
+  const sortedByLen = [...paths].sort((a, b) => b.length - a.length);
+  for (const p of sortedByLen) {
+    if (text.includes(p.toLowerCase())) {
+      return p;
+    }
+  }
+  for (const p of sortedByLen) {
+    const base = p.split("/").pop().toLowerCase();
+    if (base === "index.html" && !text.includes("index.html")) continue;
+    const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`(?<![a-z0-9_/-])${escaped}(?![a-z0-9_])`, "i").test(text)) {
+      return p;
+    }
+  }
+
+  // 2. Match specific module stems (e.g. physics.js, audio.js, levels.js, launcher_service.py)
+  if (/physics|friction|damping|velocity|speed|acceleration|ball|bounce|bounciness|collision|gravity|slope|stopping|drag|resistance/i.test(text)) {
+    const physFile = paths.find(p => /physics\.(js|ts|jsx|tsx|py)$/i.test(p));
+    if (physFile) return physFile;
+  }
+  if (/audio|sound|music|sfx|beep|mute|volume/i.test(text)) {
+    const audioFile = paths.find(p => /audio|sound\.(js|ts|jsx|tsx)$/i.test(p));
+    if (audioFile) return audioFile;
+  }
+  if (/level|course|preset|campaign|hole|par\b/i.test(text)) {
+    const lvlFile = paths.find(p => /level|course\.(js|ts|jsx|tsx)$/i.test(p));
+    if (lvlFile) return lvlFile;
+  }
+  for (const p of paths) {
+    const base = p.split("/").pop().toLowerCase();
+    const stem = base.replace(/\.[^.]+$/, "");
+    if (stem.length >= 4 && !["index", "main", "style", "styles", "types", "utils", "config"].includes(stem)) {
+      const singular = stem.endsWith("s") ? stem.slice(0, -1) : stem;
+      const escapedStem = singular.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`\\b${escapedStem}s?\\b`, "i").test(text)) {
+        return p;
+      }
+    }
+  }
+
+  const pickBestHtml = () =>
+    paths.find(p => /static\/index\.html$/i.test(p)) ||
+    paths.find(p => /src\/index\.html$/i.test(p)) ||
+    paths.find(p => /public\/index\.html$/i.test(p)) ||
+    paths.find(p => /index\.html$/i.test(p));
+
+  const pickMainAppCode = () =>
+    paths.find(p => /client\/src\/App\.(tsx|jsx|js|ts|vue)$/i.test(p)) ||
+    paths.find(p => /src\/App\.(tsx|jsx|js|ts|vue)$/i.test(p)) ||
+    paths.find(p => /(^|\/)(app|main)\.(tsx|jsx|vue|svelte|js)$/i.test(p)) ||
+    paths.find(p => /static\/index\.html$/i.test(p));
+
+  // 3. Icon or Favicon or Head or Metadata -> index.html / public/index.html / manifest.json
+  if (/favicon|meta\s+tag|head\s+tag|page\s+title|manifest/i.test(text)) {
+    const m = pickBestHtml() || paths.find(p => /manifest\.json$/i.test(p));
+    if (m) return m;
+  }
+  // 4. Pure Styling, CSS, Theme, Color, Font -> CSS files
+  if (/stylesheet|css|theme|dark mode|font|gradient/i.test(text) && !/function|state|logic|click|handler|modal|component/i.test(text)) {
+    const m = paths.find(p => /\.(css|scss|sass|less)$/i.test(p)) || pickMainAppCode() || pickBestHtml();
+    if (m) return m;
+  }
+  // 5. Backend, API, Route, Database, Endpoint -> Python / Node server files
+  if (/\b(endpoint|route|backend|database|sqlite|express|fastapi|server)\b/i.test(text)) {
+    const m = paths.find(p => /(main|server|app|api|routes)\.(py|js|ts)$/i.test(p));
+    if (m) return m;
+  }
+  // 6. UI Component, Button, Modal, Drawer, View, Logic -> Main Frontend App code first!
+  if (/component|button|modal|drawer|navbar|footer|card|table|view|page|screen|mobile|detect|toggle|state|click|input|slider/i.test(text)) {
+    const m = pickMainAppCode() ||
+              paths.find(p => /\.(jsx|tsx|vue|svelte|js)$/i.test(p)) ||
+              pickBestHtml();
+    if (m) return m;
+  }
+  // 7. If activeFilePath is valid and in the list, keep it (unless it's root index.html when static/index.html or src/App.tsx or js/app.js exists)
+  if (activeFilePath && paths.includes(activeFilePath)) {
+    if (/^index\.html$/i.test(activeFilePath)) {
+      if (paths.some(p => /static\/index\.html$/i.test(p))) {
+        return paths.find(p => /static\/index\.html$/i.test(p));
+      }
+      const mainCode = pickMainAppCode();
+      if (mainCode && !/html|header|footer|title|meta|favicon/i.test(text)) {
+        return mainCode;
+      }
+    }
+    return activeFilePath;
+  }
+
+  // 8. Otherwise preferred default
+  const defaultFile = pickMainAppCode() ||
+                      pickBestHtml() ||
                       paths.find(p => /(app|main)\.(jsx|tsx|js|py)$/i.test(p)) ||
                       paths[0];
   return defaultFile || "";
@@ -2667,16 +5355,33 @@ async function executeImplementationFromModal() {
     return;
   }
 
-  const isReviewMode = radioImplReview ? radioImplReview.checked : true;
+  const isReviewMode = radioImplReview ? radioImplReview.checked : false;
   const shouldSaveDisk = implChkSaveDisk ? implChkSaveDisk.checked : true;
   const shouldReloadTab = implChkReloadTab ? implChkReloadTab.checked : true;
   const shouldMarkDone = implChkMarkDone ? implChkMarkDone.checked : true;
+
+  const gName = getGeppyName(activeApp);
+  const step2Label = document.getElementById("impl-step-2-label");
+  if (step2Label) {
+    step2Label.innerText = `Synthesizing code with ${gName}...`;
+  }
 
   btnExecuteImplementation.disabled = true;
   btnExecuteImplementation.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Implementing...';
 
   if (implProgressTracker) implProgressTracker.classList.remove("hidden");
   if (implFeedbackBanner) implFeedbackBanner.classList.add("hidden");
+
+  const taskTitle = currentImplTask.title || "Implementation Task";
+  const instruction = currentImplTask.suggested_prompt || currentImplTask.title;
+
+  // Post live conversational action bubble in Central Chat immediately!
+  const actionBubble = startActionChatBubble({
+    actionType: "implement",
+    title: taskTitle,
+    instruction: instruction,
+    targetFile: targetFile
+  });
 
   // Step 1: Target file verified
   setImplStep(1, "active");
@@ -2687,21 +5392,29 @@ async function executeImplementationFromModal() {
   setImplStep(2, "active");
   let currentCode = "";
   if (!isNewFile) {
-    try {
-      const res = await fetch(`${SERVER_URL}/api/apps/${activeApp.slug}/files/content?file_path=${encodeURIComponent(targetFile)}`);
-      if (res.ok) {
-        const d = await res.json();
-        currentCode = d.content || "";
+    const cacheKey = getFileCacheKey(activeApp.slug, targetFile);
+    const cached = editedFilesCache[cacheKey];
+    if (targetFile === activeFilePath && codeEditor && codeEditor.value) {
+      currentCode = codeEditor.value;
+    } else if (cached && typeof cached.latestCode === "string") {
+      currentCode = cached.latestCode;
+    } else {
+      try {
+        const res = await fetch(`${SERVER_URL}/api/apps/${activeApp.slug}/files/content?file_path=${encodeURIComponent(targetFile)}`);
+        if (res.ok) {
+          const d = await res.json();
+          currentCode = d.content || "";
+        }
+      } catch (e) {
+        console.warn("Could not read existing file content:", e);
       }
-    } catch (e) {
-      console.warn("Could not read existing file content:", e);
     }
   }
 
-  const instruction = currentImplTask.suggested_prompt || currentImplTask.title;
+  updateActionChatBubbleStep(actionBubble, `${escapeHtml(gName)} is synthesizing updates for <code>${escapeHtml(targetFile)}</code>...`);
 
   try {
-    const res = await fetch(`${SERVER_URL}/api/extension/apply-design`, {
+    const res = await fetchAntigravityApi("/api/extension/apply-design", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2716,46 +5429,39 @@ async function executeImplementationFromModal() {
     if (res.ok && data.success) {
       setImplStep(2, "done");
 
-      // Switch to designer view
-      switchMode("designer");
+      // Stay in the unified Central Chat view; only expand inline Code Drawer if user explicitly asked to Review in Editor
+      ensureStudioChatVisible();
+      if (isReviewMode) {
+        toggleCodeDrawer(true);
+      }
 
-      // Load file into editor
+      // Load file into editor and preserve pre-edit baseline for Live Preview toggling
       activeFilePath = targetFile;
       if (fileSelect) fileSelect.value = targetFile;
       codeEditor.value = data.modified_code;
-      isUnsaved = true;
-      unsavedIndicator.style.display = "inline-block";
+      recordEditedFileState(targetFile, currentCode, data.modified_code, isLivePreviewEnabled || shouldSaveDisk);
+      isUnsaved = !(isLivePreviewEnabled || shouldSaveDisk);
+      if (unsavedIndicator) unsavedIndicator.style.display = isUnsaved ? "inline-block" : "none";
 
-      if (isReviewMode && !shouldSaveDisk) {
-        // Review mode without auto-save: Leave in editor for user review
-        setImplStep(3, "done");
-        setImplStep(4, "done");
-        if (implFeedbackBanner) {
-          implFeedbackBanner.className = "drop-feedback success";
-          implFeedbackBanner.innerHTML = `<i class="fa-solid fa-check"></i> Code generated and loaded into Designer! Review changes and click [Save].`;
-          implFeedbackBanner.classList.remove("hidden");
-        }
-      } else {
-        // Step 3: Save to disk
-        setImplStep(3, "active");
-        if (shouldSaveDisk) {
-          await saveCurrentFile();
-          setImplStep(3, "done");
-        }
+      // Step 3 & 4: Sync according to Live Preview checkbox or modal options
+      setImplStep(3, "active");
+      updateActionChatBubbleStep(actionBubble, `Saving changes to <code>${escapeHtml(targetFile)}</code> &amp; hot-syncing Live Preview...`);
+      if (isLivePreviewEnabled || shouldSaveDisk) {
+        await syncLivePreviewToWindow(true, false);
+      }
+      setImplStep(3, "done");
 
-        // Step 4: Live reload
-        setImplStep(4, "active");
-        if (shouldReloadTab) {
-          reloadActiveTab();
-          await refreshGitStatus();
-        }
-        setImplStep(4, "done");
+      setImplStep(4, "active");
+      if (shouldReloadTab && !isLivePreviewEnabled && shouldSaveDisk) {
+        reloadActiveTabWithBadge(true, activeFilePath, { forceFullReload: false, modifiedCode: data.modified_code });
+      }
+      await refreshGitStatus();
+      setImplStep(4, "done");
 
-        if (implFeedbackBanner) {
-          implFeedbackBanner.className = "drop-feedback success";
-          implFeedbackBanner.innerHTML = `<i class="fa-solid fa-circle-check"></i> Successfully updated <code>${escapeHtml(targetFile)}</code> on disk and reloaded live app!`;
-          implFeedbackBanner.classList.remove("hidden");
-        }
+      if (implFeedbackBanner) {
+        implFeedbackBanner.className = "drop-feedback success";
+        implFeedbackBanner.innerHTML = `<i class="fa-solid fa-circle-check"></i> Applied to <code>${escapeHtml(targetFile)}</code>! Summary posted in Central Chat.`;
+        implFeedbackBanner.classList.remove("hidden");
       }
 
       // Mark task completed
@@ -2768,14 +5474,36 @@ async function executeImplementationFromModal() {
         updateBatchBarState();
       }
 
-      logSessionChange("ai_implementation", `Implemented "${currentImplTask.title}" into ${targetFile}`, targetFile);
+      logSessionChange("ai_implementation", `Implemented "${taskTitle}" into ${targetFile}`, targetFile, data.explanation);
+
+      finishActionChatBubble(actionBubble, {
+        success: true,
+        actionType: "implement",
+        title: taskTitle,
+        targetFile: data.target_file || targetFile,
+        explanation: data.explanation,
+        baselineCode: typeof data.baseline_code === "string" ? data.baseline_code : currentCode,
+        modifiedCode: data.modified_code,
+        toolSteps: data.tool_steps || [],
+        modifiedFiles: data.modified_files || [data.target_file || targetFile],
+        engine: data.engine || "antigravity_sdk"
+      });
 
       setTimeout(() => {
         closeImplementationModal();
-      }, 1400);
+      }, 900);
 
     } else {
       setImplStep(2, "error");
+      finishActionChatBubble(actionBubble, {
+        success: false,
+        actionType: "implement",
+        title: taskTitle,
+        targetFile: targetFile,
+        toolSteps: data.tool_steps || [],
+        engine: data.engine || "antigravity_sdk",
+        errorMsg: data.explanation || "API error"
+      });
       if (implFeedbackBanner) {
         implFeedbackBanner.className = "drop-feedback error";
         implFeedbackBanner.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Implementation failed: ${escapeHtml(data.explanation || "API error")}`;
@@ -2784,6 +5512,13 @@ async function executeImplementationFromModal() {
     }
   } catch (err) {
     setImplStep(2, "error");
+    finishActionChatBubble(actionBubble, {
+      success: false,
+      actionType: "implement",
+      title: taskTitle,
+      targetFile: targetFile,
+      errorMsg: String(err)
+    });
     if (implFeedbackBanner) {
       implFeedbackBanner.className = "drop-feedback error";
       implFeedbackBanner.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Error: ${escapeHtml(String(err))}`;
@@ -2807,57 +5542,81 @@ async function implementTaskDirectly(task, card = null, bypassModal = false) {
     return;
   }
 
-  // 1. Switch immediately to Designer view
-  switchMode("designer");
+  // 1. Stay in the unified Central Chat view (do NOT hide chat by switching away!)
+  ensureStudioChatVisible();
 
-  // 2. Ensure target file is determined (smart guess or activeFilePath)
-  if (!activeFilePath) {
-    if (fileSelect && fileSelect.options.length > 0 && fileSelect.value) {
-      await openFile(fileSelect.value);
-    } else {
-      await loadFileTree(activeApp.slug);
-      const guessed = guessBestTargetFile(task, appFileList);
-      if (guessed) await openFile(guessed);
-    }
+  // 2. Determine best target file for this task
+  if (!appFileList || appFileList.length === 0) {
+    await loadFileTree(activeApp.slug);
+  }
+  const guessedFile = guessBestTargetFile(task, appFileList) || activeFilePath || (fileSelect && fileSelect.value);
+  if (guessedFile && guessedFile !== activeFilePath) {
+    if (fileSelect) fileSelect.value = guessedFile;
+    await openFile(guessedFile);
+  } else if (!activeFilePath && fileSelect && fileSelect.value) {
+    await openFile(fileSelect.value);
   }
 
   if (!activeFilePath) {
-    alert("Please select a target file in the Designer before implementing.");
+    alert("Please select a target file in the File Bar above before implementing.");
     return;
   }
 
   const instruction = task.suggested_prompt || task.title;
-  designerAiInput.value = instruction;
+  if (designerAiInput) designerAiInput.value = instruction;
 
-  let pushBtn = card ? card.querySelector(".btn-push-designer") : null;
+  let pushBtn = card ? (card.querySelector(".btn-push-designer") || card.querySelector(".btn-chat-implement")) : null;
   const originalBtnHtml = pushBtn ? pushBtn.innerHTML : null;
   if (pushBtn) {
     pushBtn.disabled = true;
-    pushBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Implementing...';
+    pushBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Working in Chat...';
   }
 
   btnApplyDesignerAi.disabled = true;
   btnApplyDesignerAi.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Implementing...';
 
+  const baselineBeforeEdit = codeEditor.value;
+
+  // 3. Immediately post Geppy's "I'm working on that now!" bubble in Central Chat
+  const actionBubble = startActionChatBubble({
+    actionType: "implement",
+    title: task.title || "Task Implementation",
+    instruction: instruction,
+    targetFile: activeFilePath
+  });
+
   try {
-    const res = await fetch(`${SERVER_URL}/api/extension/apply-design`, {
+    const res = await fetchAntigravityApi("/api/extension/apply-design", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         slug: activeApp.slug,
         file_path: activeFilePath,
-        current_code: codeEditor.value,
-        instruction: instruction
+        current_code: baselineBeforeEdit,
+        instruction: instruction,
+        save_to_disk: isLivePreviewEnabled
       })
     });
 
     const data = await res.json();
     if (res.ok && data.success) {
+      const finalTargetFile = data.target_file || activeFilePath;
+      const baselineUsed = typeof data.baseline_code === "string" ? data.baseline_code : baselineBeforeEdit;
+      if (finalTargetFile !== activeFilePath) {
+        activeFilePath = finalTargetFile;
+        if (fileSelect) fileSelect.value = finalTargetFile;
+      }
       codeEditor.value = data.modified_code;
-      isUnsaved = true;
+      recordEditedFileState(finalTargetFile, baselineUsed, data.modified_code, isLivePreviewEnabled);
+      isUnsaved = !isLivePreviewEnabled;
+      if (unsavedIndicator) unsavedIndicator.style.display = isUnsaved ? "inline-block" : "none";
 
-      // Automatically persist modified code to PC disk and reload browser tab
-      await saveCurrentFile();
+      updateActionChatBubbleStep(actionBubble, `Saving changes in <code>${escapeHtml(finalTargetFile)}</code> &amp; syncing Live Preview...`);
+
+      // Sync to disk & live window if Live Preview checkbox is checked
+      if (isLivePreviewEnabled) {
+        await syncLivePreviewToWindow(true, false);
+      }
 
       // Automatically mark task complete in Backlog
       task.completed = true;
@@ -2867,24 +5626,52 @@ async function implementTaskDirectly(task, card = null, bypassModal = false) {
       updateDesignerTaskPicker();
       updateBatchBarState();
 
-      logSessionChange("ai_implementation", `Implemented "${task.title}" to ${activeFilePath}`, activeFilePath);
+      logSessionChange("ai_implementation", `Implemented "${task.title}" in ${finalTargetFile}`, finalTargetFile, data.explanation);
+
+      // Update Central Chat bubble with what happened!
+      finishActionChatBubble(actionBubble, {
+        success: true,
+        actionType: "implement",
+        title: task.title || "Task Implementation",
+        targetFile: finalTargetFile,
+        explanation: data.explanation,
+        baselineCode: baselineUsed,
+        modifiedCode: data.modified_code,
+        toolSteps: data.tool_steps || [],
+        modifiedFiles: data.modified_files || [finalTargetFile],
+        engine: data.engine || "antigravity_sdk"
+      });
 
       if (pushBtn) {
-        pushBtn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Done & Implemented!';
+        pushBtn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Done!';
         setTimeout(() => {
           if (originalBtnHtml) pushBtn.innerHTML = originalBtnHtml;
           pushBtn.disabled = false;
         }, 2200);
       }
     } else {
-      alert(`Implementation failed: ${data.explanation || "Could not generate code"}`);
+      finishActionChatBubble(actionBubble, {
+        success: false,
+        actionType: "implement",
+        title: task.title || "Task Implementation",
+        targetFile: activeFilePath,
+        toolSteps: data.tool_steps || [],
+        engine: data.engine || "antigravity_sdk",
+        errorMsg: data.explanation || "Could not generate code"
+      });
       if (pushBtn) {
         pushBtn.disabled = false;
         if (originalBtnHtml) pushBtn.innerHTML = originalBtnHtml;
       }
     }
   } catch (e) {
-    alert("Error implementing idea: " + e);
+    finishActionChatBubble(actionBubble, {
+      success: false,
+      actionType: "implement",
+      title: task.title || "Task Implementation",
+      targetFile: activeFilePath,
+      errorMsg: String(e)
+    });
     if (pushBtn) {
       pushBtn.disabled = false;
       if (originalBtnHtml) pushBtn.innerHTML = originalBtnHtml;
@@ -3003,8 +5790,8 @@ async function runSelectedBatch() {
   updateBatchBarState();
   if (btnRunNextBatch) btnRunNextBatch.disabled = true;
 
-  // 1. Switch to designer view
-  switchMode("designer");
+  // 1. Stay in unified Central Chat view
+  ensureStudioChatVisible();
 
   // 2. Ensure target file is loaded in editor
   if (!activeFilePath) {
@@ -3016,7 +5803,7 @@ async function runSelectedBatch() {
   }
 
   if (!activeFilePath) {
-    alert("Please select a target file in the Designer before running batch.");
+    alert("Please select a target file in the File Bar before running batch.");
     isBatchRunning = false;
     updateBatchBarState();
     if (btnRunNextBatch) btnRunNextBatch.disabled = false;
@@ -3026,43 +5813,85 @@ async function runSelectedBatch() {
   if (batchProgressBanner) batchProgressBanner.classList.remove("hidden");
   let completedCount = 0;
   const total = tasksToRun.length;
+  const baselineBeforeBatch = codeEditor.value;
+  const completedSummaries = [];
+  const batchToolSteps = [];
+  const batchModifiedFiles = new Set();
+
+  const batchBubble = startActionChatBubble({
+    actionType: "batch",
+    title: `${total} Selected Task${total === 1 ? "" : "s"}`,
+    instruction: tasksToRun.map((t) => t.title).join(" • "),
+    targetFile: activeFilePath
+  });
 
   for (let i = 0; i < total; i++) {
     const task = tasksToRun[i];
+    const bestFile = guessBestTargetFile(task, appFileList);
+    if (bestFile && bestFile !== activeFilePath) {
+      if (fileSelect) fileSelect.value = bestFile;
+      await openFile(bestFile);
+    }
     const pct = Math.round((i / total) * 100);
     if (batchProgressBar) batchProgressBar.style.width = `${pct}%`;
     if (batchProgressPercent) batchProgressPercent.innerText = `${pct}%`;
     if (batchProgressStatus) {
       batchProgressStatus.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> [${i + 1}/${total}] Applying "${escapeHtml(task.title)}"...`;
     }
+    updateActionChatBubbleStep(
+      batchBubble,
+      `[${i + 1}/${total}] Antigravity Agent implementing <strong>${escapeHtml(task.title)}</strong> in <code>${escapeHtml(activeFilePath)}</code>...`
+    );
 
+    const beforeTaskCode = codeEditor.value;
     const instruction = task.suggested_prompt || task.title;
     try {
-      const res = await fetch(`${SERVER_URL}/api/extension/apply-design`, {
+      const res = await fetchAntigravityApi("/api/extension/apply-design", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           slug: activeApp.slug,
           file_path: activeFilePath,
-          current_code: codeEditor.value,
-          instruction: instruction
+          current_code: beforeTaskCode,
+          instruction: instruction,
+          save_to_disk: true
         })
       });
 
       const data = await res.json();
+      if (Array.isArray(data.tool_steps)) {
+        batchToolSteps.push(...data.tool_steps);
+      }
+      if (Array.isArray(data.modified_files)) {
+        data.modified_files.forEach((f) => batchModifiedFiles.add(f));
+      }
       if (res.ok && data.success) {
+        const finalTargetFile = data.target_file || activeFilePath;
+        batchModifiedFiles.add(finalTargetFile);
+        const baselineUsed = typeof data.baseline_code === "string" ? data.baseline_code : beforeTaskCode;
+        if (finalTargetFile !== activeFilePath) {
+          activeFilePath = finalTargetFile;
+          if (fileSelect) fileSelect.value = finalTargetFile;
+        }
         codeEditor.value = data.modified_code;
-        isUnsaved = true;
-        await saveCurrentFile();
+        recordEditedFileState(finalTargetFile, baselineUsed, data.modified_code, true);
+        isUnsaved = false;
+        if (unsavedIndicator) unsavedIndicator.style.display = "none";
+        if (!data.saved_to_disk) {
+          await saveCurrentFile();
+        }
 
         task.completed = true;
         selectedTaskIds.delete(task.id);
         completedCount++;
-        logSessionChange("ai_implementation", `[Batch] Implemented "${task.title}" into ${activeFilePath}`, activeFilePath);
+        completedSummaries.push(`• **${task.title}** [\`${finalTargetFile}\`]: ${data.explanation || "Applied successfully."}`);
+        logSessionChange("ai_implementation", `[Batch] Implemented "${task.title}" in ${finalTargetFile}`, finalTargetFile, data.explanation);
       } else {
+        completedSummaries.push(`• ⚠️ **${task.title}**: ${data.explanation || "Skipped / failed."}`);
         console.warn(`[Batch] Failed task "${task.title}":`, data.explanation);
       }
     } catch (err) {
+      completedSummaries.push(`• ⚠️ **${task.title}**: ${String(err)}`);
       console.error(`[Batch] Error executing task "${task.title}":`, err);
     }
 
@@ -3077,6 +5906,20 @@ async function runSelectedBatch() {
     batchProgressStatus.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> Batch finished! (${completedCount}/${total} tasks completed & saved)`;
   }
 
+  finishActionChatBubble(batchBubble, {
+    success: completedCount > 0,
+    actionType: "batch",
+    title: `Batch (${completedCount}/${total} Tasks Completed)`,
+    targetFile: activeFilePath,
+    explanation: completedSummaries.join("\n"),
+    baselineCode: baselineBeforeBatch,
+    modifiedCode: codeEditor.value,
+    toolSteps: batchToolSteps,
+    modifiedFiles: Array.from(batchModifiedFiles),
+    engine: "antigravity_sdk",
+    errorMsg: completedCount === 0 ? "None of the selected batch tasks could be applied." : ""
+  });
+
   reloadActiveTab();
   await refreshGitStatus();
 
@@ -3087,6 +5930,7 @@ async function runSelectedBatch() {
     if (btnRunNextBatch) btnRunNextBatch.disabled = false;
   }, 3500);
 }
+
 
 // --- Asset Lab & App Image Management System ---
 
@@ -4178,7 +7022,317 @@ async function executeDirectAppUpload() {
   }
 }
 
-// --- Live Designer & Code Editor ---
+// --- Live Designer, Code Editor & Live Window Preview Toggle ---
+let isLivePreviewEnabled = true;
+let preEditBaselineContent = "";
+let latestEditedContent = "";
+// Per-file edit cache keyed by `${slug}:${filePath}` -> { originalBaseline, previousStepBaseline, latestCode, savedToDisk }
+const editedFilesCache = {};
+
+function getFileCacheKey(slug, filePath) {
+  return `${slug || (activeApp && activeApp.slug) || "app"}:${filePath || activeFilePath || ""}`;
+}
+
+function recordEditedFileState(filePath, baselineBeforeStep, modifiedCode, savedToDisk = true) {
+  if (!activeApp || !filePath) return;
+  const key = getFileCacheKey(activeApp.slug, filePath);
+  const existing = editedFilesCache[key];
+  editedFilesCache[key] = {
+    originalBaseline: existing && typeof existing.originalBaseline === "string" ? existing.originalBaseline : baselineBeforeStep,
+    previousStepBaseline: baselineBeforeStep,
+    latestCode: modifiedCode,
+    savedToDisk: Boolean(savedToDisk),
+    updatedAt: Date.now()
+  };
+  preEditBaselineContent = baselineBeforeStep;
+  latestEditedContent = modifiedCode;
+}
+
+const chkHeaderLivePreview = document.getElementById("chk-header-live-preview");
+const lblHeaderLivePreview = document.getElementById("lbl-header-live-preview");
+const chkDesignerLivePreview = document.getElementById("chk-designer-live-preview");
+const livePreviewStatusPill = document.getElementById("live-preview-status-pill");
+
+function initLivePreviewCheckboxes() {
+  const onToggle = async (e) => {
+    const checked = Boolean(e.target.checked);
+    await onLivePreviewCheckboxChanged(checked);
+  };
+  if (chkHeaderLivePreview) chkHeaderLivePreview.addEventListener("change", onToggle);
+  if (chkDesignerLivePreview) chkDesignerLivePreview.addEventListener("change", onToggle);
+}
+initLivePreviewCheckboxes();
+
+function updateLivePreviewUiState() {
+  if (chkHeaderLivePreview) chkHeaderLivePreview.checked = isLivePreviewEnabled;
+  if (chkDesignerLivePreview) chkDesignerLivePreview.checked = isLivePreviewEnabled;
+
+  if (lblHeaderLivePreview) {
+    if (isLivePreviewEnabled) {
+      lblHeaderLivePreview.style.background = "rgba(16, 185, 129, 0.14)";
+      lblHeaderLivePreview.style.borderColor = "rgba(16, 185, 129, 0.4)";
+      lblHeaderLivePreview.style.color = "#34d399";
+    } else {
+      lblHeaderLivePreview.style.background = "rgba(100, 116, 139, 0.16)";
+      lblHeaderLivePreview.style.borderColor = "rgba(100, 116, 139, 0.4)";
+      lblHeaderLivePreview.style.color = "#94a3b8";
+    }
+  }
+
+  if (livePreviewStatusPill) {
+    if (isLivePreviewEnabled) {
+      livePreviewStatusPill.style.background = "rgba(16, 185, 129, 0.15)";
+      livePreviewStatusPill.style.color = "#34d399";
+      livePreviewStatusPill.style.borderColor = "rgba(16, 185, 129, 0.35)";
+      livePreviewStatusPill.innerText = "● Live Preview ON (Saved & Hot-Synced)";
+    } else {
+      livePreviewStatusPill.style.background = "rgba(148, 163, 184, 0.15)";
+      livePreviewStatusPill.style.color = "#cbd5e1";
+      livePreviewStatusPill.style.borderColor = "rgba(148, 163, 184, 0.35)";
+      livePreviewStatusPill.innerText = "○ Live Preview OFF (Original Shown)";
+    }
+  }
+}
+
+async function onLivePreviewCheckboxChanged(checked) {
+  isLivePreviewEnabled = checked;
+  updateLivePreviewUiState();
+  if (!activeApp) return;
+
+  const key = activeFilePath ? getFileCacheKey(activeApp.slug, activeFilePath) : null;
+  const cached = key ? editedFilesCache[key] : null;
+  const editedCode = (cached && cached.latestCode) || latestEditedContent || (codeEditor ? codeEditor.value : "");
+  const baselineCode = (cached && cached.originalBaseline) || fileOriginalContent || preEditBaselineContent;
+
+  if (codeEditor) {
+    if (checked && editedCode) {
+      codeEditor.value = editedCode;
+    } else if (!checked && baselineCode) {
+      codeEditor.value = baselineCode;
+    }
+  }
+
+  await syncLivePreviewToWindow(checked, false, { isPreviewToggle: true });
+}
+
+async function syncLivePreviewToWindow(showEdited = true, lockAsNewBaseline = false, options = {}) {
+  if (!activeApp) return false;
+  if (!activeFilePath) {
+    reloadActiveTabWithBadge(showEdited, "app", options);
+    return true;
+  }
+
+  const key = getFileCacheKey(activeApp.slug, activeFilePath);
+  const cached = editedFilesCache[key];
+
+  // Determine which content to push to disk & the live window:
+  // - If showEdited is true -> use latestEditedContent / cached.latestCode / codeEditor.value
+  // - If showEdited is false -> revert the live window to originalBaseline (before Geppy's edits)
+  if (showEdited && codeEditor && typeof codeEditor.value === "string" && !options.isPreviewToggle) {
+    latestEditedContent = codeEditor.value;
+    if (cached) cached.latestCode = codeEditor.value;
+  }
+
+  const contentToServe = showEdited
+    ? ((cached && cached.latestCode) || latestEditedContent || (codeEditor && codeEditor.value))
+    : ((cached && cached.originalBaseline) || fileOriginalContent || preEditBaselineContent);
+
+  if (!contentToServe && contentToServe !== "") {
+    reloadActiveTabWithBadge(showEdited, activeFilePath, options);
+    return false;
+  }
+
+  try {
+    const res = await fetch(`${SERVER_URL}/api/apps/${activeApp.slug}/files/content`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        file_path: activeFilePath,
+        content: contentToServe,
+        is_preview_revert: !showEdited
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      if (showEdited) {
+        isUnsaved = false;
+        if (unsavedIndicator) unsavedIndicator.style.display = "none";
+        if (cached) cached.savedToDisk = true;
+      }
+      if (lockAsNewBaseline) {
+        preEditBaselineContent = contentToServe;
+        fileOriginalContent = contentToServe;
+        latestEditedContent = contentToServe;
+        isUnsaved = false;
+        if (unsavedIndicator) unsavedIndicator.style.display = "none";
+      }
+      reloadActiveTabWithBadge(showEdited, activeFilePath, {
+        forceFullReload: Boolean(options.forceFullReload),
+        isPreviewToggle: Boolean(options.isPreviewToggle),
+        modifiedCode: showEdited ? contentToServe : null
+      });
+      return true;
+    }
+  } catch (e) {
+    console.warn("Live preview sync error:", e);
+  }
+  return false;
+}
+
+function reloadActiveTabWithBadge(isEditedPreview, filePathLabel, options = {}) {
+  const lowerPath = String(filePathLabel || "").toLowerCase();
+  const isPureCss = lowerPath.endsWith(".css");
+  // Always perform a real tab reload for JS/TS/JSX/TSX/HTML/PY/App changes so the browser executes the updated code!
+  const shouldFullReload = options.forceFullReload !== undefined
+    ? Boolean(options.forceFullReload) || !isPureCss
+    : !isPureCss;
+  const modifiedCode = options.modifiedCode || (codeEditor ? codeEditor.value : "");
+
+  const injectHotUpdateAndToast = (tabId, didFullReload) => {
+    if (!chrome.scripting || !chrome.scripting.executeScript) return;
+
+    // 1. Hot-swap stylesheets in MAIN world when not doing a full reload
+    if (!didFullReload) {
+      chrome.scripting.executeScript({
+        target: { tabId },
+        world: "MAIN",
+        func: (previewOn, fpath) => {
+          try {
+            if (!previewOn) return;
+            const lower = String(fpath || "").toLowerCase();
+            if (lower.endsWith(".css")) {
+              document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+                const href = (link.getAttribute("href") || "").split("?")[0];
+                if (href && !href.startsWith("https://fonts.") && !href.includes("font-awesome")) {
+                  link.setAttribute("href", `${href}?t=${Date.now()}`);
+                }
+              });
+            }
+          } catch (_) {}
+        },
+        args: [
+          Boolean(isEditedPreview),
+          String(filePathLabel || "")
+        ]
+      }).catch(() => {});
+    }
+
+    // 2. Render non-destructive status toast badge in the page
+    chrome.scripting.executeScript({
+      target: { tabId },
+      func: (previewOn, fpath, reloaded) => {
+        const old = document.getElementById("geppy-live-preview-toast");
+        if (old) old.remove();
+        const pill = document.createElement("div");
+        pill.id = "geppy-live-preview-toast";
+        pill.style.cssText = [
+          "position:fixed",
+          "bottom:18px",
+          "right:18px",
+          "z-index:2147483647",
+          "padding:8px 14px",
+          "border-radius:999px",
+          "font-family:system-ui,-apple-system,sans-serif",
+          "font-size:12px",
+          "font-weight:700",
+          "box-shadow:0 10px 25px rgba(0,0,0,0.45)",
+          "display:flex",
+          "align-items:center",
+          "gap:8px",
+          "transition:opacity 0.4s ease",
+          previewOn
+            ? "background:rgba(6,78,59,0.95);color:#6ee7b7;border:1px solid #10b981;"
+            : "background:rgba(30,41,59,0.95);color:#cbd5e1;border:1px solid #64748b;"
+        ].join(";");
+
+        const labelSpan = document.createElement("span");
+        labelSpan.innerHTML = previewOn
+          ? (reloaded
+              ? `⚡ Live Preview Reloaded <span style="opacity:0.85;font-weight:500;">(${fpath})</span>`
+              : `⚡ Live Preview • CSS Synced <span style="opacity:0.85;font-weight:500;">(${fpath})</span>`)
+          : `⏪ Live Preview OFF (Original Baseline Shown)`;
+        pill.appendChild(labelSpan);
+
+        if (!reloaded) {
+          const refreshBtn = document.createElement("button");
+          refreshBtn.type = "button";
+          refreshBtn.textContent = "↻ Refresh Tab";
+          refreshBtn.title = "Click if you want a full browser tab reload.";
+          refreshBtn.style.cssText = [
+            "background:rgba(16,185,129,0.22)",
+            "color:#ecfdf5",
+            "border:1px solid rgba(110,231,183,0.45)",
+            "border-radius:999px",
+            "padding:2px 8px",
+            "font-size:10.5px",
+            "font-weight:700",
+            "cursor:pointer",
+            "margin-left:4px"
+          ].join(";");
+          refreshBtn.addEventListener("click", () => {
+            window.location.reload();
+          });
+          pill.appendChild(refreshBtn);
+        }
+
+        document.body.appendChild(pill);
+        setTimeout(() => {
+          if (pill && pill.parentNode) {
+            pill.style.opacity = "0";
+            setTimeout(() => pill.remove(), 450);
+          }
+        }, 4800);
+      },
+      args: [Boolean(isEditedPreview), String(filePathLabel || "file"), Boolean(didFullReload)]
+    }).catch(() => {});
+  };
+
+  const handleTab = (tabId) => {
+    if (!tabId) return;
+    if (shouldFullReload) {
+      chrome.tabs.reload(tabId, { bypassCache: true }, () => {
+        setTimeout(() => injectHotUpdateAndToast(tabId, true), 750);
+      });
+    } else {
+      injectHotUpdateAndToast(tabId, false);
+    }
+  };
+
+  if (typeof chrome !== "undefined" && chrome.tabs) {
+    // Prefer the tab actually running activeApp's port/slug, otherwise use active tab in currentWindow
+    let targetPort = "";
+    if (activeApp && activeApp.live_url) {
+      try { targetPort = new URL(activeApp.live_url).port; } catch (e) {}
+    } else if (activeApp && isGitBridgeApp(activeApp)) {
+      targetPort = "8000";
+    }
+
+    chrome.tabs.query({ currentWindow: true }, (tabs) => {
+      if (!tabs || tabs.length === 0) return;
+      let matchedTab = null;
+      if (activeApp && activeApp.slug) {
+        matchedTab = tabs.find((t) => t.id && tabAppMap[t.id] === activeApp.slug);
+      }
+      if (!matchedTab && targetPort) {
+        matchedTab = tabs.find((t) => {
+          if (!t.url) return false;
+          try {
+            const u = new URL(t.url);
+            return ["localhost", "127.0.0.1", "0.0.0.0"].includes(u.hostname) && u.port === String(targetPort);
+          } catch (e) {
+            return false;
+          }
+        });
+      }
+      const chosen = matchedTab || tabs.find((t) => t.active) || tabs[0];
+      if (chosen && chosen.id) {
+        if (activeTabInstance) activeTabInstance.tabId = chosen.id;
+        handleTab(chosen.id);
+      }
+    });
+  }
+}
+
 async function loadFileTree(slug) {
   if (!slug) return;
   fileSelect.innerHTML = '<option value="">Loading files...</option>';
@@ -4204,10 +7358,12 @@ async function loadFileTree(slug) {
       fileSelect.appendChild(opt);
     });
 
-    // Auto-select preferred starter file (index.html, App.jsx, main.py)
-    const preferred = files.find((f) =>
-      /index\.html|app\.(jsx|tsx|vue|js)|main\.py/i.test(f.name)
-    ) || files[0];
+    // Prefer static/index.html or src/App.tsx over root stub index.html
+    const preferred =
+      files.find((f) => /static\/index\.html$/i.test(f.path)) ||
+      files.find((f) => /src\/app\.(tsx|jsx|vue)$/i.test(f.path)) ||
+      files.find((f) => /index\.html|app\.(jsx|tsx|vue|js)|main\.py/i.test(f.name)) ||
+      files[0];
 
     if (preferred) {
       fileSelect.value = preferred.path;
@@ -4220,7 +7376,15 @@ async function loadFileTree(slug) {
 
 async function openFile(filePath) {
   if (!activeApp || !filePath) return;
+
+  // Before switching away from the current file, preserve any in-editor changes in editedFilesCache
+  if (activeFilePath && codeEditor && isUnsaved) {
+    recordEditedFileState(activeFilePath, preEditBaselineContent || fileOriginalContent, codeEditor.value, false);
+  }
+
   activeFilePath = filePath;
+  const key = getFileCacheKey(activeApp.slug, filePath);
+  const cached = editedFilesCache[key];
 
   try {
     const res = await fetch(
@@ -4229,13 +7393,38 @@ async function openFile(filePath) {
     if (!res.ok) return;
 
     const data = await res.json();
-    fileOriginalContent = data.content || "";
-    codeEditor.value = fileOriginalContent;
-    isUnsaved = false;
-    unsavedIndicator.style.display = "none";
+    const diskContent = data.content || "";
+    const serverBaseline = typeof data.original_baseline === "string" ? data.original_baseline : diskContent;
+    const serverLatest = typeof data.latest_edited === "string" ? data.latest_edited : diskContent;
 
-    // Proactively fetch AI suggestions for this file
-    fetchProactiveSuggestions(activeApp.slug, filePath, fileOriginalContent);
+    if (cached && !cached.savedToDisk && typeof cached.latestCode === "string") {
+      fileOriginalContent = cached.originalBaseline || serverBaseline;
+      preEditBaselineContent = cached.previousStepBaseline || serverBaseline;
+      latestEditedContent = cached.latestCode;
+      codeEditor.value = isLivePreviewEnabled ? cached.latestCode : fileOriginalContent;
+      isUnsaved = true;
+      if (unsavedIndicator) unsavedIndicator.style.display = "inline-block";
+    } else {
+      fileOriginalContent = (cached && cached.originalBaseline) || serverBaseline;
+      preEditBaselineContent = (cached && cached.previousStepBaseline) || serverBaseline;
+      latestEditedContent = (cached && cached.latestCode) || serverLatest;
+      editedFilesCache[key] = {
+        originalBaseline: fileOriginalContent,
+        previousStepBaseline: preEditBaselineContent,
+        latestCode: latestEditedContent,
+        savedToDisk: true,
+        updatedAt: Date.now()
+      };
+      codeEditor.value = isLivePreviewEnabled ? latestEditedContent : fileOriginalContent;
+      isUnsaved = false;
+      if (unsavedIndicator) unsavedIndicator.style.display = "none";
+    }
+
+    // Clear stale suggestions when switching files; only fetch LLM suggestions if the Suggestions Drawer is open
+    proactiveSuggestions = [];
+    if (proactiveSuggestionsDrawer && !proactiveSuggestionsDrawer.classList.contains("hidden")) {
+      fetchProactiveSuggestions(activeApp.slug, filePath, codeEditor.value);
+    }
   } catch (e) {
     console.error("Failed to read file:", e);
   }
@@ -4301,81 +7490,224 @@ function renderProactiveSuggestions() {
   });
 }
 
-async function applySuggestionDirect(sug) {
-  if (!activeApp || !activeFilePath) return;
+async function applySuggestionDirect(sug, btnEl = null) {
+  if (!activeApp) return;
+  if (!activeFilePath && fileSelect && fileSelect.value) {
+    await openFile(fileSelect.value);
+  }
+  if (!activeFilePath) return;
 
-  const btn = event.currentTarget;
-  const originalHtml = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Applying...';
+  const btn = btnEl || (typeof event !== "undefined" && event ? event.currentTarget : null);
+  const originalHtml = btn ? btn.innerHTML : null;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Applying...';
+  }
+
+  const baselineBeforeEdit = codeEditor.value;
+  const instruction = sug.prompt || sug.title;
+
+  const actionBubble = startActionChatBubble({
+    actionType: "suggestion",
+    title: sug.title || "Design Suggestion",
+    instruction: instruction,
+    targetFile: activeFilePath,
+    userPromptText: `Apply design suggestion: ${sug.title}`
+  });
 
   try {
-    const res = await fetch(`${SERVER_URL}/api/extension/apply-design`, {
+    const res = await fetchAntigravityApi("/api/extension/apply-design", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         slug: activeApp.slug,
         file_path: activeFilePath,
-        current_code: codeEditor.value,
-        instruction: sug.prompt || sug.title
+        current_code: baselineBeforeEdit,
+        instruction: instruction,
+        save_to_disk: isLivePreviewEnabled
       })
     });
 
     const data = await res.json();
     if (res.ok && data.success) {
+      const finalTargetFile = data.target_file || activeFilePath;
+      const baselineUsed = typeof data.baseline_code === "string" ? data.baseline_code : baselineBeforeEdit;
+      if (finalTargetFile !== activeFilePath) {
+        activeFilePath = finalTargetFile;
+        if (fileSelect) fileSelect.value = finalTargetFile;
+      }
       codeEditor.value = data.modified_code;
-      isUnsaved = true;
-      unsavedIndicator.style.display = "inline-block";
-      logSessionChange("ai_suggestion", `Applied suggestion "${sug.title}" to ${activeFilePath}`, activeFilePath);
-      alert(`✨ Suggestion Applied!\n"${sug.title}" has been merged into the editor.\nClick [Save] to write changes to your PC.`);
+      recordEditedFileState(finalTargetFile, baselineUsed, data.modified_code, isLivePreviewEnabled);
+      isUnsaved = !isLivePreviewEnabled;
+      if (unsavedIndicator) unsavedIndicator.style.display = isUnsaved ? "inline-block" : "none";
+      logSessionChange("ai_suggestion", `Applied suggestion "${sug.title}" to ${finalTargetFile}`, finalTargetFile, data.explanation);
+
+      updateActionChatBubbleStep(actionBubble, `Saving <code>${escapeHtml(finalTargetFile)}</code> to disk &amp; syncing Live Preview...`);
+      if (isLivePreviewEnabled) {
+        await syncLivePreviewToWindow(true, false);
+      }
+
+      finishActionChatBubble(actionBubble, {
+        success: true,
+        actionType: "suggestion",
+        title: sug.title || "Design Suggestion",
+        targetFile: finalTargetFile,
+        explanation: data.explanation,
+        baselineCode: baselineUsed,
+        modifiedCode: data.modified_code,
+        toolSteps: data.tool_steps || [],
+        modifiedFiles: data.modified_files || [finalTargetFile],
+        engine: data.engine || "antigravity_sdk"
+      });
     } else {
-      alert(`Failed to apply suggestion: ${data.explanation || "Unknown error"}`);
+      finishActionChatBubble(actionBubble, {
+        success: false,
+        actionType: "suggestion",
+        title: sug.title || "Design Suggestion",
+        targetFile: activeFilePath,
+        toolSteps: data.tool_steps || [],
+        engine: data.engine || "antigravity_sdk",
+        errorMsg: data.explanation || "Unknown error"
+      });
     }
   } catch (e) {
-    alert("Error applying suggestion: " + e);
+    finishActionChatBubble(actionBubble, {
+      success: false,
+      actionType: "suggestion",
+      title: sug.title || "Design Suggestion",
+      targetFile: activeFilePath,
+      errorMsg: String(e)
+    });
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = originalHtml;
+    if (btn) {
+      btn.disabled = false;
+      if (originalHtml) btn.innerHTML = originalHtml;
+    }
   }
 }
 
-async function applyDesignerAiEdit() {
-  const instruction = designerAiInput.value.trim();
-  if (!instruction || !activeApp || !activeFilePath) return;
+async function applyDesignerAiEdit(overrideInstruction = null, actionType = "fix") {
+  const instruction = (typeof overrideInstruction === "string" ? overrideInstruction : (designerAiInput ? designerAiInput.value : "")).trim();
+  if (!instruction || !activeApp) return;
 
-  btnApplyDesignerAi.disabled = true;
-  btnApplyDesignerAi.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Generating...';
+  ensureStudioChatVisible();
+
+  // Ensure the best target file for this instruction is loaded
+  if (!appFileList || appFileList.length === 0) {
+    await loadFileTree(activeApp.slug);
+  }
+  const guessed = guessBestTargetFile({ title: instruction, suggested_prompt: instruction }, appFileList) || activeFilePath || (fileSelect && fileSelect.value);
+  if (guessed && guessed !== activeFilePath) {
+    if (fileSelect) fileSelect.value = guessed;
+    await openFile(guessed);
+  }
+  if (!activeFilePath) {
+    alert("Please select a target file in the File Bar above.");
+    return;
+  }
+
+  if (btnApplyDesignerAi) {
+    btnApplyDesignerAi.disabled = true;
+    btnApplyDesignerAi.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Working...';
+  }
+  if (btnChatDirectEdit) {
+    btnChatDirectEdit.disabled = true;
+    btnChatDirectEdit.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i>';
+  }
+
+  const baselineBeforeEdit = codeEditor.value;
+  const shortTitle = instruction.length > 56 ? `${instruction.slice(0, 56)}...` : instruction;
+
+  const actionBubble = startActionChatBubble({
+    actionType: actionType,
+    title: shortTitle,
+    instruction: instruction,
+    targetFile: activeFilePath,
+    userPromptText: instruction
+  });
 
   try {
-    const res = await fetch(`${SERVER_URL}/api/extension/apply-design`, {
+    const res = await fetchAntigravityApi("/api/extension/apply-design", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         slug: activeApp.slug,
         file_path: activeFilePath,
-        current_code: codeEditor.value,
-        instruction: instruction
+        current_code: baselineBeforeEdit,
+        instruction: instruction,
+        save_to_disk: isLivePreviewEnabled
       })
     });
 
     const data = await res.json();
     if (res.ok && data.success) {
+      const finalTargetFile = data.target_file || activeFilePath;
+      const baselineUsed = typeof data.baseline_code === "string" ? data.baseline_code : baselineBeforeEdit;
+      if (finalTargetFile !== activeFilePath) {
+        activeFilePath = finalTargetFile;
+        if (fileSelect) fileSelect.value = finalTargetFile;
+      }
       codeEditor.value = data.modified_code;
-      isUnsaved = true;
-      unsavedIndicator.style.display = "inline-block";
-      designerAiInput.value = "";
-      logSessionChange("ai_edit", `Applied AI edit to ${activeFilePath}: "${instruction}"`, activeFilePath);
-      alert("✨ AI Edit applied to editor! Review code and click [Save] to persist.");
+      recordEditedFileState(finalTargetFile, baselineUsed, data.modified_code, isLivePreviewEnabled);
+      isUnsaved = !isLivePreviewEnabled;
+      if (unsavedIndicator) unsavedIndicator.style.display = isUnsaved ? "inline-block" : "none";
+      if (designerAiInput) designerAiInput.value = "";
+      const changeCategory = actionType === "fix" ? "watchdog_fix" : "ai_edit";
+      const cleanLabel = actionType === "fix" ? `Fixed issue in ${finalTargetFile}: "${shortTitle}"` : `Applied AI edit to ${finalTargetFile}: "${shortTitle}"`;
+      logSessionChange(changeCategory, cleanLabel, finalTargetFile, data.explanation);
+
+      updateActionChatBubbleStep(actionBubble, `Saving <code>${escapeHtml(finalTargetFile)}</code> to disk &amp; syncing Live Preview...`);
+      if (isLivePreviewEnabled) {
+        await syncLivePreviewToWindow(true, false);
+      }
+      await refreshGitStatus();
+
+      finishActionChatBubble(actionBubble, {
+        success: true,
+        actionType: actionType,
+        title: shortTitle,
+        targetFile: finalTargetFile,
+        explanation: data.explanation,
+        baselineCode: baselineUsed,
+        modifiedCode: data.modified_code,
+        toolSteps: data.tool_steps || [],
+        modifiedFiles: data.modified_files || [finalTargetFile],
+        engine: data.engine || "antigravity_sdk"
+      });
+      return true;
     } else {
-      alert(`AI Edit error: ${data.explanation || "Could not generate code"}`);
+      finishActionChatBubble(actionBubble, {
+        success: false,
+        actionType: actionType,
+        title: shortTitle,
+        targetFile: activeFilePath,
+        toolSteps: data.tool_steps || [],
+        engine: data.engine || "antigravity_sdk",
+        errorMsg: data.explanation || "Could not generate code"
+      });
+      return false;
     }
   } catch (e) {
-    alert("Error applying AI edit: " + e);
+    finishActionChatBubble(actionBubble, {
+      success: false,
+      actionType: actionType,
+      title: shortTitle,
+      targetFile: activeFilePath,
+      errorMsg: String(e)
+    });
+    return false;
   } finally {
-    btnApplyDesignerAi.disabled = false;
-    btnApplyDesignerAi.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> <span>Apply</span>';
+    if (btnApplyDesignerAi) {
+      btnApplyDesignerAi.disabled = false;
+      btnApplyDesignerAi.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> <span>Apply</span>';
+    }
+    if (btnChatDirectEdit) {
+      btnChatDirectEdit.disabled = false;
+      btnChatDirectEdit.innerHTML = '<i class="fa-solid fa-bolt"></i> <span>Edit</span>';
+    }
   }
 }
+
 
 async function saveCurrentFile() {
   if (!activeApp || !activeFilePath) return;
@@ -4396,10 +7728,10 @@ async function saveCurrentFile() {
     const data = await res.json();
     if (res.ok && data.success) {
       isUnsaved = false;
-      fileOriginalContent = codeEditor.value;
-      unsavedIndicator.style.display = "none";
+      recordEditedFileState(activeFilePath, preEditBaselineContent || fileOriginalContent, codeEditor.value, true);
+      if (unsavedIndicator) unsavedIndicator.style.display = "none";
       btnSaveFile.innerHTML = '<i class="fa-solid fa-check"></i> Saved!';
-      logSessionChange("manual_save", `Saved changes to ${activeFilePath}`, activeFilePath);
+      logSessionChange("manual_save", `Saved manual edits to ${activeFilePath}`, activeFilePath);
       await refreshGitStatus();
 
       setTimeout(() => {
@@ -4407,8 +7739,7 @@ async function saveCurrentFile() {
         btnSaveFile.disabled = false;
       }, 1200);
 
-      // Auto reload the browser tab if app is live
-      reloadActiveTab();
+      reloadActiveTabWithBadge(true, activeFilePath, { modifiedCode: codeEditor.value });
       return true;
     } else {
       alert(`Save failed: ${data.message || data.detail || "Unknown error"}`);
@@ -4422,38 +7753,17 @@ async function saveCurrentFile() {
   }
 }
 
-function revertCurrentFile() {
+async function revertCurrentFile() {
   if (!isUnsaved || confirm("Revert all unsaved changes to this file?")) {
-    codeEditor.value = fileOriginalContent;
+    codeEditor.value = preEditBaselineContent || fileOriginalContent;
     isUnsaved = false;
-    unsavedIndicator.style.display = "none";
+    if (unsavedIndicator) unsavedIndicator.style.display = "none";
+    await syncLivePreviewToWindow(false, false);
   }
 }
 
 function reloadActiveTab() {
-  if (typeof chrome !== "undefined" && chrome.tabs) {
-    if (activeTabInstance && activeTabInstance.tabId) {
-      chrome.tabs.get(activeTabInstance.tabId, (tab) => {
-        if (!chrome.runtime.lastError && tab) {
-          chrome.tabs.reload(activeTabInstance.tabId);
-        } else {
-          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs && tabs[0]) {
-              activeTabInstance.tabId = tabs[0].id;
-              chrome.tabs.reload(tabs[0].id);
-            }
-          });
-        }
-      });
-    } else {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs[0]) {
-          activeTabInstance.tabId = tabs[0].id;
-          chrome.tabs.reload(tabs[0].id);
-        }
-      });
-    }
-  }
+  reloadActiveTabWithBadge(isLivePreviewEnabled, activeFilePath || "app", { forceFullReload: true });
 }
 
 // --- Utility Helpers ---
@@ -4470,8 +7780,11 @@ function escapeHtml(str) {
 function formatMarkdown(text) {
   if (!text) return "";
   let html = escapeHtml(text);
-  // Code blocks
-  html = html.replace(/```([a-z]*)\n([\s\S]*?)```/g, "<pre><code>$2</code></pre>");
+  // Code blocks with inline contextual toolbar
+  html = html.replace(/```([a-z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    const langLabel = lang ? lang.toUpperCase() : "CODE";
+    return `<div class="chat-code-block-wrapper"><div class="chat-code-toolbar"><span><i class="fa-solid fa-code" style="color:#38bdf8;margin-right:4px;"></i>${langLabel}</span><div class="chat-code-toolbar-actions"><button type="button" class="btn-inline-code-action btn-code-copy" title="Copy code snippet"><i class="fa-regular fa-copy"></i> Copy</button><button type="button" class="btn-inline-code-action btn-code-load-drawer" title="Open in </> Code Drawer"><i class="fa-solid fa-code"></i> &lt;/&gt; Code</button></div></div><pre><code>${code}</code></pre></div>`;
+  });
   // Images: ![alt](url)
   html = html.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => {
     const fullSrc = url.startsWith("http") ? url : `${SERVER_URL}${url}`;
@@ -4491,23 +7804,93 @@ function formatMarkdown(text) {
   return `<p>${html}</p>`;
 }
 
-// --- Session Change Tracking & Git Sync ---
-function logSessionChange(actionType, summary, filePath = null) {
+// --- Session Change Log Tracking & Git Sync ---
+const CODE_CHANGE_ACTION_TYPES = new Set([
+  "ai_implementation",
+  "ai_suggestion",
+  "ai_edit",
+  "watchdog_fix",
+  "manual_save",
+  "asset_drop",
+  "asset_upload"
+]);
+
+function saveSessionChangesLog() {
+  if (!activeApp) return;
+  try {
+    localStorage.setItem(`galactic_changelog_${activeApp.slug}`, JSON.stringify(sessionChangesLog.slice(0, 100)));
+  } catch (e) {}
+}
+
+function logSessionChange(actionType, summary, filePath = null, explanation = null) {
+  const isCodeChange = CODE_CHANGE_ACTION_TYPES.has(actionType);
+  const cleanExp = explanation
+    ? String(explanation).replace(/\s+/g, " ").trim().slice(0, 240)
+    : null;
+
   const item = {
+    id: `chg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    date: new Date().toISOString().slice(0, 10),
     actionType,
     summary,
-    filePath,
+    explanation: cleanExp,
+    filePath: filePath || null,
+    isCodeChange,
+    committed: false,
+    commitHash: null,
     timestamp: Date.now()
   };
-  sessionChangesLog.unshift(item);
-  if (sessionChangesLog.length > 60) sessionChangesLog.pop();
 
-  if (activeApp) {
-    try {
-      localStorage.setItem(`galactic_changelog_${activeApp.slug}`, JSON.stringify(sessionChangesLog));
-    } catch (e) {}
+  sessionChangesLog.unshift(item);
+  if (sessionChangesLog.length > 100) sessionChangesLog.pop();
+  saveSessionChangesLog();
+}
+
+function getPendingCodeChanges() {
+  return (sessionChangesLog || []).filter(
+    (item) => item && (item.isCodeChange || CODE_CHANGE_ACTION_TYPES.has(item.actionType)) && !item.committed
+  );
+}
+
+function buildDefaultCommitMessageWithChangelog() {
+  const pending = getPendingCodeChanges();
+  const gitFiles = (currentGitStatus?.files || []).map((f) => f.path);
+
+  let header = `feat: update ${activeApp ? activeApp.name : "app"}`;
+  if (pending.length === 1) {
+    const first = pending[0];
+    const prefix = first.actionType === "watchdog_fix" ? "fix" : "feat";
+    const shortSum = String(first.summary || "").replace(/^(Implemented|Applied suggestion|Applied AI edit to|Fixed issue in)\s+/i, "");
+    header = `${prefix}: ${shortSum.slice(0, 62)}`;
+  } else if (gitFiles.length > 0) {
+    const topFiles = gitFiles.slice(0, 2).map((p) => p.split("/").pop());
+    header = `feat: update ${topFiles.join(", ")}${gitFiles.length > 2 ? ` (+${gitFiles.length - 2} more)` : ""}`;
   }
+
+  const bulletLines = [];
+  const seen = new Set();
+
+  pending.forEach((item) => {
+    const filePrefix = item.filePath ? `[${item.filePath}] ` : "";
+    const detailSuffix = item.explanation ? ` — ${item.explanation}` : "";
+    const line = `- ${filePrefix}${item.summary}${detailSuffix}`;
+    if (!seen.has(line)) {
+      seen.add(line);
+      bulletLines.push(line);
+    }
+  });
+
+  if (bulletLines.length === 0 && gitFiles.length > 0) {
+    gitFiles.slice(0, 10).forEach((fp) => {
+      bulletLines.push(`- Modified ${fp}`);
+    });
+  }
+
+  if (bulletLines.length > 0) {
+    return `${header}\n\nChange Log:\n${bulletLines.join("\n")}`;
+  }
+  return header;
 }
 
 function loadSessionLog(slug) {
@@ -4547,10 +7930,12 @@ function renderGitStatusBadge() {
   if (gitStatusBadge) {
     if (hasChanges) {
       gitStatusBadge.className = "git-badge has-changes";
-      gitStatusBadge.innerHTML = `<i class="fa-solid fa-pen-to-square"></i> <span id="git-status-label">${count} ${count === 1 ? "change" : "changes"}</span>`;
+      gitStatusBadge.title = `${count} uncommitted ${count === 1 ? "change" : "changes"} — Click to review & commit`;
+      gitStatusBadge.innerHTML = `<i class="fa-solid fa-pen-to-square"></i> <span id="git-status-label">${count}</span>`;
     } else {
       gitStatusBadge.className = "git-badge clean";
-      gitStatusBadge.innerHTML = `<i class="fa-solid fa-check"></i> <span id="git-status-label">Clean</span>`;
+      gitStatusBadge.title = "Working tree clean";
+      gitStatusBadge.innerHTML = `<i class="fa-solid fa-check"></i> <span id="git-status-label">0</span>`;
     }
   }
 
@@ -4589,17 +7974,12 @@ async function openCommitModal() {
   // Populate Changed Files List
   renderModalFilesList();
 
-  // Populate Session Log
+  // Populate Change Log Tab
   renderModalSessionLog();
 
-  // Default Commit Message if blank
-  if (commitMsgInput && !commitMsgInput.value.trim()) {
-    if (currentGitStatus?.files && currentGitStatus.files.length > 0) {
-      const topFiles = currentGitStatus.files.slice(0, 2).map((f) => f.path.split("/").pop());
-      commitMsgInput.value = `feat: update ${topFiles.join(", ")} via Geppy's Galactic`;
-    } else {
-      commitMsgInput.value = `feat: update ${activeApp.name} via Geppy's Galactic`;
-    }
+  // Always populate Commit Message & Change Log with pending changes if empty or generic
+  if (commitMsgInput) {
+    commitMsgInput.value = buildDefaultCommitMessageWithChangelog();
   }
 
   if (commitFeedback) {
@@ -4652,7 +8032,7 @@ function renderModalFilesList() {
   files.forEach((f) => {
     const row = document.createElement("div");
     row.className = "file-diff-item";
-    row.title = `Click to open ${f.path} in Live Designer`;
+    row.title = `Click to open ${f.path} in Code Drawer`;
 
     const codeClass = f.code === "M" ? "M" : (f.code === "A" ? "A" : (f.code === "D" ? "D" : "untracked"));
 
@@ -4666,8 +8046,9 @@ function renderModalFilesList() {
 
     row.addEventListener("click", () => {
       closeCommitModal();
-      switchMode("designer");
-      fileSelect.value = f.path;
+      ensureStudioChatVisible();
+      toggleCodeDrawer(true);
+      if (fileSelect) fileSelect.value = f.path;
       openFile(f.path);
     });
 
@@ -4676,20 +8057,66 @@ function renderModalFilesList() {
 }
 
 function renderModalSessionLog() {
-  modalSessionLogCount.innerText = sessionChangesLog.length;
+  const codeChanges = (sessionChangesLog || []).filter(
+    (item) => item && (item.isCodeChange || CODE_CHANGE_ACTION_TYPES.has(item.actionType) || item.actionType === "commit")
+  );
+  const displayList = codeChanges.length > 0 ? codeChanges : sessionChangesLog;
+  const pendingCount = getPendingCodeChanges().length;
 
-  if (sessionChangesLog.length === 0) {
-    modalSessionTimeline.innerHTML = '<div style="color: #64748b; font-size: 11px; text-align: center; padding: 14px 0;">No edits recorded in this session yet.</div>';
+  if (modalSessionLogCount) {
+    modalSessionLogCount.innerText = pendingCount > 0 ? `${pendingCount} new` : String(displayList.length);
+  }
+
+  const btnClearCommitted = document.getElementById("btn-clear-committed-log");
+  if (btnClearCommitted && !btnClearCommitted.__wired) {
+    btnClearCommitted.__wired = true;
+    btnClearCommitted.addEventListener("click", () => {
+      sessionChangesLog = (sessionChangesLog || []).filter((item) => !item.committed && item.actionType !== "commit");
+      saveSessionChangesLog();
+      renderModalSessionLog();
+    });
+  }
+
+  if (!displayList || displayList.length === 0) {
+    modalSessionTimeline.innerHTML = '<div style="color: #64748b; font-size: 11px; text-align: center; padding: 14px 0;">No changes recorded for this app yet.</div>';
     return;
   }
 
   modalSessionTimeline.innerHTML = "";
-  sessionChangesLog.forEach((item) => {
+  displayList.forEach((item) => {
     const el = document.createElement("div");
     el.className = "timeline-item";
+    const isCommitted = Boolean(item.committed || item.actionType === "commit");
+    el.style.cssText = [
+      "display: flex",
+      "flex-direction: column",
+      "gap: 3px",
+      "padding: 6px 8px",
+      "border-radius: 6px",
+      "margin-bottom: 5px",
+      isCommitted
+        ? "background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(51, 65, 85, 0.45); opacity: 0.78;"
+        : "background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3);"
+    ].join(";");
+
+    const statusBadge = isCommitted
+      ? `<span style="font-size: 9px; padding: 1px 5px; border-radius: 4px; background: rgba(100, 116, 139, 0.25); color: #94a3b8; font-weight: 700;">✓ Committed${item.commitHash ? ` (${escapeHtml(item.commitHash)})` : ""}</span>`
+      : `<span style="font-size: 9px; padding: 1px 5px; border-radius: 4px; background: rgba(16, 185, 129, 0.22); color: #34d399; font-weight: 700;">● Pending Commit</span>`;
+
+    const fileBadge = item.filePath
+      ? `<code style="font-size: 9.5px; color: #38bdf8; background: rgba(56, 189, 248, 0.12); padding: 1px 5px; border-radius: 4px;">${escapeHtml(item.filePath)}</code>`
+      : "";
+
     el.innerHTML = `
-      <span class="timeline-time">${escapeHtml(item.time)}</span>
-      <span class="timeline-desc">${escapeHtml(item.summary)}</span>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+          ${statusBadge}
+          ${fileBadge}
+        </div>
+        <span class="timeline-time" style="font-size: 9.5px; color: #64748b;">${escapeHtml(item.time || "")}</span>
+      </div>
+      <div class="timeline-desc" style="font-size: 11px; color: #f1f5f9; font-weight: 600;">${escapeHtml(item.summary)}</div>
+      ${item.explanation ? `<div style="font-size: 10px; color: #94a3b8; line-height: 1.35;">${escapeHtml(item.explanation)}</div>` : ""}
     `;
     modalSessionTimeline.appendChild(el);
   });
@@ -4704,7 +8131,10 @@ async function generateAiCommitMessage() {
 
   try {
     const files = (currentGitStatus?.files || []).map((f) => f.path);
-    const recent = sessionChangesLog.slice(0, 5).map((s) => s.summary);
+    const pending = getPendingCodeChanges();
+    const recent = (pending.length > 0 ? pending : sessionChangesLog.slice(0, 8)).map(
+      (s) => `${s.filePath ? `[${s.filePath}] ` : ""}${s.summary}${s.explanation ? ` — ${s.explanation}` : ""}`
+    );
 
     const res = await fetch(`${SERVER_URL}/api/apps/${activeApp.slug}/generate-commit-message`, {
       method: "POST",
@@ -4715,7 +8145,14 @@ async function generateAiCommitMessage() {
     if (res.ok) {
       const data = await res.json();
       if (data.commit_message) {
-        commitMsgInput.value = data.commit_message;
+        // Combine the AI commit title with the structured Change Log bullets if not already multi-line
+        const aiHeader = data.commit_message.trim();
+        if (recent.length > 0 && !aiHeader.includes("Change Log:")) {
+          const bullets = recent.slice(0, 12).map((line) => `- ${line}`).join("\n");
+          commitMsgInput.value = `${aiHeader}\n\nChange Log:\n${bullets}`;
+        } else {
+          commitMsgInput.value = aiHeader;
+        }
       }
     }
   } catch (e) {
@@ -4729,7 +8166,10 @@ async function generateAiCommitMessage() {
 async function commitAndPushApp(pushRemote = true) {
   if (!activeApp) return;
 
-  const msg = commitMsgInput.value.trim() || `Update ${activeApp.name} via Geppy's Galactic`;
+  const msg = commitMsgInput.value.trim() || buildDefaultCommitMessageWithChangelog();
+  const chkWriteChangelog = document.getElementById("chk-write-changelog-md");
+  const updateChangelogFile = chkWriteChangelog ? Boolean(chkWriteChangelog.checked) : true;
+  const pendingChanges = getPendingCodeChanges();
 
   btnCommitPcOnly.disabled = true;
   btnDoCommitAndPush.disabled = true;
@@ -4739,7 +8179,7 @@ async function commitAndPushApp(pushRemote = true) {
   commitFeedback.innerHTML = `
     <div style="display: flex; align-items: center; gap: 8px; color: #a5b4fc;">
       <i class="fa-solid fa-spinner animate-spin"></i>
-      <span>${pushRemote ? "Saving to disk, committing to local Git, and pushing to GitHub..." : "Saving and committing to local Git on computer..."}</span>
+      <span>${pushRemote ? "Updating Change Log, committing to local Git, and pushing to GitHub..." : "Updating Change Log and committing to local Git on computer..."}</span>
     </div>
   `;
 
@@ -4749,13 +8189,31 @@ async function commitAndPushApp(pushRemote = true) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         commit_message: msg,
-        push_remote: pushRemote
+        push_remote: pushRemote,
+        update_changelog_file: updateChangelogFile,
+        changelog_entries: pendingChanges.map((c) => ({
+          time: c.time,
+          action_type: c.actionType,
+          file_path: c.filePath,
+          summary: c.summary,
+          explanation: c.explanation
+        }))
       })
     });
 
     const data = await res.json();
 
     if (data.success) {
+      // Mark all pending changes as committed with the new commit hash!
+      const cHash = data.commit_hash || "HEAD";
+      sessionChangesLog.forEach((item) => {
+        if (!item.committed && (item.isCodeChange || CODE_CHANGE_ACTION_TYPES.has(item.actionType))) {
+          item.committed = true;
+          item.commitHash = cHash;
+        }
+      });
+      saveSessionChangesLog();
+
       if (pushRemote && data.pushed_to_github) {
         commitFeedback.className = "commit-feedback success";
         commitFeedback.innerHTML = `
@@ -4764,8 +8222,8 @@ async function commitAndPushApp(pushRemote = true) {
             <span>Successfully Synced to Computer &amp; GitHub!</span>
           </div>
           <div style="font-size: 10.5px; opacity: 0.95;">
-            💻 <strong>Local PC:</strong> Saved to disk &amp; committed (<code>${data.commit_hash || "HEAD"}</code>)<br>
-            🐙 <strong>GitHub:</strong> Pushed to <code>${data.branch || "main"}</code>
+            💻 <strong>Local PC:</strong> Saved to disk &amp; committed (<code>${cHash}</code>)${data.changelog_updated ? " + updated <code>CHANGELOG.md</code>" : ""}<br>
+            🐙 <strong>GitHub:</strong> Pushed with Change Log to <code>${data.branch || "main"}</code>
             ${data.github_url ? ` (<a href="${data.github_url}" target="_blank" style="color: #67e8f9; text-decoration: underline;">Open GitHub Repo</a>)` : ""}
           </div>
         `;
@@ -4775,18 +8233,20 @@ async function commitAndPushApp(pushRemote = true) {
         commitFeedback.innerHTML = `
           <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
             <i class="fa-solid fa-hard-drive"></i>
-            <span>Changes Saved to Computer Disk!</span>
+            <span>Changes &amp; Change Log Saved to Computer Disk!</span>
           </div>
           <div style="font-size: 10.5px; opacity: 0.95;">
-            💻 Committed to local Git (<code>${data.commit_hash || "HEAD"}</code>) on branch <code>${data.branch || "main"}</code>.<br>
+            💻 Committed to local Git (<code>${cHash}</code>) on branch <code>${data.branch || "main"}</code>${data.changelog_updated ? " + updated <code>CHANGELOG.md</code>" : ""}.<br>
             ${data.warning ? `<span style="color: #fbbf24;">⚠️ GitHub note: ${escapeHtml(data.warning)}</span>` : "Ready to push to GitHub anytime."}
           </div>
         `;
       }
 
-      logSessionChange("commit", `Committed changes (${data.commit_hash || "HEAD"}): "${msg}"${pushRemote && data.pushed_to_github ? " (Pushed to GitHub)" : ""}`);
+      const firstLine = msg.split("\n")[0];
+      logSessionChange("commit", `Committed changes (${cHash}): "${firstLine}"${pushRemote && data.pushed_to_github ? " (Pushed to GitHub)" : ""}`);
       await refreshGitStatus();
-      commitMsgInput.value = "";
+      renderModalFilesList();
+      renderModalSessionLog();
     } else {
       commitFeedback.className = "commit-feedback error";
       commitFeedback.innerHTML = `
@@ -4808,3 +8268,1678 @@ async function commitAndPushApp(pushRemote = true) {
     btnDoCommitAndPush.disabled = false;
   }
 }
+
+// ============================================================================
+// LIVE APP RUNTIME WATCHDOG & PERSISTENT ERROR / FREEZE LOG
+// ============================================================================
+let runtimeWatchdogEnabled = true;
+let consecutiveHeartbeatTimeouts = 0;
+let lastKnownTabAction = null;
+let latestRuntimeIssue = null;
+let watchdogErrorLog = [];
+
+function isFalsePositiveTabHang(issue) {
+  if (!issue) return true;
+  const title = String(issue.title || "");
+  const detail = String(issue.detail || "");
+  if (issue.hiddenOrTransition) return true;
+  // Passive event-loop drift without an explicit recent button click is almost always browser background-tab timer throttling
+  if (
+    (issue.type === "ui_freeze" || /UI Main-Thread Hang/i.test(title)) &&
+    (!issue.buttonLabel || /App main thread stalled for/i.test(detail))
+  ) {
+    return true;
+  }
+  // Background tab heartbeat timeout when no interactive button was just clicked
+  if (
+    (issue.type === "hard_freeze" || /App Window Frozen/i.test(title)) &&
+    !issue.buttonLabel
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function loadWatchdogLog(slug) {
+  watchdogErrorLog = [];
+  if (!slug) {
+    renderWatchdogLogList();
+    return;
+  }
+  try {
+    const raw = localStorage.getItem(`galactic_watchdog_log_${slug}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        // Automatically purge false-positive tab-switch / background-throttling hang alerts
+        const filtered = parsed.filter((entry) => !isFalsePositiveTabHang(entry));
+        watchdogErrorLog = filtered;
+        if (filtered.length !== parsed.length) {
+          localStorage.setItem(`galactic_watchdog_log_${slug}`, JSON.stringify(filtered.slice(0, 100)));
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Could not read watchdog log from storage:", e);
+  }
+  renderWatchdogLogList();
+}
+
+function saveWatchdogLog(slug = activeApp?.slug) {
+  if (!slug) return;
+  try {
+    localStorage.setItem(`galactic_watchdog_log_${slug}`, JSON.stringify(watchdogErrorLog.slice(0, 100)));
+  } catch (e) {}
+}
+
+function recordWatchdogEvent(issue) {
+  if (!issue || isFalsePositiveTabHang(issue)) return null;
+  const now = Date.now();
+  const title = issue.title || "Runtime Issue Detected";
+  const detail = issue.detail || "";
+
+  // Deduplicate identical consecutive events within 4 seconds
+  const recentDup = watchdogErrorLog.find(
+    (entry) => entry.title === title && entry.detail === detail && now - (entry.timestamp || 0) < 4000
+  );
+  if (recentDup) {
+    recentDup.occurrences = (recentDup.occurrences || 1) + 1;
+    recentDup.timestamp = now;
+    recentDup.time = new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    saveWatchdogLog();
+    renderWatchdogLogList();
+    return recentDup;
+  }
+
+  const entry = {
+    id: `wd-${now}-${Math.random().toString(36).slice(2, 6)}`,
+    type: issue.type || "runtime_error",
+    title,
+    detail,
+    buttonLabel: issue.buttonLabel || null,
+    durationMs: issue.durationMs || null,
+    time: new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    timestamp: now,
+    status: "unresolved",
+    occurrences: 1
+  };
+
+  watchdogErrorLog.unshift(entry);
+  if (watchdogErrorLog.length > 100) {
+    watchdogErrorLog.pop();
+  }
+  saveWatchdogLog();
+  renderWatchdogLogList();
+  return entry;
+}
+
+function updateWatchdogBadgesCount() {
+  const countPill = document.getElementById("watchdog-log-count-pill");
+  const drawerBadge = document.getElementById("watchdog-drawer-count-badge");
+  const unresolvedCount = watchdogErrorLog.filter((e) => e.status !== "fixed").length;
+  const totalCount = watchdogErrorLog.length;
+
+  if (countPill) {
+    if (totalCount > 0) {
+      countPill.style.display = "inline-block";
+      countPill.innerText = unresolvedCount > 0 ? String(unresolvedCount) : String(totalCount);
+      countPill.style.background = unresolvedCount > 0 ? "rgba(239, 68, 68, 0.35)" : "rgba(16, 185, 129, 0.25)";
+      countPill.style.color = unresolvedCount > 0 ? "#fecaca" : "#6ee7b7";
+      countPill.style.borderColor = unresolvedCount > 0 ? "rgba(248, 113, 113, 0.7)" : "rgba(16, 185, 129, 0.45)";
+    } else {
+      countPill.style.display = "none";
+    }
+  }
+  if (drawerBadge) {
+    drawerBadge.innerText = `${totalCount} caught (${unresolvedCount} open)`;
+  }
+}
+
+function toggleWatchdogLogDrawer(forceOpen = null) {
+  const drawer = document.getElementById("watchdog-log-drawer");
+  if (!drawer) return;
+  const isHidden = drawer.classList.contains("hidden");
+  const shouldOpen = forceOpen !== null ? forceOpen : isHidden;
+  if (shouldOpen) {
+    drawer.classList.remove("hidden");
+    renderWatchdogLogList();
+  } else {
+    drawer.classList.add("hidden");
+  }
+}
+
+async function investigateWatchdogIssue(entry) {
+  if (!entry) return;
+  entry.status = entry.status === "fixed" ? "fixed" : "investigated";
+  saveWatchdogLog();
+  renderWatchdogLogList();
+  ensureStudioChatVisible();
+
+  const prompt = `Look into this runtime issue caught by the Watchdog in ${activeApp ? activeApp.name : "the app"}:\n` +
+    `- **Issue**: ${entry.title}\n` +
+    `- **Details**: ${entry.detail}\n` +
+    `${entry.buttonLabel ? `- **Triggered By**: Interacting with \`${entry.buttonLabel}\`\n` : ""}` +
+    `Please explain what is causing this in \`${activeFilePath || "the codebase"}\` and propose how we should fix it.`;
+
+  await submitBrainstorm(prompt);
+}
+
+async function fixWatchdogIssue(entry) {
+  if (!entry) return;
+  ensureStudioChatVisible();
+
+  // Smart-select the right target file for this Watchdog issue (e.g., frontend UI file for UI freezes/console errors, backend file for HTTP 500 server errors)
+  if (activeApp) {
+    if (!appFileList || appFileList.length === 0) {
+      await loadFileTree(activeApp.slug);
+    }
+    const paths = (appFileList || []).map((f) => (typeof f === "object" && f ? f.path : f)).filter(Boolean);
+    const detailStr = `${entry.title || ""} ${entry.detail || ""} ${entry.buttonLabel || ""}`;
+
+    // 1. Check if the stack trace / error detail explicitly names one of the app's files
+    let bestFile = paths.find((p) => {
+      const base = p.split("/").pop();
+      return base && base.length > 3 && detailStr.toLowerCase().includes(base.toLowerCase());
+    });
+
+    // 2. If it's a browser UI freeze or frontend runtime error and activeFilePath is a .py backend file, switch to the primary frontend UI file
+    if (!bestFile) {
+      if (entry.type === "server_error") {
+        bestFile = paths.find((p) => /(main|app|server)\.(py|js|ts)$/i.test(p));
+      } else if (!activeFilePath || /\.py$/i.test(activeFilePath)) {
+        bestFile =
+          paths.find((p) => /static\/index\.html$/i.test(p)) ||
+          paths.find((p) => /src\/(App|main)\.(jsx|tsx|js|ts)$/i.test(p)) ||
+          paths.find((p) => /index\.html$/i.test(p)) ||
+          guessBestTargetFile({ title: entry.title, description: entry.detail, category: "ux" }, appFileList);
+      }
+    }
+
+    if (bestFile && bestFile !== activeFilePath) {
+      if (fileSelect) fileSelect.value = bestFile;
+      await openFile(bestFile);
+    }
+  }
+
+  const fixPrompt =
+    `Fix runtime ${entry.type === "hard_freeze" || entry.type === "ui_freeze" ? "UI freeze / main-thread hang" : "error"}: ${entry.title}. ` +
+    `Details: ${entry.detail}. ` +
+    `${entry.buttonLabel ? `Triggered when interacting with ${entry.buttonLabel}. ` : ""}` +
+    `Ensure the handler or async operation is non-blocking, has proper try/catch error handling, and resolves the root cause cleanly.`;
+
+  if (designerAiInput) {
+    designerAiInput.value = fixPrompt;
+  }
+  const ok = await applyDesignerAiEdit(fixPrompt, "fix");
+
+  if (ok) {
+    entry.status = "fixed";
+    saveWatchdogLog();
+    renderWatchdogLogList();
+  }
+}
+
+function renderWatchdogLogList() {
+  updateWatchdogBadgesCount();
+  const listEl = document.getElementById("watchdog-log-list");
+  if (!listEl) return;
+
+  if (!watchdogErrorLog || watchdogErrorLog.length === 0) {
+    listEl.innerHTML = `
+      <div style="color: #64748b; font-size: 11px; text-align: center; padding: 14px 6px;">
+        <i class="fa-solid fa-circle-check" style="color: #10b981; margin-right: 4px;"></i>
+        No runtime freezes, crashes, or errors caught yet for ${escapeHtml(activeApp ? activeApp.name : "this app")}.
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = "";
+  const gName = getGeppyName(activeApp);
+
+  watchdogErrorLog.forEach((entry) => {
+    const card = document.createElement("div");
+    const isFixed = entry.status === "fixed";
+    const isFreeze = entry.type === "hard_freeze" || entry.type === "ui_freeze";
+
+    card.style.cssText = [
+      "background: #111827",
+      `border: 1px solid ${isFixed ? "rgba(16, 185, 129, 0.35)" : (isFreeze ? "rgba(239, 68, 68, 0.45)" : "rgba(245, 158, 11, 0.4)")}`,
+      `border-left: 3px solid ${isFixed ? "#10b981" : (isFreeze ? "#ef4444" : "#f59e0b")}`,
+      "border-radius: 7px",
+      "padding: 7px 9px",
+      "display: flex",
+      "flex-direction: column",
+      "gap: 5px",
+      isFixed ? "opacity: 0.82" : ""
+    ].join(";");
+
+    const statusBadge = isFixed
+      ? `<span style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 700;">✓ Fixed</span>`
+      : entry.status === "investigated"
+      ? `<span style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 700;">👀 Reviewed</span>`
+      : `<span style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 700;">● Caught</span>`;
+
+    const occBadge = entry.occurrences && entry.occurrences > 1
+      ? `<span style="background: rgba(255,255,255,0.08); color: #cbd5e1; padding: 1px 5px; border-radius: 4px; font-size: 9px;">×${entry.occurrences}</span>`
+      : "";
+
+    card.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0;">
+          ${statusBadge}
+          ${occBadge}
+          <strong style="font-size: 11px; color: #f8fafc;">${escapeHtml(entry.title)}</strong>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+          <span style="font-size: 9.5px; color: #64748b; font-family: monospace;">${escapeHtml(entry.time || "")}</span>
+          <button type="button" class="btn-wd-delete" style="background: transparent; border: none; color: #64748b; cursor: pointer; font-size: 10px;" title="Remove from log">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div style="font-size: 10.5px; color: #cbd5e1; font-family: monospace; word-break: break-word; background: rgba(0,0,0,0.3); padding: 4px 6px; border-radius: 4px;">
+        ${escapeHtml(entry.detail || "")}
+      </div>
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 2px;">
+        <button type="button" class="btn-wd-investigate" style="padding: 3px 7px; border-radius: 5px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.45); color: #c7d2fe; font-size: 10px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Ask ${escapeHtml(gName)} to look into this error and explain what happened in Chat">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>Look Into It</span>
+        </button>
+        <button type="button" class="btn-wd-fix" style="padding: 3px 8px; border-radius: 5px; background: linear-gradient(135deg, #ef4444, #d97706); border: none; color: #fff; font-size: 10px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Have ${escapeHtml(gName)} automatically fix this error in your code">
+          <i class="fa-solid fa-wrench"></i>
+          <span>Ask ${escapeHtml(gName)} to Fix</span>
+        </button>
+      </div>
+    `;
+
+    const btnInvestigate = card.querySelector(".btn-wd-investigate");
+    if (btnInvestigate) {
+      btnInvestigate.addEventListener("click", () => {
+        investigateWatchdogIssue(entry);
+      });
+    }
+
+    const btnFix = card.querySelector(".btn-wd-fix");
+    if (btnFix) {
+      btnFix.addEventListener("click", () => {
+        fixWatchdogIssue(entry);
+      });
+    }
+
+    const btnDel = card.querySelector(".btn-wd-delete");
+    if (btnDel) {
+      btnDel.addEventListener("click", () => {
+        const idx = watchdogErrorLog.findIndex((x) => x.id === entry.id);
+        if (idx !== -1) {
+          watchdogErrorLog.splice(idx, 1);
+          saveWatchdogLog();
+          renderWatchdogLogList();
+        }
+      });
+    }
+
+    listEl.appendChild(card);
+  });
+}
+
+function setRuntimeMonitorBadgeState(state, labelText) {
+  const badge = document.getElementById("btn-runtime-monitor-badge");
+  const dot = document.getElementById("runtime-monitor-dot");
+  const lbl = document.getElementById("runtime-monitor-label");
+  const chk = document.getElementById("chk-watchdog-enabled");
+  if (chk) chk.checked = runtimeWatchdogEnabled;
+  if (!badge || !dot || !lbl) return;
+
+  if (!runtimeWatchdogEnabled) {
+    badge.style.background = "rgba(100, 116, 139, 0.16)";
+    badge.style.borderColor = "rgba(100, 116, 139, 0.4)";
+    badge.style.color = "#94a3b8";
+    dot.style.background = "#94a3b8";
+    lbl.innerText = "Watchdog OFF";
+    updateWatchdogBadgesCount();
+    return;
+  }
+
+  if (state === "frozen") {
+    badge.style.background = "rgba(239, 68, 68, 0.25)";
+    badge.style.borderColor = "rgba(248, 113, 113, 0.85)";
+    badge.style.color = "#fca5a5";
+    dot.style.background = "#ef4444";
+    lbl.innerText = labelText || "🚨 FROZEN";
+  } else if (state === "warning") {
+    badge.style.background = "rgba(245, 158, 11, 0.22)";
+    badge.style.borderColor = "rgba(251, 191, 36, 0.75)";
+    badge.style.color = "#fde68a";
+    dot.style.background = "#f59e0b";
+    lbl.innerText = labelText || "⚠️ Issue";
+  } else {
+    badge.style.background = "rgba(16, 185, 129, 0.14)";
+    badge.style.borderColor = "rgba(16, 185, 129, 0.4)";
+    badge.style.color = "#34d399";
+    dot.style.background = "#34d399";
+    lbl.innerText = labelText || "Watchdog ON";
+  }
+  updateWatchdogBadgesCount();
+}
+
+function showRuntimeAlertBanner(issue) {
+  if (!issue || isFalsePositiveTabHang(issue)) return;
+  const loggedEntry = recordWatchdogEvent(issue);
+  if (!loggedEntry) return;
+  latestRuntimeIssue = loggedEntry;
+
+  const banner = document.getElementById("runtime-alert-banner");
+  const titleEl = document.getElementById("runtime-alert-title");
+  const detailEl = document.getElementById("runtime-alert-detail");
+  const fixLabel = document.getElementById("btn-fix-runtime-label");
+  if (!banner || !titleEl || !detailEl) return;
+
+  const gName = getGeppyName(activeApp);
+  if (fixLabel) {
+    fixLabel.innerText = `Ask ${gName} to Fix`;
+  }
+
+  titleEl.innerText = issue.title || "Runtime Freeze / Error Detected";
+  detailEl.innerText = issue.detail || "";
+  banner.classList.remove("hidden");
+
+  setRuntimeMonitorBadgeState(
+    issue.type === "hard_freeze" || issue.type === "ui_freeze" ? "frozen" : "warning",
+    issue.type === "hard_freeze" || issue.type === "ui_freeze" ? "🚨 Freeze!" : "⚠️ Error"
+  );
+}
+
+function dismissRuntimeAlertBanner() {
+  const banner = document.getElementById("runtime-alert-banner");
+  if (banner) banner.classList.add("hidden");
+  setRuntimeMonitorBadgeState("healthy", "Watchdog ON");
+}
+
+async function pollAndInjectRuntimeWatchdog() {
+  if (!runtimeWatchdogEnabled) return;
+  if (typeof chrome === "undefined" || !chrome.scripting || !chrome.tabs) return;
+
+  // Give a 3-second grace window whenever the user switches tabs so Chrome waking up a background tab never triggers a false hang
+  if (typeof lastTabSwitchTimestamp === "number" && Date.now() - lastTabSwitchTimestamp < 3000) {
+    consecutiveHeartbeatTimeouts = 0;
+    return;
+  }
+
+  let targetTabId = activeTabInstance.tabId || activeTabId;
+  if (!targetTabId) {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.id && tab.url && /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(tab.url)) {
+        targetTabId = tab.id;
+        activeTabId = tab.id;
+      }
+    } catch (e) {}
+  }
+  if (!targetTabId) return;
+
+  // Verify the tab is an ACTIVE, visible, fully-loaded local http(s) page before scripting
+  let tabObj = null;
+  try {
+    tabObj = await chrome.tabs.get(targetTabId);
+    if (
+      !tabObj ||
+      !tabObj.active ||
+      tabObj.discarded ||
+      tabObj.status !== "complete" ||
+      !tabObj.url ||
+      !/^https?:\/\//i.test(tabObj.url)
+    ) {
+      consecutiveHeartbeatTimeouts = 0;
+      return;
+    }
+  } catch (e) {
+    consecutiveHeartbeatTimeouts = 0;
+    return;
+  }
+
+  // Race executeScript against a 1500ms timeout to detect hard main-thread freezes (infinite loops!)
+  let timedOut = false;
+  const timeoutPromise = new Promise((resolve) => {
+    setTimeout(() => {
+      timedOut = true;
+      resolve({ __timeout: true });
+    }, 1500);
+  });
+
+  const scriptPromise = chrome.scripting.executeScript({
+    target: { tabId: targetTabId },
+    func: () => {
+      // Install or upgrade in-page watchdog (version 2: tab-visibility & focus aware)
+      if (!window.__geppyWatchdog) {
+        window.__geppyWatchdog = {
+          version: 2,
+          installedAt: Date.now(),
+          lastAction: null,
+          events: [],
+          lastTick: performance.now(),
+          isHidden: Boolean(document.hidden || document.visibilityState !== "visible"),
+          resumeGraceUntil: performance.now() + 3000
+        };
+      }
+
+      const wd = window.__geppyWatchdog;
+      wd.version = 2;
+      if (typeof wd.resumeGraceUntil !== "number") {
+        wd.resumeGraceUntil = performance.now() + 3000;
+      }
+
+      // Wire visibility/focus listeners once so leaving or returning to the tab resets timers and suppresses false hang alerts
+      if (!window.__geppyVisibilityWired) {
+        window.__geppyVisibilityWired = true;
+        const onVisibilityOrFocusChange = () => {
+          const hiddenNow = Boolean(
+            document.hidden ||
+            document.visibilityState !== "visible" ||
+            (typeof document.hasFocus === "function" && !document.hasFocus())
+          );
+          wd.isHidden = hiddenNow;
+          wd.lastTick = performance.now();
+          // Ignore timer drift for 3.5 seconds after any tab switch, blur, or focus transition
+          wd.resumeGraceUntil = performance.now() + 3500;
+          if (hiddenNow) {
+            wd.lastAction = null;
+          }
+        };
+        document.addEventListener("visibilitychange", onVisibilityOrFocusChange, true);
+        window.addEventListener("blur", onVisibilityOrFocusChange, true);
+        window.addEventListener("focus", onVisibilityOrFocusChange, true);
+        window.addEventListener("pageshow", onVisibilityOrFocusChange, true);
+      }
+
+      if (!window.__geppyWatchdogListenersInstalled) {
+        window.__geppyWatchdogListenersInstalled = true;
+
+        const describeElement = (el) => {
+          if (!el) return "Unknown Element";
+          const tag = (el.tagName || "ELEMENT").toLowerCase();
+          const id = el.id ? `#${el.id}` : "";
+          const text = (el.innerText || el.value || el.getAttribute("aria-label") || el.title || "")
+            .trim()
+            .replace(/\s+/g, " ")
+            .slice(0, 42);
+          return `<${tag}${id}>${text ? ` "${text}"` : ""}`;
+        };
+
+        const isTabActivelyVisible = () => {
+          if (document.hidden || document.visibilityState !== "visible") return false;
+          if (typeof document.hasFocus === "function" && !document.hasFocus()) return false;
+          if (performance.now() < (wd.resumeGraceUntil || 0)) return false;
+          return true;
+        };
+
+        // 1. Capture button/interactive clicks BEFORE click handler runs (pointerdown)
+        window.addEventListener(
+          "pointerdown",
+          (ev) => {
+            if (document.hidden || document.visibilityState !== "visible") return;
+            const btn = ev.target && ev.target.closest
+              ? ev.target.closest("button, a, [role='button'], input[type='submit'], input[type='button'], [onclick]")
+              : ev.target;
+            if (btn) {
+              wd.lastAction = {
+                label: describeElement(btn),
+                timestamp: Date.now(),
+                perfStart: performance.now()
+              };
+            }
+          },
+          true
+        );
+
+        // 2. Post-click main-thread freeze & lag check (only when tab remains visible & focused)
+        window.addEventListener(
+          "click",
+          (ev) => {
+            if (!isTabActivelyVisible()) return;
+            const btn = ev.target && ev.target.closest
+              ? ev.target.closest("button, a, [role='button'], input[type='submit'], input[type='button'], [onclick]")
+              : ev.target;
+            if (!btn) return;
+            const label = describeElement(btn);
+            const t0 = performance.now();
+            setTimeout(() => {
+              // Ignore if user switched tabs or window lost focus during/after the click
+              if (!isTabActivelyVisible()) {
+                wd.lastTick = performance.now();
+                return;
+              }
+              const elapsed = Math.round(performance.now() - t0);
+              // A 60ms timer taking > 900ms while continuously focused means the click handler blocked the main thread
+              if (elapsed > 900) {
+                wd.events.push({
+                  type: "ui_freeze",
+                  title: `🥶 Button Freeze Detected (${elapsed}ms)`,
+                  detail: `Clicking ${label} froze the main UI thread for ${elapsed}ms.`,
+                  buttonLabel: label,
+                  durationMs: elapsed,
+                  timestamp: Date.now()
+                });
+              }
+            }, 60);
+          },
+          true
+        );
+
+        // 3. Event-loop lag monitor — strictly ignores background tab throttling and only flags post-interaction freezes
+        setInterval(() => {
+          const now = performance.now();
+          if (!isTabActivelyVisible()) {
+            wd.lastTick = now;
+            return;
+          }
+          const drift = Math.round(now - wd.lastTick - 500);
+          wd.lastTick = now;
+          const recentBtn =
+            wd.lastAction && Date.now() - wd.lastAction.timestamp < 3500
+              ? wd.lastAction.label
+              : null;
+          // Only report a main-thread hang if the user actively clicked an element and the visible tab stalled for >2000ms
+          if (drift > 2000 && recentBtn) {
+            wd.events.push({
+              type: "ui_freeze",
+              title: `🥶 UI Main-Thread Hang (${drift}ms)`,
+              detail: `App froze for ${drift}ms right after interacting with ${recentBtn}.`,
+              buttonLabel: recentBtn,
+              durationMs: drift,
+              timestamp: Date.now()
+            });
+          }
+        }, 500);
+
+        // 4. Uncaught Runtime Errors
+        window.addEventListener("error", (ev) => {
+          const recentBtn =
+            wd.lastAction && Date.now() - wd.lastAction.timestamp < 5000
+              ? wd.lastAction.label
+              : null;
+          const msg = ev.message || String(ev.error || "Runtime Error");
+          wd.events.push({
+            type: "runtime_error",
+            title: recentBtn ? `💥 Crash after clicking ${recentBtn}` : "💥 Uncaught JS Error",
+            detail: `${msg}${ev.filename ? ` (${ev.filename.split("/").pop()}:${ev.lineno || 0})` : ""}`,
+            buttonLabel: recentBtn,
+            timestamp: Date.now()
+          });
+        });
+
+        // 5. Unhandled Promise Rejections
+        window.addEventListener("unhandledrejection", (ev) => {
+          const recentBtn =
+            wd.lastAction && Date.now() - wd.lastAction.timestamp < 6000
+              ? wd.lastAction.label
+              : null;
+          const reason = ev.reason ? (ev.reason.message || String(ev.reason)) : "Unhandled Promise Rejection";
+          wd.events.push({
+            type: "promise_rejection",
+            title: recentBtn ? `⚠️ Failed Action on ${recentBtn}` : "⚠️ Unhandled Async Error",
+            detail: reason,
+            buttonLabel: recentBtn,
+            timestamp: Date.now()
+          });
+        });
+
+        // 6. Intercept console.error() so caught framework/app errors are also logged!
+        if (console && console.error && !window.__geppyConsoleWrapped) {
+          window.__geppyConsoleWrapped = true;
+          const origConsoleError = console.error.bind(console);
+          console.error = (...args) => {
+            origConsoleError(...args);
+            try {
+              const joined = args
+                .map((a) => {
+                  if (a instanceof Error) return `${a.name}: ${a.message}`;
+                  if (typeof a === "object" && a !== null) {
+                    try { return JSON.stringify(a).slice(0, 220); } catch (e) { return String(a); }
+                  }
+                  return String(a);
+                })
+                .join(" ")
+                .trim();
+              if (joined && !joined.includes("geppy-live-preview")) {
+                const recentBtn =
+                  wd.lastAction && Date.now() - wd.lastAction.timestamp < 5000
+                    ? wd.lastAction.label
+                    : null;
+                wd.events.push({
+                  type: "console_error",
+                  title: recentBtn ? `🛑 Console Error after ${recentBtn}` : "🛑 Console Error Logged",
+                  detail: joined.slice(0, 320),
+                  buttonLabel: recentBtn,
+                  timestamp: Date.now()
+                });
+              }
+            } catch (e) {}
+          };
+        }
+
+        // 7. Hung or Failed fetch() Monitor
+        if (window.fetch && !window.__geppyFetchWrapped) {
+          window.__geppyFetchWrapped = true;
+          const origFetch = window.fetch.bind(window);
+          window.fetch = async (...args) => {
+            const urlStr = typeof args[0] === "string" ? args[0] : (args[0]?.url || "API request");
+            const recentBtn =
+              wd.lastAction && Date.now() - wd.lastAction.timestamp < 3000
+                ? wd.lastAction.label
+                : null;
+            const hangTimer = setTimeout(() => {
+              if (recentBtn && !document.hidden && document.visibilityState === "visible") {
+                wd.events.push({
+                  type: "hung_request",
+                  title: `⏳ Hung Action on ${recentBtn}`,
+                  detail: `Request to "${urlStr}" has been stuck pending for >8 seconds after clicking ${recentBtn}.`,
+                  buttonLabel: recentBtn,
+                  timestamp: Date.now()
+                });
+              }
+            }, 8500);
+
+            try {
+              const res = await origFetch(...args);
+              clearTimeout(hangTimer);
+              if (res.status >= 500 && recentBtn) {
+                wd.events.push({
+                  type: "server_error",
+                  title: `🚨 Server Error (${res.status}) on ${recentBtn}`,
+                  detail: `${urlStr} returned HTTP ${res.status} after clicking ${recentBtn}.`,
+                  buttonLabel: recentBtn,
+                  timestamp: Date.now()
+                });
+              }
+              return res;
+            } catch (err) {
+              clearTimeout(hangTimer);
+              if (recentBtn) {
+                wd.events.push({
+                  type: "network_error",
+                  title: `🔌 Network Failure on ${recentBtn}`,
+                  detail: `Request to "${urlStr}" failed (${err.message || err}) after clicking ${recentBtn}.`,
+                  buttonLabel: recentBtn,
+                  timestamp: Date.now()
+                });
+              }
+              throw err;
+            }
+          };
+        }
+      }
+
+      // If the tab is currently hidden or within the 3.5s tab-switch grace window, discard any queued ui_freeze events
+      const inTransitionOrHidden = Boolean(
+        document.hidden ||
+        document.visibilityState !== "visible" ||
+        performance.now() < (wd.resumeGraceUntil || 0)
+      );
+      const rawEvents = wd.events.splice(0, wd.events.length);
+      const drained = rawEvents.filter((ev) => {
+        if (!ev) return false;
+        if (ev.type === "ui_freeze") {
+          if (inTransitionOrHidden) return false;
+          // Drop passive background-timer drift events (from older v1 intervals or non-interactive stalls)
+          if (!ev.buttonLabel || /App main thread stalled for/i.test(ev.detail || "")) return false;
+        }
+        return true;
+      });
+
+      return {
+        alive: true,
+        hidden: Boolean(document.hidden || document.visibilityState !== "visible"),
+        lastAction: wd.lastAction,
+        events: drained
+      };
+    }
+  }).catch(() => null);
+
+  const raceResult = await Promise.race([scriptPromise, timeoutPromise]);
+
+  if (timedOut || (raceResult && raceResult.__timeout)) {
+    // Only count heartbeat timeouts if the user actually clicked an interactive element in the last 6 seconds
+    const recentInteractiveClick =
+      lastKnownTabAction && Date.now() - (lastKnownTabAction.timestamp || 0) < 6000;
+    if (!recentInteractiveClick) {
+      consecutiveHeartbeatTimeouts = 0;
+      return;
+    }
+    consecutiveHeartbeatTimeouts += 1;
+    if (consecutiveHeartbeatTimeouts >= 2) {
+      const actionContext = lastKnownTabAction
+        ? ` right after clicking ${lastKnownTabAction.label}`
+        : "";
+      showRuntimeAlertBanner({
+        type: "hard_freeze",
+        title: "🚨 App Window Frozen (Main Thread Locked)",
+        detail: `The running app tab stopped responding to heartbeats${actionContext}. This is usually caused by an infinite loop or blocking synchronous operation.`,
+        buttonLabel: lastKnownTabAction ? lastKnownTabAction.label : null
+      });
+    }
+    return;
+  }
+
+  consecutiveHeartbeatTimeouts = 0;
+  if (Array.isArray(raceResult) && raceResult[0] && raceResult[0].result) {
+    const payload = raceResult[0].result;
+    if (payload.hidden) {
+      return;
+    }
+    if (payload.lastAction) {
+      lastKnownTabAction = payload.lastAction;
+    }
+    if (Array.isArray(payload.events) && payload.events.length > 0) {
+      const validEvents = payload.events.filter((ev) => !isFalsePositiveTabHang(ev));
+      validEvents.forEach((ev) => {
+        recordWatchdogEvent(ev);
+        logSessionChange("watchdog", `${ev.title}: ${ev.detail}`);
+      });
+      if (validEvents.length > 0) {
+        const latestEv = validEvents[validEvents.length - 1];
+        showRuntimeAlertBanner(latestEv);
+      }
+    }
+  }
+}
+
+// Wire Runtime Watchdog UI buttons & start 2-second heartbeat loop
+(function initRuntimeWatchdogUI() {
+  const badgeBtn = document.getElementById("btn-runtime-monitor-badge");
+  const dismissBtn = document.getElementById("btn-dismiss-runtime-alert");
+  const fixBtn = document.getElementById("btn-fix-runtime-issue");
+  const investigateBtn = document.getElementById("btn-investigate-runtime-issue");
+  const bannerLogBtn = document.getElementById("btn-banner-open-watchdog-log");
+  const recoverBtn = document.getElementById("btn-reload-frozen-tab");
+  const chkEnabled = document.getElementById("chk-watchdog-enabled");
+  const btnAnalyzeAll = document.getElementById("btn-watchdog-analyze-all");
+  const btnClearLog = document.getElementById("btn-watchdog-clear-log");
+  const btnCloseLog = document.getElementById("btn-close-watchdog-log");
+
+  // Clicking the Watchdog badge in the header opens/toggles the Watchdog Error Log Drawer!
+  if (badgeBtn) {
+    badgeBtn.addEventListener("click", () => {
+      toggleWatchdogLogDrawer();
+    });
+  }
+
+  if (chkEnabled) {
+    chkEnabled.addEventListener("change", (e) => {
+      runtimeWatchdogEnabled = Boolean(e.target.checked);
+      setRuntimeMonitorBadgeState("healthy", runtimeWatchdogEnabled ? "Watchdog ON" : "Watchdog OFF");
+    });
+  }
+
+  if (bannerLogBtn) {
+    bannerLogBtn.addEventListener("click", () => {
+      toggleWatchdogLogDrawer(true);
+    });
+  }
+
+  if (btnCloseLog) {
+    btnCloseLog.addEventListener("click", () => {
+      toggleWatchdogLogDrawer(false);
+    });
+  }
+
+  if (btnClearLog) {
+    btnClearLog.addEventListener("click", () => {
+      if (watchdogErrorLog.length === 0) return;
+      watchdogErrorLog = [];
+      saveWatchdogLog();
+      renderWatchdogLogList();
+    });
+  }
+
+  if (btnAnalyzeAll) {
+    btnAnalyzeAll.addEventListener("click", async () => {
+      if (!watchdogErrorLog || watchdogErrorLog.length === 0) {
+        alert("No caught errors in the Watchdog Log to review yet.");
+        return;
+      }
+      const openItems = watchdogErrorLog.filter((e) => e.status !== "fixed").slice(0, 8);
+      const targetItems = openItems.length > 0 ? openItems : watchdogErrorLog.slice(0, 6);
+      const summaryLines = targetItems.map(
+        (e, i) => `${i + 1}. **[${e.time}] ${e.title}** — \`${e.detail}\`${e.buttonLabel ? ` (after ${e.buttonLabel})` : ""}`
+      );
+      ensureStudioChatVisible();
+      await submitBrainstorm(
+        `Review these ${targetItems.length} runtime error(s)/freeze(s) caught by the Watchdog Log in ${activeApp ? activeApp.name : "this app"}:\n` +
+        summaryLines.join("\n") +
+        `\n\nPlease diagnose the root cause of these issues and let me know which ones we should fix first.`
+      );
+    });
+  }
+
+  if (dismissBtn) {
+    dismissBtn.addEventListener("click", () => {
+      dismissRuntimeAlertBanner();
+    });
+  }
+
+  if (recoverBtn) {
+    recoverBtn.addEventListener("click", async () => {
+      const targetTabId = activeTabInstance.tabId || activeTabId;
+      if (targetTabId && chrome.tabs) {
+        try {
+          await chrome.tabs.reload(targetTabId);
+          dismissRuntimeAlertBanner();
+        } catch (e) {}
+      }
+    });
+  }
+
+  if (investigateBtn) {
+    investigateBtn.addEventListener("click", async () => {
+      if (!latestRuntimeIssue) return;
+      const issue = latestRuntimeIssue;
+      dismissRuntimeAlertBanner();
+      await investigateWatchdogIssue(issue);
+    });
+  }
+
+  if (fixBtn) {
+    fixBtn.addEventListener("click", async () => {
+      if (!latestRuntimeIssue) return;
+      const issue = latestRuntimeIssue;
+      dismissRuntimeAlertBanner();
+      await fixWatchdogIssue(issue);
+    });
+  }
+
+  setInterval(pollAndInjectRuntimeWatchdog, 2000);
+})();
+
+// ============================================================================
+// 1. ANTIGRAVITY ERROR RECEPTION, DIAGNOSIS & IN-CHAT RESPONSE CONTROLLER
+// ============================================================================
+window._latestAntigravityError = null;
+window._replyingToAntigravityErrorId = null;
+const _renderedAgErrorIds = new Set();
+
+function renderAntigravityErrorChatCard(errObj, attachToBubble = null) {
+  if (!errObj || !chatHistoryEl) return;
+  const errId = errObj.id || `ag-err-${Date.now()}`;
+  if (_renderedAgErrorIds.has(errId) && !attachToBubble) return;
+  _renderedAgErrorIds.add(errId);
+
+  const card = document.createElement("div");
+  card.className = "antigravity-error-chat-card";
+  card.dataset.errorId = errId;
+  card.style.cssText = "margin-top:8px; padding:10px 11px; border-radius:10px; background:linear-gradient(135deg, rgba(88,28,135,0.92), rgba(127,29,29,0.92)); border:1.5px solid rgba(248,113,113,0.75); color:#fef2f2; font-size:11px; box-shadow:0 8px 20px rgba(0,0,0,0.45); display:flex; flex-direction:column; gap:7px;";
+
+  const replies = Array.isArray(errObj.suggested_replies) && errObj.suggested_replies.length > 0
+    ? errObj.suggested_replies
+    : [
+        { label: "🔄 Rotate Model & Retry", reply: "Rotate to the next available Gemini model and retry this instruction.", action: "rotate_and_retry" },
+        { label: "✂️ Surgical Patch Retry", reply: "Apply this change using surgical edit_file patches on the exact lines.", action: "retry_surgical" },
+        { label: "🔍 Diagnose & Explain", reply: "Diagnose this Antigravity error in detail and propose the cleanest fix.", action: "explain" }
+      ];
+
+  const actionButtonsHtml = replies.map((r, idx) => `
+    <button type="button" class="btn-ag-card-quick-reply" data-idx="${idx}" style="padding:4px 8px; border-radius:6px; font-size:10px; font-weight:700; background:rgba(15,23,42,0.8); color:#f5d0fe; border:1px solid rgba(216,180,254,0.45); cursor:pointer;">
+      ${escapeHtml(r.label || "Retry")}
+    </button>
+  `).join("");
+
+  card.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; border-bottom:1px solid rgba(248,113,113,0.3); padding-bottom:5px;">
+      <div style="display:flex; align-items:center; gap:6px; font-weight:800; color:#fda4af;">
+        <i class="fa-solid fa-atom"></i>
+        <span>${escapeHtml(errObj.title || "⚠️ Antigravity Error Diagnostic")}</span>
+      </div>
+      <span style="font-size:9px; padding:1px 6px; border-radius:999px; background:rgba(0,0,0,0.35); color:#f5d0fe; font-family:monospace;">${escapeHtml(errObj.category || "antigravity")}</span>
+    </div>
+    <div style="background:rgba(15,23,42,0.7); border-radius:7px; padding:7px 9px; border:1px solid rgba(248,113,113,0.3); display:flex; flex-direction:column; gap:5px;">
+      <div>
+        <div style="font-size:10px; font-weight:800; color:#fca5a5; text-transform:uppercase; letter-spacing:0.04em;">🔍 What the Error Is:</div>
+        <div style="font-size:11px; color:#f8fafc; margin-top:2px; line-height:1.4;">${escapeHtml(errObj.what_is_the_error || errObj.raw_error || "Antigravity encountered an error during execution.")}</div>
+      </div>
+      <div style="border-top:1px dashed rgba(148,163,184,0.25); padding-top:5px;">
+        <div style="font-size:10px; font-weight:800; color:#6ee7b7; text-transform:uppercase; letter-spacing:0.04em;">🛠️ What Needs to Be Done:</div>
+        <div style="font-size:11px; color:#e2e8f0; margin-top:2px; line-height:1.4;">${escapeHtml(errObj.what_needs_done || "Send a response or retry instruction to Antigravity below.")}</div>
+      </div>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:5px;">
+      ${actionButtonsHtml}
+    </div>
+    <div style="display:flex; align-items:center; gap:5px; margin-top:2px;">
+      <input type="text" class="ag-card-reply-input" placeholder="Respond to Antigravity right here in chat..." style="flex:1; background:rgba(2,6,23,0.9); border:1px solid rgba(216,180,254,0.5); color:#f8fafc; border-radius:6px; padding:5px 8px; font-size:10.5px; outline:none;" />
+      <button type="button" class="btn-ag-card-send-reply" style="background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; border:none; border-radius:6px; padding:5px 9px; font-size:10.5px; font-weight:700; cursor:pointer; white-space:nowrap;">
+        <i class="fa-solid fa-paper-plane"></i> Send to Antigravity
+      </button>
+    </div>
+  `;
+
+  card.querySelectorAll(".btn-ag-card-quick-reply").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const idx = Number(btn.getAttribute("data-idx") || 0);
+      const chosen = replies[idx] || replies[0];
+      if (!chosen) return;
+      await sendResponseToAntigravityInChat(chosen.reply, errId, chosen.action || "reply", errObj);
+    });
+  });
+
+  const replyInput = card.querySelector(".ag-card-reply-input");
+  const sendBtn = card.querySelector(".btn-ag-card-send-reply");
+  const submitInlineReply = async () => {
+    const txt = (replyInput ? replyInput.value : "").trim();
+    if (!txt) return;
+    if (replyInput) replyInput.value = "";
+    await sendResponseToAntigravityInChat(txt, errId, "reply", errObj);
+  };
+  if (sendBtn) sendBtn.addEventListener("click", submitInlineReply);
+  if (replyInput) {
+    replyInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submitInlineReply();
+      }
+    });
+  }
+
+  if (attachToBubble) {
+    const bodyEl = attachToBubble.querySelector(".ai-body") || attachToBubble;
+    bodyEl.appendChild(card);
+  } else {
+    const bubble = appendChatBubble("ai", `<p>⚛️ <strong>Antigravity reported an error — here is the diagnosis and what needs to be done:</strong></p>`);
+    const bodyEl = bubble.querySelector(".ai-body") || bubble;
+    bodyEl.appendChild(card);
+  }
+  chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+}
+
+window.showAntigravityErrorInGalactic = function (errObj, attachToBubble = null) {
+  if (!errObj) return;
+  window._latestAntigravityError = errObj;
+
+  // 1. Update top Antigravity Error Banner
+  const banner = document.getElementById("antigravity-error-banner");
+  const titleEl = document.getElementById("ag-err-banner-title");
+  const catEl = document.getElementById("ag-err-banner-cat");
+  const whatIsEl = document.getElementById("ag-err-what-is");
+  const needsDoneEl = document.getElementById("ag-err-what-needs-done");
+  const actionsWrap = document.getElementById("ag-err-suggested-actions");
+  const countPill = document.getElementById("galactic-ag-err-count-pill");
+
+  if (countPill) {
+    countPill.style.display = "inline-block";
+    countPill.textContent = "1";
+  }
+
+  if (banner) {
+    banner.classList.remove("hidden");
+    if (titleEl) titleEl.textContent = errObj.title || "Antigravity Error Received";
+    if (catEl) catEl.textContent = (errObj.category || "error").toUpperCase();
+    if (whatIsEl) whatIsEl.textContent = errObj.what_is_the_error || errObj.raw_error || "";
+    if (needsDoneEl) needsDoneEl.textContent = errObj.what_needs_done || "";
+
+    if (actionsWrap) {
+      actionsWrap.innerHTML = "";
+      const replies = Array.isArray(errObj.suggested_replies) ? errObj.suggested_replies : [];
+      replies.forEach((r) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.style.cssText = "padding:3px 7px; border-radius:5px; font-size:9.5px; font-weight:700; background:rgba(15,23,42,0.85); color:#f5d0fe; border:1px solid rgba(216,180,254,0.45); cursor:pointer;";
+        b.textContent = r.label || "Retry";
+        b.addEventListener("click", () => {
+          sendResponseToAntigravityInChat(r.reply, errObj.id, r.action || "reply", errObj);
+        });
+        actionsWrap.appendChild(b);
+      });
+    }
+  }
+
+  // 2. Also render interactive card in the chat stream so the user can respond right inside chat
+  renderAntigravityErrorChatCard(errObj, attachToBubble);
+
+  // 3. Speak error diagnosis if voice mode / TTS is active
+  if ((window._galacticVoiceChatActive || window._galacticTtsEnabled) && typeof window.speakGeppyText === "function") {
+    window.speakGeppyText(`Heads up! Antigravity reported an issue: ${errObj.what_is_the_error || errObj.title}. ${errObj.what_needs_done || "You can reply to Antigravity right in the chat."}`);
+  }
+};
+
+async function sendResponseToAntigravityInChat(responseText, errorId = null, action = "reply", errObj = null) {
+  const cleanText = (responseText || "").trim();
+  if (!cleanText) return;
+
+  ensureStudioChatVisible();
+  appendChatBubble("user", `<span style="color:#f0abfc; font-weight:700;">[To Antigravity]</span> ${escapeHtml(cleanText)}`);
+
+  const loadingBubble = appendChatBubble(
+    "ai",
+    `<i class="fa-solid fa-atom fa-spin" style="color:#c084fc;"></i> Sending your response to Antigravity &amp; executing recovery...`
+  );
+
+  try {
+    const targetErr = errObj || window._latestAntigravityError || {};
+    const res = await fetchAntigravityApi("/api/extension/antigravity/respond", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug: activeApp ? activeApp.slug : (targetErr.slug || ""),
+        response_text: cleanText,
+        error_id: errorId || targetErr.id || null,
+        action: action || "reply",
+        file_path: activeFilePath || targetErr.file_path || "",
+        original_instruction: targetErr.instruction || ""
+      })
+    });
+
+    const data = await res.json();
+    loadingBubble.remove();
+
+    const banner = document.getElementById("antigravity-error-banner");
+    if (banner && data.success) banner.classList.add("hidden");
+    const countPill = document.getElementById("galactic-ag-err-count-pill");
+    if (countPill && data.success) countPill.style.display = "none";
+
+    // If Antigravity modified code during the recovery response, update editor & live preview!
+    if (data.modified_code && activeApp) {
+      const finalFile = data.target_file || activeFilePath;
+      if (finalFile && codeEditor) {
+        const prevCode = codeEditor.value;
+        activeFilePath = finalFile;
+        if (fileSelect) fileSelect.value = finalFile;
+        codeEditor.value = data.modified_code;
+        recordEditedFileState(finalFile, prevCode, data.modified_code, true);
+      }
+      reloadActiveTab();
+      refreshGitStatus();
+    }
+
+    const replyMd = data.reply || data.explanation || "Antigravity processed your response.";
+    const aiBubble = appendChatBubble("ai", formatMarkdown(replyMd));
+    if (Array.isArray(data.tool_steps) && data.tool_steps.length > 0) {
+      attachAntigravityToolTraceToBubble(aiBubble, data.tool_steps, data.engine || "antigravity_sdk", data.modified_files || []);
+    }
+    if ((window._galacticVoiceChatActive || window._galacticTtsEnabled) && typeof window.speakGeppyText === "function") {
+      window.speakGeppyText(replyMd);
+    }
+  } catch (err) {
+    loadingBubble.remove();
+    appendChatBubble("ai", `⚠️ Could not reach Antigravity respond endpoint: ${escapeHtml(String(err))}`);
+  }
+}
+
+async function pollAntigravityErrorsForGalactic() {
+  try {
+    const slugParam = activeApp && activeApp.slug ? `?slug=${encodeURIComponent(activeApp.slug)}` : "";
+    const res = await fetch(`${SERVER_URL}/api/extension/antigravity/errors${slugParam}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const countPill = document.getElementById("galactic-ag-err-count-pill");
+    if (countPill) {
+      if (data.open_count > 0) {
+        countPill.style.display = "inline-block";
+        countPill.textContent = String(data.open_count);
+      } else {
+        countPill.style.display = "none";
+      }
+    }
+    if (data.latest_error && data.latest_error.status === "open") {
+      if (!_renderedAgErrorIds.has(data.latest_error.id)) {
+        window.showAntigravityErrorInGalactic(data.latest_error);
+      }
+    }
+  } catch (e) {}
+}
+
+// ============================================================================
+// 2. LIVE SCREEN STREAMING CONTROLLER (GALACTIC TAB + FULL SCREEN + GITBRIDGE)
+// ============================================================================
+window._galacticScreenStreamActive = false;
+window._latestGalacticStreamFrameB64 = null;
+let _galacticStreamInterval = null;
+let _galacticDisplayMediaStream = null;
+let _galacticDisplayVideoEl = null;
+
+window.captureGalacticTabFrameB64 = async function () {
+  // 1. If full screen/window MediaStream is active, grab frame from video element
+  if (_galacticDisplayMediaStream && _galacticDisplayVideoEl && _galacticDisplayVideoEl.readyState >= 2) {
+    try {
+      const canvas = document.createElement("canvas");
+      const w = Math.min(1280, _galacticDisplayVideoEl.videoWidth || 1280);
+      const h = Math.min(800, _galacticDisplayVideoEl.videoHeight || 720);
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(_galacticDisplayVideoEl, 0, 0, w, h);
+      return canvas.toDataURL("image/jpeg", 0.72);
+    } catch (e) {}
+  }
+
+  // 2. Otherwise capture the active browser tab directly via chrome.tabs.captureVisibleTab (zero permission prompt!)
+  if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.captureVisibleTab) {
+    return new Promise((resolve) => {
+      try {
+        chrome.tabs.captureVisibleTab(null, { format: "jpeg", quality: 68 }, (dataUrl) => {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            resolve(null);
+            return;
+          }
+          resolve(dataUrl || null);
+        });
+      } catch (err) {
+        resolve(null);
+      }
+    });
+  }
+  return null;
+};
+
+async function pushGalacticStreamTick() {
+  if (!window._galacticScreenStreamActive) return;
+  const frameB64 = await window.captureGalacticTabFrameB64();
+  if (frameB64) {
+    window._latestGalacticStreamFrameB64 = frameB64;
+    const thumbImg = document.getElementById("galactic-stream-thumb-img");
+    if (thumbImg) thumbImg.src = frameB64;
+
+    try {
+      await fetch(`${SERVER_URL}/api/live-stream/frame`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "galactic",
+          frame_b64: frameB64,
+          app_slug: activeApp ? activeApp.slug : "",
+          viewport_title: activeApp ? `${activeApp.name} (Galactic Live)` : "Galactic Browser Viewport",
+          viewport_url: currentBrowserTabUrl || ""
+        })
+      });
+    } catch (e) {}
+  }
+
+  // Also check if GitBridge Web UI is streaming its screen so we can show both thumbnails
+  try {
+    const stRes = await fetch(`${SERVER_URL}/api/live-stream/status?include_thumbnails=true`);
+    if (stRes.ok) {
+      const st = await stRes.json();
+      const gbStream = st.streams && st.streams.gitbridge;
+      const gbWrap = document.getElementById("gitbridge-stream-thumb-wrap");
+      const gbImg = document.getElementById("gitbridge-stream-thumb-img");
+      const subEl = document.getElementById("galactic-stream-status-sub");
+      if (gbStream && gbStream.active && gbStream.frame_b64) {
+        if (gbWrap) gbWrap.classList.remove("hidden");
+        if (gbImg) gbImg.src = gbStream.frame_b64;
+        if (subEl) subEl.textContent = "Streaming BOTH Galactic + GitBridge screens live to Geppy!";
+      } else {
+        if (gbWrap) gbWrap.classList.add("hidden");
+      }
+    }
+  } catch (e) {}
+}
+
+async function startGalacticScreenStream(useFullDisplayMedia = false) {
+  if (useFullDisplayMedia && navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+    try {
+      _galacticDisplayMediaStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 2, max: 5 } },
+        audio: false
+      });
+      _galacticDisplayVideoEl = document.createElement("video");
+      _galacticDisplayVideoEl.muted = true;
+      _galacticDisplayVideoEl.playsInline = true;
+      _galacticDisplayVideoEl.srcObject = _galacticDisplayMediaStream;
+      await _galacticDisplayVideoEl.play();
+      const track = _galacticDisplayMediaStream.getVideoTracks()[0];
+      if (track) {
+        track.addEventListener("ended", () => {
+          stopGalacticScreenStream();
+        });
+      }
+    } catch (err) {
+      console.warn("Full display media cancelled or unavailable, falling back to tab capture:", err);
+    }
+  }
+
+  window._galacticScreenStreamActive = true;
+  const dock = document.getElementById("galactic-stream-preview-dock");
+  const btn = document.getElementById("btn-galactic-stream-toggle");
+  const lbl = document.getElementById("galactic-stream-btn-label");
+  if (dock) dock.classList.remove("hidden");
+  if (btn) {
+    btn.style.background = "rgba(239, 68, 68, 0.25)";
+    btn.style.borderColor = "#f87171";
+    btn.style.color = "#fecaca";
+  }
+  if (lbl) lbl.textContent = "Streaming LIVE";
+
+  await pushGalacticStreamTick();
+  if (_galacticStreamInterval) clearInterval(_galacticStreamInterval);
+  _galacticStreamInterval = setInterval(pushGalacticStreamTick, 2500);
+}
+
+async function stopGalacticScreenStream() {
+  window._galacticScreenStreamActive = false;
+  if (_galacticStreamInterval) {
+    clearInterval(_galacticStreamInterval);
+    _galacticStreamInterval = null;
+  }
+  if (_galacticDisplayMediaStream) {
+    _galacticDisplayMediaStream.getTracks().forEach((t) => t.stop());
+    _galacticDisplayMediaStream = null;
+  }
+  _galacticDisplayVideoEl = null;
+
+  const dock = document.getElementById("galactic-stream-preview-dock");
+  const btn = document.getElementById("btn-galactic-stream-toggle");
+  const lbl = document.getElementById("galactic-stream-btn-label");
+  if (dock) dock.classList.add("hidden");
+  if (btn) {
+    btn.style.background = "rgba(6, 182, 212, 0.15)";
+    btn.style.borderColor = "rgba(6, 182, 212, 0.4)";
+    btn.style.color = "#67e8f9";
+  }
+  if (lbl) lbl.textContent = "Stream Screen";
+
+  try {
+    await fetch(`${SERVER_URL}/api/live-stream/stop`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: "galactic" })
+    });
+  } catch (e) {}
+}
+
+// ============================================================================
+// 3. LIVE VOICE CHAT WITH GEPPY + AGENT CREW CONSULTATION CONTROLLER
+// ============================================================================
+window._galacticVoiceChatActive = false;
+window._galacticTtsEnabled = localStorage.getItem("geppy_voice_tts") === "1";
+window._galacticConsultCrewEnabled = false;
+let _galacticSpeechRecognition = null;
+
+window.speakGeppyText = function (rawText) {
+  if (!("speechSynthesis" in window)) return;
+  const clean = String(rawText || "")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/[#*_`>|~]/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 520);
+  if (!clean) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(clean);
+    utter.rate = 1.04;
+    utter.pitch = 1.0;
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find((v) => /Google US English|Microsoft Guy|Microsoft Aria|Natural|English/i.test(v.name));
+    if (preferred) utter.voice = preferred;
+    window.speechSynthesis.speak(utter);
+  } catch (e) {}
+};
+
+function toggleGalacticVoiceChat(forceState = null) {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) {
+    alert("Speech recognition is not supported in this browser context.");
+    return;
+  }
+
+  const nextState = forceState !== null ? forceState : !window._galacticVoiceChatActive;
+  const btn = document.getElementById("btn-galactic-voice-toggle");
+  const lbl = document.getElementById("galactic-voice-btn-label");
+
+  if (!nextState) {
+    window._galacticVoiceChatActive = false;
+    if (_galacticSpeechRecognition) {
+      try { _galacticSpeechRecognition.stop(); } catch (e) {}
+    }
+    if (btn) {
+      btn.style.background = "rgba(16, 185, 129, 0.15)";
+      btn.style.borderColor = "rgba(16, 185, 129, 0.4)";
+      btn.style.color = "#6ee7b7";
+    }
+    if (lbl) lbl.textContent = "Voice Chat";
+    return;
+  }
+
+  window._galacticVoiceChatActive = true;
+  window._galacticTtsEnabled = true;
+  localStorage.setItem("geppy_voice_tts", "1");
+  updateGalacticTtsButtonUi();
+
+  if (btn) {
+    btn.style.background = "rgba(239, 68, 68, 0.28)";
+    btn.style.borderColor = "#f87171";
+    btn.style.color = "#fecaca";
+  }
+  if (lbl) lbl.textContent = "🎙️ Listening...";
+
+  if (!_galacticSpeechRecognition) {
+    _galacticSpeechRecognition = new SpeechRec();
+    _galacticSpeechRecognition.continuous = true;
+    _galacticSpeechRecognition.interimResults = true;
+    _galacticSpeechRecognition.lang = "en-US";
+
+    _galacticSpeechRecognition.onresult = (event) => {
+      let interimTranscript = "";
+      let finalTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+      if (brainstormInput && interimTranscript) {
+        brainstormInput.value = interimTranscript;
+      }
+      if (finalTranscript && finalTranscript.trim()) {
+        const spokenMsg = finalTranscript.trim();
+        if (brainstormInput) brainstormInput.value = "";
+        submitBrainstorm(spokenMsg, {
+          voice_mode: true,
+          consult_crew: window._galacticConsultCrewEnabled
+        });
+      }
+    };
+
+    _galacticSpeechRecognition.onend = () => {
+      if (window._galacticVoiceChatActive) {
+        try { _galacticSpeechRecognition.start(); } catch (e) {}
+      }
+    };
+  }
+
+  try {
+    _galacticSpeechRecognition.start();
+  } catch (e) {}
+}
+
+function updateGalacticTtsButtonUi() {
+  const ttsBtn = document.getElementById("btn-galactic-tts-toggle");
+  if (!ttsBtn) return;
+  ttsBtn.textContent = window._galacticTtsEnabled ? "🔊" : "🔇";
+  ttsBtn.style.color = window._galacticTtsEnabled ? "#34d399" : "#94a3b8";
+  ttsBtn.style.borderColor = window._galacticTtsEnabled ? "rgba(16, 185, 129, 0.45)" : "rgba(148, 163, 184, 0.3)";
+}
+
+(function initGalacticLiveCoDesignerControls() {
+  const btnStreamToggle = document.getElementById("btn-galactic-stream-toggle");
+  const btnStreamFull = document.getElementById("btn-galactic-stream-full-window");
+  const btnStreamStop = document.getElementById("btn-galactic-stream-stop");
+  const btnVoiceToggle = document.getElementById("btn-galactic-voice-toggle");
+  const btnConsultToggle = document.getElementById("btn-galactic-consult-crew-toggle");
+  const btnConsultNow = document.getElementById("btn-galactic-consult-now");
+  const btnTtsToggle = document.getElementById("btn-galactic-tts-toggle");
+  const btnAgErrCheck = document.getElementById("btn-galactic-ag-error-check");
+  const btnAgErrDismiss = document.getElementById("btn-ag-err-dismiss");
+  const btnAgErrSendReply = document.getElementById("btn-ag-err-send-reply");
+  const agErrInlineInput = document.getElementById("ag-err-inline-input");
+
+  updateGalacticTtsButtonUi();
+
+  if (btnStreamToggle) {
+    btnStreamToggle.addEventListener("click", () => {
+      if (window._galacticScreenStreamActive) {
+        stopGalacticScreenStream();
+      } else {
+        startGalacticScreenStream(false);
+      }
+    });
+  }
+  if (btnStreamFull) {
+    btnStreamFull.addEventListener("click", () => {
+      startGalacticScreenStream(true);
+    });
+  }
+  if (btnStreamStop) {
+    btnStreamStop.addEventListener("click", () => {
+      stopGalacticScreenStream();
+    });
+  }
+  if (btnVoiceToggle) {
+    btnVoiceToggle.addEventListener("click", () => {
+      toggleGalacticVoiceChat();
+    });
+  }
+  if (btnConsultToggle) {
+    btnConsultToggle.addEventListener("click", () => {
+      window._galacticConsultCrewEnabled = !window._galacticConsultCrewEnabled;
+      const lbl = document.getElementById("galactic-consult-btn-label");
+      if (lbl) lbl.textContent = `Consult Crew: ${window._galacticConsultCrewEnabled ? "ON" : "OFF"}`;
+      btnConsultToggle.style.background = window._galacticConsultCrewEnabled
+        ? "rgba(245, 158, 11, 0.32)"
+        : "rgba(245, 158, 11, 0.16)";
+      btnConsultToggle.style.borderColor = window._galacticConsultCrewEnabled
+        ? "#f59e0b"
+        : "rgba(245, 158, 11, 0.4)";
+    });
+  }
+  if (btnConsultNow) {
+    btnConsultNow.addEventListener("click", async () => {
+      ensureStudioChatVisible();
+      const customPrompt = (brainstormInput && brainstormInput.value.trim())
+        ? brainstormInput.value.trim()
+        : "Consult with the Agent Crew (@design, @arch, @qa, @strategy) on what we are working on right now and tell me your top recommendations.";
+      if (brainstormInput) brainstormInput.value = "";
+      await submitBrainstorm(customPrompt, {
+        consult_crew: true,
+        voice_mode: window._galacticVoiceChatActive || window._galacticTtsEnabled
+      });
+    });
+  }
+  if (btnTtsToggle) {
+    btnTtsToggle.addEventListener("click", () => {
+      window._galacticTtsEnabled = !window._galacticTtsEnabled;
+      localStorage.setItem("geppy_voice_tts", window._galacticTtsEnabled ? "1" : "0");
+      if (!window._galacticTtsEnabled && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      updateGalacticTtsButtonUi();
+    });
+  }
+  if (btnAgErrCheck) {
+    btnAgErrCheck.addEventListener("click", async () => {
+      await pollAntigravityErrorsForGalactic();
+      if (window._latestAntigravityError) {
+        window.showAntigravityErrorInGalactic(window._latestAntigravityError);
+      } else {
+        const pasted = prompt("No open Antigravity errors detected automatically. Paste any Antigravity error message here to have Geppy diagnose what the error is, what needs to be done, and open an in-chat reply channel to Antigravity:");
+        if (pasted && pasted.trim()) {
+          try {
+            const r = await fetch(`${SERVER_URL}/api/extension/antigravity/report-error`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                error: pasted.trim(),
+                slug: activeApp ? activeApp.slug : "",
+                file_path: activeFilePath || ""
+              })
+            });
+            const d = await r.json();
+            if (d && d.error) {
+              window.showAntigravityErrorInGalactic(d.error);
+            }
+          } catch (e) {}
+        }
+      }
+    });
+  }
+  if (btnAgErrDismiss) {
+    btnAgErrDismiss.addEventListener("click", async () => {
+      const banner = document.getElementById("antigravity-error-banner");
+      if (banner) banner.classList.add("hidden");
+      try {
+        await fetch(`${SERVER_URL}/api/extension/antigravity/errors/clear`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            error_id: window._latestAntigravityError ? window._latestAntigravityError.id : null
+          })
+        });
+      } catch (e) {}
+    });
+  }
+  const submitBannerReply = async () => {
+    const txt = (agErrInlineInput ? agErrInlineInput.value : "").trim();
+    if (!txt) return;
+    if (agErrInlineInput) agErrInlineInput.value = "";
+    const errId = window._latestAntigravityError ? window._latestAntigravityError.id : null;
+    await sendResponseToAntigravityInChat(txt, errId, "reply", window._latestAntigravityError);
+  };
+  if (btnAgErrSendReply) {
+    btnAgErrSendReply.addEventListener("click", submitBannerReply);
+  }
+  if (agErrInlineInput) {
+    agErrInlineInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submitBannerReply();
+      }
+    });
+  }
+
+  // Poll Antigravity errors every 4 seconds so any background/SDK Antigravity error immediately surfaces in Galactic
+  setInterval(pollAntigravityErrorsForGalactic, 4000);
+
+  // --- Universal GeppyBug Reporter & Update App Handlers ---
+  const btnHeaderReportBug = document.getElementById("btn-header-report-bug");
+  const btnHeaderUpdateApp = document.getElementById("btn-header-update-app");
+  const modalGeppyBug = document.getElementById("modal-geppy-bug-report");
+  const btnCloseExtBug = document.getElementById("btn-close-ext-bug-modal");
+  const btnCancelExtBug = document.getElementById("btn-cancel-ext-bug");
+  const btnSubmitExtBug = document.getElementById("btn-submit-ext-bug");
+
+  function closeExtBugModal() {
+    if (modalGeppyBug) modalGeppyBug.classList.add("hidden");
+  }
+
+  if (btnCloseExtBug) btnCloseExtBug.addEventListener("click", closeExtBugModal);
+  if (btnCancelExtBug) btnCancelExtBug.addEventListener("click", closeExtBugModal);
+
+  if (btnHeaderReportBug) {
+    btnHeaderReportBug.addEventListener("click", () => {
+      if (!modalGeppyBug) return;
+      const slug = activeApp ? activeApp.slug : (appSelect ? appSelect.value : "geppys-gitbridge");
+      const appName = activeApp ? activeApp.name : slug;
+      const titleEl = document.getElementById("ext-bug-modal-title");
+      const fileIn = document.getElementById("ext-bug-file-input");
+      const fb = document.getElementById("ext-bug-feedback");
+      if (titleEl) titleEl.textContent = `Report Bug — ${appName}`;
+      if (fileIn && activeFilePath) fileIn.value = activeFilePath;
+      if (fb) fb.classList.add("hidden");
+      modalGeppyBug.classList.remove("hidden");
+    });
+  }
+
+  if (btnSubmitExtBug) {
+    btnSubmitExtBug.addEventListener("click", async () => {
+      const slug = activeApp ? activeApp.slug : (appSelect ? appSelect.value : "geppys-gitbridge");
+      const appName = activeApp ? activeApp.name : slug;
+      const titleVal = (document.getElementById("ext-bug-title-input")?.value || "").trim();
+      const descVal = (document.getElementById("ext-bug-desc-input")?.value || "").trim();
+      const sevVal = document.getElementById("ext-bug-severity-select")?.value || "high";
+      const fileVal = (document.getElementById("ext-bug-file-input")?.value || "").trim();
+      const autoFix = Boolean(document.getElementById("ext-bug-chk-autofix")?.checked);
+      const logHealth = Boolean(document.getElementById("ext-bug-chk-health")?.checked);
+      const ghIssue = Boolean(document.getElementById("ext-bug-chk-github")?.checked);
+      const fb = document.getElementById("ext-bug-feedback");
+
+      if (!titleVal && !descVal) {
+        if (fb) {
+          fb.className = "commit-feedback error";
+          fb.classList.remove("hidden");
+          fb.textContent = "Please enter a bug title or description.";
+        }
+        return;
+      }
+
+      btnSubmitExtBug.disabled = true;
+      btnSubmitExtBug.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>Reporting${autoFix ? " & Auto-Fixing..." : "..."}</span>`;
+      if (fb) {
+        fb.className = "commit-feedback";
+        fb.classList.remove("hidden");
+        fb.textContent = autoFix
+          ? "Logging bug and invoking Antigravity to patch the code..."
+          : "Logging bug to GitBridge Backlog, Health Card & BUGS.md...";
+      }
+
+      try {
+        const res = await fetch(`${SERVER_URL}/api/bugs/report`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            app_slug: slug,
+            app_name: appName,
+            title: titleVal || descVal.slice(0, 60),
+            description: descVal || titleVal,
+            severity: sevVal,
+            file_path: fileVal || activeFilePath || "",
+            auto_fix: autoFix,
+            log_to_health_card: logHealth,
+            create_github_issue: ghIssue
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          if (fb) {
+            fb.className = "commit-feedback success";
+            const fixSummary = data.bug?.auto_fix_result?.applied
+              ? `<br><strong>✅ Auto-Patched <code>${data.bug.auto_fix_result.file_path}</code>:</strong> ${data.bug.auto_fix_result.explanation}`
+              : `<br><strong>📋 Diagnosis:</strong> ${data.bug?.diagnosis_summary || "Added to Backlog"}`;
+            fb.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>${data.message}</strong>${fixSummary}`;
+          }
+          if (typeof loadAppBacklog === "function" && slug) loadAppBacklog(slug);
+          if (typeof fetchGitStatus === "function" && slug) fetchGitStatus(slug);
+        } else {
+          throw new Error(data.detail || data.message || "Failed to submit bug report");
+        }
+      } catch (err) {
+        if (fb) {
+          fb.className = "commit-feedback error";
+          fb.textContent = `Error: ${err.message || err}`;
+        }
+      } finally {
+        btnSubmitExtBug.disabled = false;
+        btnSubmitExtBug.innerHTML = `<img src="icons/geppy_bug_32.png" alt="" style="width: 16px; height: 16px; object-fit: contain;" /> <span>Submit Bug Report</span>`;
+      }
+    });
+  }
+
+  if (btnHeaderUpdateApp) {
+    btnHeaderUpdateApp.addEventListener("click", async () => {
+      const slug = activeApp ? activeApp.slug : (appSelect ? appSelect.value : "geppys-gitbridge");
+      const appName = activeApp ? activeApp.name : slug;
+      const origHtml = btnHeaderUpdateApp.innerHTML;
+      btnHeaderUpdateApp.disabled = true;
+      btnHeaderUpdateApp.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>Updating...</span>`;
+
+      try {
+        const res = await fetch(`${SERVER_URL}/api/apps/${encodeURIComponent(slug)}/update`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ app_slug: slug, mode: "sync_all" })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          if (typeof appendBrainstormMessage === "function") {
+            appendBrainstormMessage(
+              "assistant",
+              `🔄 **App Updated (${appName})**:\n${data.message}`
+            );
+          }
+          if (typeof fetchGitStatus === "function") fetchGitStatus(slug);
+        } else {
+          alert(`Update notice: ${data.detail || data.message || "Could not update app"}`);
+        }
+      } catch (e) {
+        alert(`Update error: ${e.message || e}`);
+      } finally {
+        btnHeaderUpdateApp.disabled = false;
+        btnHeaderUpdateApp.innerHTML = origHtml;
+      }
+    });
+  }
+})();
+
+
+
+

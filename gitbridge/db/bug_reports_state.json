@@ -1,0 +1,26 @@
+{
+  "reports": [
+    {
+      "id": "bug_1792358676_82d0",
+      "app_slug": "geppys-gitbridge",
+      "app_name": "Geppy's GitBridge",
+      "title": "Test GeppyBug Verification",
+      "description": "Verifying universal GeppyBug reporting pipeline and Health Card logging.",
+      "severity": "medium",
+      "url": "",
+      "target_file": "gitbridge/main.py",
+      "console_errors": [],
+      "user_agent": "",
+      "viewport": "",
+      "status": "fixed",
+      "created_at": "2026-10-18T21:24:36.651069",
+      "updated_at": "2026-10-18T21:24:51.575342",
+      "antigravity_error_id": "ag-err-1792358676651-1",
+      "diagnosis_summary": "Review the error details above and send a follow-up instruction to Antigravity in chat, or click one of the recovery actions below.",
+      "suggested_fix_prompt": "Fix the following medium bug in `gitbridge/main.py`: Test GeppyBug Verification. Details: Verifying universal GeppyBug reporting pipeline and Health Card logging.",
+      "github_issue_url": null,
+      "auto_fix_result": null,
+      "resolution_note": "Verified test"
+    }
+  ]
+}

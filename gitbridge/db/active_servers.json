@@ -1,0 +1,29 @@
+{
+  "mugen-changling-editor": {
+    "slug": "mugen-changling-editor",
+    "name": "Mugen Changling Editor",
+    "pid": 19172,
+    "all_pids": [
+      5576,
+      12792,
+      19172,
+      21188,
+      27584,
+      33984,
+      35596,
+      36532,
+      37896
+    ],
+    "port": 3001,
+    "all_ports": [
+      3001,
+      5173,
+      5174
+    ],
+    "url": "http://localhost:3001",
+    "command": "npm run dev",
+    "folder_path": "d:\\Geppy_Apps\\Mugen Changling Editor",
+    "started_at": 1792352502.2728105,
+    "status": "healthy"
+  }
+}

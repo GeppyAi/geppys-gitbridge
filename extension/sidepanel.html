@@ -8,44 +8,112 @@
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
-  <!-- Header -->
+  <!-- Compact Header -->
   <header class="header">
-    <div class="brand-row">
-      <div class="brand-title">
-        <img src="icons/icon48.png" alt="Geppy's Galactic" style="width: 22px; height: 22px; border-radius: 4px; object-fit: contain; filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4)); vertical-align: middle;" />
-        <span>Geppy's <span class="accent">Galactic</span></span>
+    <!-- Row 1: Compact Combined Header (height: 44px) -->
+    <div class="header-top-bar">
+      <div class="brand-cluster">
+        <img src="icons/icon48.png" alt="Geppy's Galactic" class="brand-avatar-icon" title="Geppy's Galactic - AI Live Designer &amp; SOT Engine" />
+        <div class="header-status-dots">
+          <button id="btn-central-key-vault" class="key-vault-badge status-dot-pill" title="Gemini 2.5 Active — Click to inspect Central Key Vault">
+            <i class="fa-solid fa-bolt key-icon"></i>
+            <span id="central-key-label" class="sr-only-text">Gemini: ...</span>
+          </button>
+          <button id="btn-antigravity-status" class="key-vault-badge status-dot-pill" style="border-color: rgba(168, 85, 247, 0.55); background: rgba(88, 28, 135, 0.35); color: #d8b4fe;" title="Google Antigravity SDK Active — Surgical multi-file &amp; large-file editing enabled! Click to open active app in Antigravity IDE">
+            <i class="fa-solid fa-atom" style="font-size: 9.5px; color: #c084fc;"></i>
+            <span id="antigravity-status-label" class="sr-only-text">Antigravity SDK</span>
+          </button>
+          <div id="connection-status" class="status-indicator status-dot-pill" title="Geppy's Galactic Online">
+            <span class="status-dot"></span>
+            <span id="connection-text" class="sr-only-text">Connecting...</span>
+          </div>
+        </div>
       </div>
-      <div class="header-status-group">
-        <button id="btn-central-key-vault" class="key-vault-badge" title="GitBridge Central Gemini Key Vault - Click to inspect or test">
-          <i class="fa-solid fa-bolt key-icon"></i>
-          <span id="central-key-label">Gemini: ...</span>
+
+      <!-- Active App Selector + Launch Controls -->
+      <div class="app-select-row">
+        <select id="app-select" class="app-dropdown" title="Select or auto-detect App Profile">
+          <option value="">Detecting active app...</option>
+        </select>
+        <span id="app-live-badge" class="app-badge-live" style="display: none; cursor: pointer;" title="App is running! Click to open Port Watcher controls">Live</span>
+        <button id="btn-launch-app" class="btn-launch-app" title="Launch app on localhost server and open in browser tab">
+          <i class="fa-solid fa-rocket"></i>
+          <span>Launch</span>
         </button>
-        <div id="connection-status" class="status-indicator">
-          <span class="status-dot"></span>
-          <span id="connection-text">Connecting...</span>
+        <button id="btn-stop-app" class="btn-icon-subtle btn-stop-compact" style="display: none;" title="Stop this app's localhost server &amp; close its browser tab">
+          <i class="fa-solid fa-stop"></i>
+        </button>
+        <button id="btn-toggle-port-drawer" class="btn-icon-subtle btn-port-compact" title="Running Apps &amp; Port Watcher — Launch or Stop running apps">
+          <i class="fa-solid fa-network-wired"></i>
+          <span id="running-ports-count">0</span>
+        </button>
+
+        <!-- Tools Dropdown Menu -->
+        <div class="header-tools-dropdown">
+          <button id="btn-galactic-tools-menu" class="btn-icon-subtle" title="Galactic Tools & Utilities">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+          </button>
+          <div id="galactic-tools-menu-content" class="dropdown-menu-content hidden">
+            <button id="btn-header-add-app" class="menu-item" title="Register / Add New App to Galactic">
+              <i class="fa-solid fa-plus" style="color: #38bdf8;"></i>
+              <span>Add New App</span>
+            </button>
+            <button id="btn-detect-tab" class="menu-item" title="Auto-detect app from current browser tab">
+              <i class="fa-solid fa-crosshairs" style="color: #818cf8;"></i>
+              <span>Detect Tab</span>
+            </button>
+            <button id="btn-open-heic" class="menu-item" title="Open Apple HEIC / Photo Converter Studio" onclick="window.open('http://127.0.0.1:8000/?action=heic', '_blank')">
+              <i class="fa-solid fa-camera-retro" style="color: #f472b6;"></i>
+              <span>HEIC Studio</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Active App Selector -->
-    <div class="app-select-row">
-      <select id="app-select" class="app-dropdown" title="Select or auto-detect App Profile">
-        <option value="">Detecting active app...</option>
-      </select>
-      <span id="app-live-badge" class="app-badge-live" style="display: none;">Live</span>
-      <button id="btn-launch-app" class="btn-launch-app" title="Launch app on localhost server and open in browser tab">
-        <i class="fa-solid fa-rocket"></i>
-        <span>Launch</span>
-      </button>
-      <button id="btn-header-add-app" class="btn-icon-subtle" title="Register / Add New App to Galactic">
-        <i class="fa-solid fa-plus text-cyan-400" style="color: #38bdf8;"></i>
-      </button>
-      <button id="btn-detect-tab" class="btn-icon-subtle" title="Auto-detect app from current browser tab">
-        <i class="fa-solid fa-crosshairs"></i>
-      </button>
-      <button id="btn-open-heic" class="btn-icon-subtle" title="Open Apple HEIC / Photo Converter Studio in GitBridge" onclick="window.open('http://127.0.0.1:8000/?action=heic', '_blank')">
-        <i class="fa-solid fa-camera-retro" style="color: #f472b6;"></i>
-      </button>
+    <!-- Collapsible Running Apps & Port Watcher Drawer -->
+    <div id="galactic-port-drawer" class="hidden" style="margin: 0 8px 4px 8px; padding: 8px 10px; background: rgba(15, 23, 42, 0.96); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.45);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid rgba(51, 65, 85, 0.6);">
+        <div style="font-size: 11px; font-weight: 700; color: #6ee7b7; display: flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-satellite-dish"></i>
+          <span>Running Localhost Apps &amp; Ports</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <button id="btn-refresh-port-drawer" class="btn-mini-action" style="font-size: 9.5px; padding: 2px 6px;" title="Refresh active ports">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+          <button id="btn-open-full-port-watcher" class="btn-mini-action" style="font-size: 9.5px; padding: 2px 6px; color: #38bdf8; border-color: rgba(56, 189, 248, 0.35);" title="Open full Port Watcher in GitBridge Web UI">
+            <i class="fa-solid fa-up-right-from-square"></i> Port Watcher
+          </button>
+          <button id="btn-stop-all-ports" class="btn-mini-action" style="font-size: 9.5px; padding: 2px 6px; color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.12);" title="Stop all running localhost app servers">
+            <i class="fa-solid fa-power-off"></i> Stop All
+          </button>
+          <button id="btn-close-port-drawer" class="btn-mini-action" style="font-size: 9.5px; padding: 2px 5px;" title="Close drawer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div id="galactic-port-list" style="display: flex; flex-direction: column; gap: 5px; max-height: 170px; overflow-y: auto;">
+        <div style="font-size: 10.5px; color: #94a3b8; text-align: center; padding: 6px;">Scanning active localhost ports...</div>
+      </div>
+    </div>
+
+    <!-- Off-Target Page Warning Banner (shown when browser tab URL != activeApp being edited) -->
+    <div id="off-target-page-banner" class="off-target-banner hidden" role="status" aria-live="polite">
+      <div class="off-target-info">
+        <span class="off-target-pulse-dot" title="Active browser tab is not on the app currently selected in Galactic"></span>
+        <span id="off-target-page-text">Not on target page — editing <strong id="off-target-app-name">App</strong></span>
+      </div>
+      <div class="off-target-actions">
+        <button id="btn-off-target-open-app" class="btn-off-target-action primary" title="Open or focus the browser tab for the app you are currently editing">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          <span id="btn-off-target-open-label">Go to App</span>
+        </button>
+        <button id="btn-off-target-switch-app" class="btn-off-target-action secondary hidden" title="Switch Galactic to edit the app currently open in this browser tab">
+          <i class="fa-solid fa-crosshairs"></i>
+          <span id="btn-off-target-switch-label">Edit Tab App</span>
+        </button>
+      </div>
     </div>
 
     <!-- Unrecognized Active Tab App Bar / Reassociation Dock -->
@@ -66,111 +134,346 @@
       </div>
     </div>
 
-
-    <!-- Git Sync & Change Tracking Bar -->
+    <!-- Row 2: Slim Utility & Git Sub-Bar (height: 32px, text-xs) -->
     <div class="git-sync-bar" id="git-sync-bar">
-      <div class="git-status-clickable" id="btn-toggle-commit-drawer" title="Click to view changed files and commit to GitHub">
+      <div class="git-status-clickable" id="btn-toggle-commit-drawer" title="Click to view changed files, session changelog, and commit to GitHub">
         <i class="fa-brands fa-git-alt git-icon"></i>
         <span id="git-branch-text" class="git-branch-pill">main</span>
-        <span id="git-status-badge" class="git-badge clean">
-          <i class="fa-solid fa-check"></i> <span id="git-status-label">Clean</span>
+        <span id="git-status-badge" class="git-badge clean" title="Working tree status">
+          <i class="fa-solid fa-check"></i> <span id="git-status-label">0</span>
         </span>
       </div>
-      <button id="btn-header-commit" class="btn-git-sync" title="Commit and push changes to PC & GitHub">
-        <i class="fa-brands fa-github"></i>
-        <span>Commit &amp; Push</span>
-      </button>
+
+      <!-- Compact Mode Switcher Pills -->
+      <div class="mode-switcher">
+        <button id="btn-mode-brainstorm" class="mode-btn active" title="Unified Central Chat, Brainstorming &amp; Live Action Studio">
+          <i class="fa-solid fa-comments"></i>
+          <span>Chat</span>
+        </button>
+        <button id="btn-mode-designer" class="mode-btn" title="Toggle Live Code Editor, Target File &amp; Suggestions Drawer">
+          <i class="fa-solid fa-code"></i>
+          <span>Code</span>
+        </button>
+        <button id="btn-mode-assets" class="mode-btn" title="Open Asset Lab &amp; Image Manager">
+          <i class="fa-solid fa-flask"></i>
+          <span>Assets</span>
+        </button>
+      </div>
+
+      <div class="utility-subbar-actions">
+        <button type="button" id="btn-header-report-bug" class="btn-watchdog-slim" style="padding: 1px 6px; background: rgba(234, 88, 12, 0.25); border: 1px solid rgba(251, 146, 60, 0.6); color: #ffedd5; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; cursor: pointer;" title="Report Bug in active app (GeppyBug Reporter &amp; Antigravity Auto-Fix)">
+          <img src="icons/geppy_bug_32.png" alt="Report Bug" style="width: 16px; height: 16px; object-fit: contain;" />
+          <span style="font-size: 9.5px; font-weight: 800;">Bug</span>
+        </button>
+        <button type="button" id="btn-header-update-app" class="btn-git-sync" style="background: rgba(6, 182, 212, 0.22); border: 1px solid rgba(56, 189, 248, 0.55); color: #bae6fd;" title="Update App — Sync Key, Pull/Push GitHub, or AI Update">
+          <i class="fa-solid fa-arrows-rotate"></i>
+          <span>Update</span>
+        </button>
+        <button type="button" id="btn-runtime-monitor-badge" class="btn-watchdog-slim" title="Watchdog Live Monitor — Click to open Caught Error &amp; Freeze Log">
+          <span id="runtime-monitor-dot" class="watchdog-dot"></span>
+          <i class="fa-solid fa-shield-halved"></i>
+          <span id="runtime-monitor-label" class="sr-only-text">Watchdog ON</span>
+          <span id="watchdog-log-count-pill" class="watchdog-count-pill" style="display: none;">0</span>
+        </button>
+        <label id="lbl-header-live-preview" class="lbl-preview-slim" title="Toggle live preview of your active edit in the paired browser window (ON = show edited code, OFF = show original)">
+          <input type="checkbox" id="chk-header-live-preview" checked style="accent-color: #10b981; width: 10px; height: 10px; margin: 0; cursor: pointer;" />
+          <span>Preview</span>
+        </label>
+        <button id="btn-header-commit" class="btn-git-sync" title="Commit and push changes to PC &amp; GitHub">
+          <i class="fa-brands fa-github"></i>
+          <span>Commit</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Mode Switcher -->
-    <div class="mode-switcher">
-      <button id="btn-mode-brainstorm" class="mode-btn active">
-        <i class="fa-regular fa-lightbulb"></i>
-        <span>Brainstorm</span>
-      </button>
-      <button id="btn-mode-designer" class="mode-btn">
-        <i class="fa-solid fa-wand-magic-sparkles"></i>
-        <span>Designer</span>
-      </button>
-      <button id="btn-mode-assets" class="mode-btn">
-        <i class="fa-solid fa-flask"></i>
-        <span>Asset Lab</span>
-      </button>
+    <!-- High-Visibility AI Live Flight Deck HUD (Active Progress + Unmistakable Done Banner) -->
+    <div id="ai-live-flight-deck-hud" class="hidden" style="margin: 5px 8px 3px 8px; border-radius: 10px; background: linear-gradient(135deg, rgba(30, 27, 75, 0.96), rgba(15, 23, 42, 0.98)); border: 1.5px solid rgba(168, 85, 247, 0.7); box-shadow: 0 8px 24px rgba(139, 92, 246, 0.28); overflow: hidden; transition: all 0.25s ease;">
+      <!-- Animated Top Progress Bar -->
+      <div id="ai-hud-progress-track" style="height: 3.5px; width: 100%; background: rgba(15, 23, 42, 0.9); overflow: hidden; position: relative;">
+        <div id="ai-hud-progress-bar" style="height: 100%; width: 100%; background: linear-gradient(90deg, #ec4899, #8b5cf6, #06b6d4, #10b981, #f59e0b); background-size: 200% 100%; animation: geppyHudShimmer 1.4s linear infinite;"></div>
+      </div>
+      <style>
+        @keyframes geppyHudShimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        @keyframes geppyDonePulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55), 0 8px 24px rgba(16, 185, 129, 0.35); }
+          50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0), 0 8px 28px rgba(16, 185, 129, 0.5); }
+        }
+      </style>
+      <div style="padding: 8px 10px; display: flex; flex-direction: column; gap: 5px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;">
+            <span id="ai-hud-state-icon" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; background: rgba(168, 85, 247, 0.25); color: #e879f9; font-size: 11px; flex-shrink: 0;">
+              <i class="fa-solid fa-atom fa-spin"></i>
+            </span>
+            <span id="ai-hud-state-badge" style="font-size: 9.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 6px; border-radius: 5px; background: rgba(168, 85, 247, 0.3); color: #f5d0fe; border: 1px solid rgba(192, 132, 252, 0.5); white-space: nowrap;">
+              ⚡ AI RUNNING
+            </span>
+            <span id="ai-hud-task-title" style="font-size: 11px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              Synthesizing updates...
+            </span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+            <span id="ai-hud-elapsed-timer" style="font-family: monospace; font-size: 11px; font-weight: 700; color: #38bdf8; background: rgba(15, 23, 42, 0.85); padding: 2px 6px; border-radius: 5px; border: 1px solid rgba(56, 189, 248, 0.35);">
+              0.0s
+            </span>
+            <button type="button" id="btn-ai-hud-sound-toggle" title="Toggle completion chime sound when AI finishes" style="background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(148, 163, 184, 0.3); color: #fcd34d; border-radius: 5px; padding: 2px 5px; font-size: 10px; cursor: pointer;">
+              🔔
+            </button>
+            <button type="button" id="btn-ai-hud-jump" class="hidden" title="Scroll directly to the completed AI result" style="background: #10b981; border: none; color: #022c22; font-weight: 800; border-radius: 5px; padding: 2px 7px; font-size: 10px; cursor: pointer;">
+              View ↓
+            </button>
+            <button type="button" id="btn-ai-hud-dismiss" title="Hide HUD" style="background: transparent; border: none; color: #94a3b8; font-size: 11px; cursor: pointer; padding: 0 2px;">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Phase & Real-Time Tool Call Stream -->
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 10.5px; color: #cbd5e1; background: rgba(2, 6, 23, 0.65); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(51, 65, 85, 0.55);">
+          <div id="ai-hud-phase-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
+            Connecting to warm Antigravity session...
+          </div>
+          <span id="ai-hud-target-file" style="font-family: monospace; font-size: 9.5px; color: #67e8f9; background: rgba(6, 182, 212, 0.14); padding: 1px 5px; border-radius: 4px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+        </div>
+
+        <!-- Expandable Live Tool Step Pills -->
+        <div id="ai-hud-live-steps" style="display: flex; flex-wrap: wrap; gap: 4px; max-height: 48px; overflow-y: auto;"></div>
+      </div>
+    </div>
+
+    <!-- Antigravity Error Reception, Diagnosis & Direct Reply Banner -->
+    <div id="antigravity-error-banner" class="hidden" style="margin: 4px 8px; padding: 9px 10px; border-radius: 9px; background: linear-gradient(135deg, rgba(88, 28, 135, 0.94), rgba(127, 29, 29, 0.94)); border: 1.5px solid rgba(248, 113, 113, 0.75); color: #fef2f2; font-size: 11px; box-shadow: 0 8px 22px rgba(0,0,0,0.5);">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 6px; font-weight: 800; color: #fda4af;">
+          <i class="fa-solid fa-atom"></i>
+          <span id="ag-err-banner-title">Antigravity Error Received</span>
+          <span id="ag-err-banner-cat" style="font-size: 9px; padding: 1px 6px; border-radius: 999px; background: rgba(0,0,0,0.35); color: #f5d0fe; border: 1px solid rgba(216,180,254,0.4);">DIAGNOSIS</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <button type="button" id="btn-ag-err-dismiss" style="background: transparent; border: none; color: #fecdd3; cursor: pointer; font-size: 11px; padding: 0 3px;" title="Dismiss Antigravity error banner">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div style="margin-top: 5px; background: rgba(15, 23, 42, 0.65); border-radius: 6px; padding: 6px 8px; border: 1px solid rgba(248, 113, 113, 0.3);">
+        <div style="font-size: 10px; font-weight: 800; color: #fca5a5; text-transform: uppercase; letter-spacing: 0.04em;">🔍 What the Error Is:</div>
+        <div id="ag-err-what-is" style="font-size: 10.5px; color: #f8fafc; margin-top: 2px; line-height: 1.35;"></div>
+        <div style="font-size: 10px; font-weight: 800; color: #6ee7b7; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 5px;">🛠️ What Needs to Be Done:</div>
+        <div id="ag-err-what-needs-done" style="font-size: 10.5px; color: #e2e8f0; margin-top: 2px; line-height: 1.35;"></div>
+      </div>
+      <div id="ag-err-suggested-actions" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px;"></div>
+      <div style="display: flex; align-items: center; gap: 5px; margin-top: 6px;">
+        <input type="text" id="ag-err-inline-input" placeholder="Reply to Antigravity in chat (e.g. Rotate model & retry, or give instructions)..." style="flex: 1; background: rgba(2, 6, 23, 0.85); border: 1px solid rgba(216, 180, 254, 0.45); color: #f8fafc; border-radius: 6px; padding: 5px 8px; font-size: 10.5px; outline: none;" />
+        <button type="button" id="btn-ag-err-send-reply" style="background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff; border: none; border-radius: 6px; padding: 5px 9px; font-size: 10.5px; font-weight: 700; cursor: pointer; white-space: nowrap;">
+          <i class="fa-solid fa-paper-plane"></i> Reply to Antigravity
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Runtime Freeze / Error Alert Banner (Auto-opens on UI Freeze, Hung Click, or Uncaught Error) -->
+    <div id="runtime-alert-banner" class="hidden" style="margin: 4px 8px; padding: 8px 10px; border-radius: 8px; background: rgba(127, 29, 29, 0.92); border: 1px solid rgba(248, 113, 113, 0.6); color: #fecaca; font-size: 11px; box-shadow: 0 8px 20px rgba(0,0,0,0.45);">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #fca5a5;">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span id="runtime-alert-title">UI Freeze / Runtime Issue Detected</span>
+        </div>
+        <button type="button" id="btn-dismiss-runtime-alert" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 11px; padding: 0 2px;" title="Dismiss alert (saved in Watchdog Error Log)">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div id="runtime-alert-detail" style="margin-top: 4px; font-size: 10.5px; color: #fee2e2; font-family: monospace; word-break: break-word; max-height: 60px; overflow-y: auto;"></div>
+      <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+        <button type="button" id="btn-fix-runtime-issue" style="padding: 3px 8px; border-radius: 5px; background: #ef4444; color: #fff; border: none; font-size: 10px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+          <i class="fa-solid fa-wrench"></i>
+          <span id="btn-fix-runtime-label">Ask Geppy to Fix</span>
+        </button>
+        <button type="button" id="btn-investigate-runtime-issue" style="padding: 3px 7px; border-radius: 5px; background: rgba(99, 102, 241, 0.3); color: #e0e7ff; border: 1px solid rgba(129, 140, 248, 0.5); font-size: 10px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Ask Geppy to look into this error and explain what happened in Chat">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>Look Into It</span>
+        </button>
+        <button type="button" id="btn-banner-open-watchdog-log" style="padding: 3px 7px; border-radius: 5px; background: rgba(15, 23, 42, 0.7); color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.4); font-size: 10px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Open the full Watchdog Error &amp; Freeze History Log">
+          <i class="fa-solid fa-clipboard-list"></i>
+          <span>Error Log</span>
+        </button>
+        <button type="button" id="btn-reload-frozen-tab" style="padding: 3px 7px; border-radius: 5px; background: rgba(15, 23, 42, 0.7); color: #e2e8f0; border: 1px solid rgba(248, 113, 113, 0.4); font-size: 10px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+          <i class="fa-solid fa-rotate-right"></i>
+          <span>Recover Tab</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Collapsible Persistent Watchdog Error & Freeze History Log Drawer -->
+    <div id="watchdog-log-drawer" class="hidden" style="margin: 4px 8px; border-radius: 8px; background: #0b1120; border: 1px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.6); overflow: hidden; display: flex; flex-direction: column; max-height: 250px;">
+      <div style="padding: 6px 10px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #f8fafc;">
+          <i class="fa-solid fa-shield-halved" style="color: #f59e0b;"></i>
+          <span>Watchdog Caught Error &amp; Freeze Log</span>
+          <span id="watchdog-drawer-count-badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); padding: 1px 6px; border-radius: 999px; font-size: 9.5px;">0</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: #cbd5e1; cursor: pointer; user-select: none;" title="Enable or pause live in-page watchdog monitoring">
+            <input type="checkbox" id="chk-watchdog-enabled" checked style="accent-color: #10b981; width: 11px; height: 11px; margin: 0; cursor: pointer;" />
+            <span>Active</span>
+          </label>
+          <button type="button" id="btn-watchdog-analyze-all" style="background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.45); color: #c7d2fe; border-radius: 5px; padding: 2px 6px; font-size: 9.5px; font-weight: 600; cursor: pointer;" title="Ask Geppy to review all caught errors in this log and diagnose them in Chat">
+            <i class="fa-solid fa-magnifying-glass-chart"></i> Review All
+          </button>
+          <button type="button" id="btn-watchdog-clear-log" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; border-radius: 5px; padding: 2px 6px; font-size: 9.5px; font-weight: 600; cursor: pointer;" title="Clear all caught errors for this app">
+            <i class="fa-solid fa-trash-can"></i> Clear
+          </button>
+          <button type="button" id="btn-close-watchdog-log" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 11px; padding: 0 2px;" title="Close Watchdog Log">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div id="watchdog-log-list" style="padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; max-height: 200px;">
+        <div style="color: #64748b; font-size: 11px; text-align: center; padding: 14px 6px;">
+          <i class="fa-solid fa-circle-check" style="color: #10b981; margin-right: 4px;"></i> No runtime freezes, crashes, or errors caught yet for this app.
+        </div>
+      </div>
     </div>
   </header>
 
-  <!-- View 1: Brainstorm Mode -->
+  <!-- Unified View 1 & 2: Central Chat + Brainstorming + Live Designer Studio -->
   <main id="view-brainstorm" class="view-container">
-    <!-- SOT Contextiles Quick-Bar -->
-    <div class="sot-quickbar">
-      <button type="button" id="btn-open-sot-fleet" class="sot-label-btn" title="Click to view all Sources of Truth">
-        <i class="fa-solid fa-layer-group text-cyan"></i>
-        <span>SOT Fleet</span>
-        <span id="sot-quickbar-count" class="sot-count-badge">0</span>
-        <i class="fa-solid fa-chevron-right" style="font-size: 8px; opacity: 0.6; margin-left: 1px;"></i>
-      </button>
-      <div id="sot-contextile-chips" class="sot-chips-container">
-        <span style="color: #64748b; font-size: 11px;">Loading contextiles...</span>
-      </div>
-    </div>
-
-    <!-- Quick Ideation Chips -->
-    <div class="brainstorm-pills">
-      <button class="pill-btn" data-prompt="Propose a modern visual makeover with glassmorphism, glowing accents, and galactic aesthetic.">
-        ✨ Visual Makeover
-      </button>
-      <button class="pill-btn" data-prompt="Brainstorm 5 innovative, high-impact features we could build next for this app.">
-        🚀 5 Feature Ideas
-      </button>
-      <button class="pill-btn" data-prompt="Audit this app's UX flow and suggest micro-interactions and usability polish.">
-        🎯 UX Flow Audit
-      </button>
-      <button class="pill-btn" data-prompt="Recommend an upgraded color palette and dark/light mode tokens.">
-        🎨 Modern Theme
-      </button>
-      <button class="pill-btn image-pill" data-prompt="/image Generate a brand-new official app icon with bold orange border and transparent background for this app.">
-        🎨 Generate App Icon
-      </button>
-      <button class="pill-btn git-pill" data-prompt="Audit all modified files and recent changes in our session. Propose a clean Git commit message and confirm if we are ready to push to GitHub.">
-        🐙 Git Changes &amp; Commit
-      </button>
-    </div>
-
-    <!-- Chat History -->
-    <div id="chat-history" class="chat-history">
-      <div class="chat-bubble ai">
-        <div class="captain-badge">
-          <span class="captain-avatar"><img src="icons/icon48.png" alt="Captain Geppy" class="captain-avatar-img" /></span>
-          <div>
-            <strong style="color: #818cf8;">Captain Geppy</strong>
-            <span class="captain-sub">Galactic Commander &amp; AI Architect</span>
-          </div>
+    <!-- Collapsible Inline Live Code & Designer Drawer (houses Contextual File Toolbar & Suggestions when open!) -->
+    <section id="view-designer" class="designer-inline-drawer hidden">
+      <!-- Contextual File Toolbar (inside </> Code Drawer so Studio & Chat stays clean) -->
+      <div class="file-bar" id="contextual-file-bar">
+        <div style="display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0;">
+          <i class="fa-solid fa-file-code" style="color: #38bdf8; font-size: 11px; flex-shrink: 0;" title="Active Target File for Live Edits &amp; Actions"></i>
+          <select id="file-select" class="file-select" title="Active target file for AI actions &amp; live editing">
+            <option value="">Loading files...</option>
+          </select>
         </div>
-        <p>Greetings, Commander! Welcome aboard <strong>Geppy's Galactic</strong>.</p>
-        <p>I am Captain Geppy, your pilot through the infinite universe of apps that AI makes possible. I'll proactively propose cosmic feature upgrades, UX breakthroughs, and track our ideas backlog.</p>
-        <p>🛸 <strong>Source of Truth (SOT) Engine:</strong> Type <code>@contextile_name</code> (or click the chips above) to instantly anchor brainstorming and design generations in your saved Source of Truth!</p>
-      </div>
-    </div>
-
-    <!-- Brainstorm Tasks & Ideas Backlog Dock -->
-    <div id="backlog-drawer" class="backlog-drawer">
-      <div id="backlog-header" class="backlog-header">
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <i class="fa-solid fa-list-check" style="color: #818cf8;"></i>
-          <span>Ideas &amp; Tasks</span>
-          <span id="backlog-count" class="backlog-count-badge" title="Active pending tasks">0 active</span>
-        </div>
-        <div style="display: flex; gap: 4px;">
-          <button id="btn-add-custom-task" class="btn-icon-subtle" title="Add custom idea/task">
-            <i class="fa-solid fa-plus"></i>
+        <div class="file-actions">
+          <button type="button" id="btn-toggle-suggestions-drawer" class="btn-file-action" title="Toggle Proactive AI Design Suggestions for this file">
+            <i class="fa-solid fa-wand-magic-sparkles" style="color: #38bdf8;"></i>
+            <span>Suggestions</span>
           </button>
-          <button id="btn-toggle-backlog" class="btn-icon-subtle" title="Toggle backlog view">
+          <button type="button" id="btn-toggle-code-drawer" class="btn-file-action active" style="display: none;" title="Toggle Live Code Editor Drawer">
+            <i class="fa-solid fa-code" style="color: #a5b4fc;"></i>
+            <span>Code</span>
+          </button>
+          <button id="btn-save-file" class="btn-file-action primary" title="Save changes directly to disk (Ctrl+S)">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Save</span>
+            <span id="unsaved-indicator" class="unsaved-dot" style="display: none;"></span>
+          </button>
+          <button id="btn-reload-tab" class="btn-file-action" title="Reload active browser tab to see live result">
+            <i class="fa-solid fa-rotate-right" style="color: #38bdf8;"></i>
+            <span>Reload</span>
+          </button>
+          <button id="btn-revert-file" class="btn-file-action" title="Revert unsaved changes">
+            <i class="fa-solid fa-clock-rotate-left" style="color: #f87171;"></i>
+            <span>Revert</span>
+          </button>
+          <button id="btn-designer-commit" class="btn-file-action git-commit-action" style="display: none;" title="Review changes, commit, and push to GitHub">
+            <i class="fa-brands fa-github"></i>
+            <span id="designer-git-count">0</span>
+          </button>
+          <button type="button" id="btn-close-code-drawer" class="btn-icon-subtle" title="Collapse Code Editor Drawer">
             <i class="fa-solid fa-chevron-up"></i>
           </button>
         </div>
       </div>
 
-      <!-- Folder Navigation Tabs: Active vs Done Pile -->
+      <!-- Collapsible Proactive AI Suggestions Drawer -->
+      <div id="proactive-suggestions-drawer" class="proactive-suggestions-bar hidden">
+        <div class="proactive-header">
+          <span><i class="fa-solid fa-wand-magic-sparkles" style="color: #38bdf8; margin-right: 4px;"></i> Proactive AI Design Suggestions (for active file)</span>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <button id="btn-refresh-suggestions" class="btn-icon-subtle" title="Re-analyze active file and generate new design suggestions">
+              <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+            <button type="button" id="btn-close-suggestions-drawer" class="btn-icon-subtle" title="Collapse suggestions">
+              <i class="fa-solid fa-chevron-up"></i>
+            </button>
+          </div>
+        </div>
+        <div id="suggestions-carousel" class="suggestions-carousel">
+          <div style="color: #64748b; font-size: 11px; padding: 8px 0;">Analyzing file for design suggestions...</div>
+        </div>
+        <!-- Quick Backlog Drawer for Designer -->
+        <div id="designer-backlog-bar" style="background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 4px 8px; display: flex; align-items: center; justify-content: space-between; font-size: 10.5px;">
+          <span style="color: #94a3b8;"><i class="fa-solid fa-list-check" style="color: #a5b4fc; margin-right: 4px;"></i> Quick-Apply Task:</span>
+          <select id="designer-task-picker" style="background: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; padding: 2px 6px; font-size: 10.5px; max-width: 170px;">
+            <option value="">Select idea to apply...</option>
+          </select>
+          <button id="btn-apply-backlog-task" class="btn-file-action primary" style="padding: 2px 7px; font-size: 10px;">
+            <i class="fa-solid fa-bolt"></i> Apply
+          </button>
+        </div>
+      </div>
+
+      <!-- Hidden Live Preview Sync Hook (Synced with Header Sub-Bar Preview Checkbox) -->
+      <div id="live-preview-control-bar" style="display: none;">
+        <input type="checkbox" id="chk-designer-live-preview" checked />
+        <span id="live-preview-status-pill">● Live Sync ON</span>
+      </div>
+
+      <!-- Live Code Editor -->
+      <div class="editor-wrapper">
+        <textarea id="code-editor" class="code-editor" spellcheck="false" placeholder="Select a file to live edit..."></textarea>
+      </div>
+
+      <!-- AI Designer Copilot Prompt Bar -->
+      <div class="designer-prompt-bar">
+        <input type="text" id="designer-ai-input" class="input-box" placeholder="Direct code edit on active file (e.g. Add dark mode toggle)..." />
+        <button id="btn-apply-designer-ai" class="btn-send" style="background: linear-gradient(135deg, #6366f1, #06b6d4);">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Apply</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Central Chat History (Flexbox Priority: claims 75%+ of viewport height!) -->
+    <div id="chat-history" class="chat-history">
+      <div class="chat-bubble ai">
+        <div class="captain-badge">
+          <span class="captain-avatar"><img src="icons/icon48.png" alt="Geppy" class="captain-avatar-img" /></span>
+          <div>
+            <strong style="color: #818cf8;">Geppy</strong>
+            <span class="captain-sub">AI App Co-Pilot</span>
+          </div>
+        </div>
+        <p>Hey there! Welcome to <strong>Geppy's Galactic</strong>.</p>
+        <p>Chat with me to brainstorm features, click <strong>Implement Now</strong> on any task, or click <strong>⚡ Edit</strong> below to modify your code live — I'll keep you updated right here in our central chat as I work and tell you everything that changed when it's done!</p>
+      </div>
+    </div>
+
+    <!-- Auto-Collapsing "Ideas & Tasks" Bottom Drawer (36px summary bar by default, with drag-resize handle) -->
+    <div id="backlog-drawer" class="backlog-drawer collapsed">
+      <div id="backlog-resize-handle" class="backlog-resize-handle" title="Drag up or down to resize Ideas &amp; Tasks">
+        <div class="backlog-resize-grip"></div>
+      </div>
+      <div id="backlog-header" class="backlog-header" title="Click to expand or collapse Ideas &amp; Tasks (or drag top handle to resize)">
+        <div class="backlog-summary-left">
+          <i class="fa-solid fa-list-check" style="color: #818cf8; font-size: 11px;"></i>
+          <span class="backlog-summary-title">Ideas &amp; Tasks</span>
+          <span class="backlog-summary-sep">|</span>
+          <span id="backlog-count" class="backlog-count-badge" title="Active pending tasks">0 active</span>
+          <span class="backlog-summary-sep">|</span>
+          <span id="backlog-summary-done" class="backlog-done-summary-badge" title="Completed tasks in Done Pile">0 Done</span>
+          <span id="backlog-save-status" style="font-size: 9px; color: #34d399; margin-left: 4px; opacity: 0.85;">✓ Saved</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <button id="btn-save-backlog" class="btn-icon-subtle" title="Save Ideas &amp; Tasks list now" style="color: #34d399;">
+            <i class="fa-solid fa-floppy-disk"></i>
+          </button>
+          <button id="btn-add-custom-task" class="btn-icon-subtle" title="Add custom idea/task">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+          <button id="btn-toggle-backlog" class="btn-icon-subtle" title="Expand or collapse Ideas &amp; Tasks">
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Folder Navigation Tabs: Active vs Done Pile (Revealed when expanded) -->
       <div class="backlog-folder-tabs">
         <button type="button" id="tab-backlog-active" class="btn-backlog-tab active" title="View active tasks to implement">
           <i class="fa-solid fa-bolt text-amber-400"></i>
@@ -184,7 +487,7 @@
         </button>
       </div>
 
-      <!-- Batch & Group Runner Toolbar -->
+      <!-- Batch & Group Runner Toolbar (Revealed when expanded) -->
       <div id="backlog-batch-bar" class="backlog-batch-bar">
         <div class="batch-select-group">
           <label class="batch-select-all-label">
@@ -192,8 +495,8 @@
             <span>Select All</span>
           </label>
           <span id="batch-selected-count" class="batch-count-pill">0 selected</span>
-          <label class="batch-select-all-label" title="Always prompt with Implementation Control Center to choose target file and mode" style="margin-left: 6px; cursor: pointer;">
-            <input type="checkbox" id="chk-always-confirm-target" checked />
+          <label class="batch-select-all-label" title="Check to open the Implementation Options modal before running a task; uncheck to implement immediately in Central Chat" style="margin-left: 6px; cursor: pointer;">
+            <input type="checkbox" id="chk-always-confirm-target" />
             <span style="color: #cbd5e1; font-size: 10px;">⚙️ Options</span>
           </label>
         </div>
@@ -227,7 +530,7 @@
       <!-- Active Tasks List -->
       <div id="backlog-list" class="backlog-list">
         <div style="color: #64748b; font-size: 11px; text-align: center; padding: 12px 0;">
-          No brainstormed tasks yet. Chat with AI or click a prompt pill above!
+          No brainstormed tasks yet. Chat with AI or click a prompt pill!
         </div>
       </div>
 
@@ -252,80 +555,142 @@
       </div>
     </div>
 
-    <!-- Brainstorm Input Bar -->
+    <!-- Collapsible Context (SOT Fleet) & Quick Prompts Popover Drawer (Anchored just above Chat Input!) -->
+    <div id="chat-context-drawer" class="chat-context-drawer hidden">
+      <div class="chat-context-drawer-header">
+        <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8; display: flex; align-items: center; gap: 5px;">
+          <i class="fa-solid fa-sparkles" style="color: #38bdf8;"></i>
+          <span>SOT Contextiles (<code>@</code>) &amp; Quick Prompts</span>
+        </span>
+        <button type="button" id="btn-close-context-drawer" class="btn-icon-subtle" title="Close drawer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <!-- SOT Contextiles Quick-Bar -->
+      <div class="sot-quickbar">
+        <button type="button" id="btn-open-sot-fleet" class="sot-label-btn" title="Click to view all Sources of Truth">
+          <i class="fa-solid fa-layer-group text-cyan"></i>
+          <span>SOT Fleet</span>
+          <span id="sot-quickbar-count" class="sot-count-badge">0</span>
+          <i class="fa-solid fa-chevron-right" style="font-size: 8px; opacity: 0.6; margin-left: 1px;"></i>
+        </button>
+        <div id="sot-contextile-chips" class="sot-chips-container">
+          <span style="color: #64748b; font-size: 11px;">Loading contextiles...</span>
+        </div>
+      </div>
+
+      <!-- Quick Ideation Chips -->
+      <div class="brainstorm-pills">
+        <button class="pill-btn" data-prompt="Propose a modern visual makeover with glassmorphism, glowing accents, and galactic aesthetic.">
+          ✨ Visual Makeover
+        </button>
+        <button class="pill-btn" data-prompt="Brainstorm 5 innovative, high-impact features we could build next for this app.">
+          🚀 5 Feature Ideas
+        </button>
+        <button class="pill-btn" data-prompt="Audit this app's UX flow and suggest micro-interactions and usability polish.">
+          🎯 UX Flow Audit
+        </button>
+        <button class="pill-btn" data-prompt="Recommend an upgraded color palette and dark/light mode tokens.">
+          🎨 Modern Theme
+        </button>
+        <button class="pill-btn image-pill" data-prompt="/image Generate a brand-new official app icon with bold orange border and transparent background for this app.">
+          🎨 Generate App Icon
+        </button>
+        <button class="pill-btn git-pill" data-prompt="Audit all modified files and recent changes in our session. Propose a clean Git commit message and confirm if we are ready to push to GitHub.">
+          🐙 Git Changes &amp; Commit
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Screen Stream & Voice Preview Dock (shown when streaming screen or voice chat is active) -->
+    <div id="galactic-stream-preview-dock" class="hidden" style="padding: 6px 8px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 27, 75, 0.92)); border-top: 1px solid rgba(6, 182, 212, 0.4); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1;">
+        <div style="position: relative; width: 46px; height: 28px; border-radius: 5px; overflow: hidden; border: 1px solid rgba(6, 182, 212, 0.65); background: #020617; flex-shrink: 0;">
+          <img id="galactic-stream-thumb-img" src="" alt="Live Stream" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+          <span style="position: absolute; top: 2px; left: 2px; width: 6px; height: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 6px #ef4444;"></span>
+        </div>
+        <div id="gitbridge-stream-thumb-wrap" class="hidden" style="position: relative; width: 46px; height: 28px; border-radius: 5px; overflow: hidden; border: 1px solid rgba(245, 158, 11, 0.65); background: #020617; flex-shrink: 0;" title="GitBridge Screen Stream Active">
+          <img id="gitbridge-stream-thumb-img" src="" alt="GitBridge Stream" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+        </div>
+        <div style="min-width: 0; flex: 1;">
+          <div id="galactic-stream-status-title" style="font-size: 10px; font-weight: 800; color: #67e8f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            📺 Live Screen Stream Active — Geppy can see your work
+          </div>
+          <div id="galactic-stream-status-sub" style="font-size: 9.5px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            Streaming active tab every 2.5s • Ready for live co-design
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+        <button type="button" id="btn-galactic-stream-full-window" style="padding: 2px 6px; border-radius: 5px; font-size: 9.5px; font-weight: 700; background: rgba(56, 189, 248, 0.18); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.4); cursor: pointer;" title="Share entire monitor or window (both GitBridge &amp; Galactic)">
+          🖥️ Full Screen
+        </button>
+        <button type="button" id="btn-galactic-stream-stop" style="padding: 2px 6px; border-radius: 5px; font-size: 9.5px; font-weight: 700; background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.45); cursor: pointer;" title="Stop streaming screen">
+          Stop
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Co-Designer Bar: Screen Stream + Voice Chat with Geppy + Crew Consultation + Antigravity Error Check -->
+    <div id="galactic-live-codesign-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 4px 8px; background: rgba(2, 6, 23, 0.92); border-top: 1px solid rgba(56, 189, 248, 0.18); flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+        <button type="button" id="btn-galactic-stream-toggle" style="padding: 2.5px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(6, 182, 212, 0.15); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Stream current screen of Galactic / active tab (and GitBridge) so Geppy can see what we are working on live">
+          <i class="fa-solid fa-tv"></i>
+          <span id="galactic-stream-btn-label">Stream Screen</span>
+        </button>
+        <button type="button" id="btn-galactic-voice-toggle" style="padding: 2.5px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Live Voice Chat with Geppy — Talk hands-free while designing!">
+          <i class="fa-solid fa-microphone"></i>
+          <span id="galactic-voice-btn-label">Voice Chat</span>
+        </button>
+        <button type="button" id="btn-galactic-consult-crew-toggle" style="padding: 2.5px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(245, 158, 11, 0.16); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Toggle Crew Consultation: Geppy will consult with @design, @arch, @qa &amp; @strategy on what we are working on">
+          <i class="fa-solid fa-users-gear"></i>
+          <span id="galactic-consult-btn-label">Consult Crew: OFF</span>
+        </button>
+        <button type="button" id="btn-galactic-consult-now" style="padding: 2.5px 6px; border-radius: 6px; font-size: 9.5px; font-weight: 700; background: rgba(168, 85, 247, 0.2); color: #e9d5ff; border: 1px solid rgba(168, 85, 247, 0.45); cursor: pointer;" title="Have Geppy consult the Agent Crew right now on what is on screen">
+          🤝 Ask Crew Now
+        </button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 4px;">
+        <button type="button" id="btn-galactic-tts-toggle" style="padding: 2px 5px; border-radius: 5px; font-size: 9.5px; background: rgba(30, 41, 59, 0.9); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); cursor: pointer;" title="Toggle Geppy Spoken Voice Replies (TTS)">
+          🔊
+        </button>
+        <button type="button" id="btn-galactic-ag-error-check" style="padding: 2px 6px; border-radius: 5px; font-size: 9.5px; font-weight: 700; background: rgba(139, 92, 246, 0.18); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4); cursor: pointer;" title="Inspect or report an Antigravity error &amp; reply to Antigravity in chat">
+          ⚛️ AG Errors <span id="galactic-ag-err-count-pill" style="display:none; background:#ef4444; color:#fff; border-radius:999px; padding:0 4px; font-size:8.5px; margin-left:2px;">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Specialized AI Agent Crew Switcher Bar -->
+    <div id="galactic-agent-crew-bar" style="display:flex; align-items:center; gap:4px; overflow-x:auto; padding:5px 8px; background:rgba(15,23,42,0.92); border-top:1px solid rgba(148,163,184,0.14); scrollbar-width:none;">
+      <span style="font-size:9px; font-weight:700; color:#c084fc; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap; margin-right:2px;">Crew:</span>
+      <button type="button" class="galactic-agent-pill active" data-agent-id="" style="padding:2px 7px; border-radius:999px; font-size:10px; font-weight:600; background:rgba(245,158,11,0.2); color:#fcd34d; border:1px solid rgba(245,158,11,0.45); cursor:pointer; white-space:nowrap;">👨‍🚀 Geppy</button>
+      <button type="button" class="galactic-agent-pill" data-agent-id="design-architect" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Design &amp; UI/UX Architect (@design)">🎨 @design</button>
+      <button type="button" class="galactic-agent-pill" data-agent-id="system-architect" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="System &amp; Code Architect (@arch)">🏗️ @arch</button>
+      <button type="button" class="galactic-agent-pill" data-agent-id="social-media" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Social Media &amp; Growth Director (@social)">📣 @social</button>
+      <button type="button" class="galactic-agent-pill" data-agent-id="qa-reliability" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="QA &amp; Reliability Engineer (@qa)">🛡️ @qa</button>
+      <button type="button" class="galactic-agent-pill" data-agent-id="product-strategy" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Product Strategy &amp; Monetization Lead (@strategy)">🚀 @strategy</button>
+      <button type="button" class="galactic-agent-pill" data-agent-id="docs-manual" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Docs &amp; Developer Advocate (@docs)">📖 @docs</button>
+      <button type="button" class="galactic-agent-pill" data-agent-id="crew-council" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(134,25,143,0.35); color:#f0abfc; border:1px solid rgba(217,70,239,0.45); cursor:pointer; white-space:nowrap;" title="Multi-Agent Crew Council (@crew)">⚡ @crew</button>
+    </div>
+
+    <!-- Unified Central Chat & Direct Action Input Bar -->
     <div class="input-bar">
+      <button type="button" id="btn-toggle-context-drawer" class="btn-chat-context-toggle" title="Toggle SOT Fleet (@) &amp; Quick Prompts Drawer">
+        <span>@</span>
+      </button>
       <button type="button" id="btn-chat-mode-image" class="btn-chat-mode" title="Toggle Image Generation Mode (or type /image ...)">
         <i class="fa-solid fa-wand-magic-sparkles"></i>
       </button>
-      <input type="text" id="brainstorm-input" class="input-box" placeholder="Ask Captain Geppy or type /image to generate visuals..." />
-      <button id="btn-send-brainstorm" class="btn-send" title="Send message to Captain Geppy">
+      <input type="text" id="brainstorm-input" class="input-box" placeholder="Chat with Geppy or @design / @arch / @social / @crew..." />
+      <button id="btn-send-brainstorm" class="btn-send" title="Chat &amp; Brainstorm with Geppy">
         <i class="fa-solid fa-paper-plane"></i>
+        <span>Chat</span>
+      </button>
+      <button type="button" id="btn-chat-direct-edit" class="btn-send" style="background: linear-gradient(135deg, #06b6d4, #10b981); padding: 7px 9px;" title="Directly apply this instruction to the active file with live chat updates">
+        <i class="fa-solid fa-bolt"></i>
+        <span>Edit</span>
       </button>
     </div>
-  </main>
-
-  <!-- View 2: Live Designer Mode -->
-  <main id="view-designer" class="view-container hidden">
-    <!-- Proactive AI Suggestions Panel -->
-    <div class="proactive-suggestions-bar">
-      <div class="proactive-header">
-        <span><i class="fa-solid fa-sparkles" style="color: #38bdf8; margin-right: 4px;"></i> Proactive AI Design Suggestions</span>
-        <button id="btn-refresh-suggestions" class="btn-icon-subtle" title="Re-analyze active file and generate new design suggestions">
-          <i class="fa-solid fa-arrows-rotate"></i>
-        </button>
-      </div>
-      <div id="suggestions-carousel" class="suggestions-carousel">
-        <div style="color: #64748b; font-size: 11px; padding: 8px 0;">Analyzing file for design suggestions...</div>
-      </div>
-    </div>
-
-    <!-- Quick Backlog Drawer for Designer -->
-    <div id="designer-backlog-bar" style="background: #111827; border-bottom: 1px solid #334155; padding: 5px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
-      <span style="color: #94a3b8;"><i class="fa-solid fa-list-check" style="color: #a5b4fc; margin-right: 4px;"></i> Brainstorm Backlog Quick-Insert:</span>
-      <select id="designer-task-picker" style="background: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; padding: 2px 6px; font-size: 10.5px; max-width: 170px;">
-        <option value="">Select idea to apply...</option>
-      </select>
-      <button id="btn-apply-backlog-task" class="btn-file-action primary" style="padding: 2px 7px; font-size: 10px;">
-        <i class="fa-solid fa-bolt"></i> Apply
-      </button>
-    </div>
-
-    <!-- File Selector & Actions -->
-    <div class="file-bar">
-      <select id="file-select" class="file-select" title="Choose file to edit">
-        <option value="">Loading files...</option>
-      </select>
-      <div class="file-actions">
-        <button id="btn-save-file" class="btn-file-action primary" title="Save changes directly to disk (Ctrl+S)">
-          <i class="fa-solid fa-floppy-disk"></i>
-          <span>Save</span>
-          <span id="unsaved-indicator" class="unsaved-dot" style="display: none;"></span>
-        </button>
-        <button id="btn-reload-tab" class="btn-file-action" title="Reload active browser tab to see live result">
-          <i class="fa-solid fa-rotate-right"></i>
-        </button>
-        <button id="btn-revert-file" class="btn-file-action" title="Revert unsaved changes">
-          <i class="fa-solid fa-clock-rotate-left"></i>
-        </button>
-        <button id="btn-designer-commit" class="btn-file-action git-commit-action" title="Review changes, commit, and push to GitHub">
-          <i class="fa-brands fa-github"></i>
-          <span id="designer-git-count">0</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Live Code Editor -->
-    <div class="editor-wrapper">
-      <textarea id="code-editor" class="code-editor" spellcheck="false" placeholder="Select a file to live edit..."></textarea>
-    </div>
-
-    <!-- AI Designer Copilot Prompt Bar -->
-    <div class="designer-prompt-bar">
-      <input type="text" id="designer-ai-input" class="input-box" placeholder="Ask AI Designer to modify this file (e.g. Add dark mode toggle)..." />
-      <button id="btn-apply-designer-ai" class="btn-send" style="background: linear-gradient(135deg, #6366f1, #06b6d4);">
-        <i class="fa-solid fa-wand-magic-sparkles"></i>
-        <span>Apply</span>
-      </button>
   </main>
 
   <!-- View 3: Asset Lab & Image Manager Mode -->
@@ -460,10 +825,10 @@
                 <option value="Git Branch Synchronization &amp; Cloud Bridge Node">🌿 Git Branch &amp; Cloud Bridge Node</option>
               </optgroup>
               <optgroup label="🖼️ Graphics, Mascot &amp; Marketing">
-                <option value="Captain Geppy Mascot (Hero Thumbs Up &amp; Confident Stance)">👍 Captain Geppy Mascot (Hero Thumbs Up)</option>
-                <option value="Captain Geppy Starfleet Helm (Navigating Cosmic Flight Deck)">🚀 Captain Geppy Starfleet Helm</option>
-                <option value="Captain Geppy Code Inspector (Holding Magnifying Lens &amp; Data Terminal)">🔍 Captain Geppy Code Inspector</option>
-                <option value="Hero Showcase Splash Banner (Widescreen 16:9 Cosmic Feature Graphic)">🖼️ Hero Showcase Splash Banner</option>
+                <option value="Geppy Mascot (Hero Thumbs Up &amp; Confident Stance)">👍 Geppy Mascot (Hero Thumbs Up)</option>
+                <option value="Geppy Tech Specialist (Friendly IT &amp; AI Architect)">💻 Geppy Tech Specialist</option>
+                <option value="Geppy Code Inspector (Holding Magnifying Lens &amp; Data Terminal)">🔍 Geppy Code Inspector</option>
+                <option value="Hero Showcase Splash Banner (Widescreen 16:9 Feature Graphic)">🖼️ Hero Showcase Splash Banner</option>
                 <option value="Deep Space Cosmic Nebula Wallpaper &amp; Header Backdrop">🌌 Deep Space Cosmic Nebula Wallpaper</option>
                 <option value="Die-Cut Brand Vinyl Sticker (Bold White Contour Perimeter)">🏷️ Die-Cut Brand Vinyl Sticker</option>
                 <option value="1970s Vintage Collectible Trading Card (Topps Cardboard Lithograph)">⚾ 1970s Vintage Collectible Trading Card</option>
@@ -474,7 +839,7 @@
               <button type="button" class="btn-step-pill" data-purpose="Official App Launcher Icon" data-shape="hex-orange-nobg">🚀 App Icon</button>
               <button type="button" class="btn-step-pill" data-purpose="Geppy Hexagonal (#F59E0B) App Launcher Icon" data-shape="hex-orange-nobg">🔶 Hex Icon</button>
               <button type="button" class="btn-step-pill" data-purpose="Geppy's Cash &amp; Vault Badge" data-shape="vault-gold-emerald">💳 Cash Badge</button>
-              <button type="button" class="btn-step-pill" data-purpose="Captain Geppy Commander Mascot Badge" data-shape="squircle-glass">🌟 Mascot</button>
+              <button type="button" class="btn-step-pill" data-purpose="Geppy Mascot Badge" data-shape="squircle-glass">🌟 Mascot</button>
               <button type="button" class="btn-step-pill" data-purpose="Hero Dashboard Graphic &amp; Visual Feature" data-shape="isometric-scene">🖼️ Hero</button>
               <button type="button" class="btn-step-pill" data-purpose="Die-Cut Brand Vinyl Sticker" data-shape="sticker-diecut">🏷️ Sticker</button>
             </div>
@@ -487,7 +852,7 @@
             <div id="ext-lab-brand-chip" class="lab-brand-chip hidden">
               <img id="ext-lab-brand-thumb" src="" alt="Brand Mascot" class="lab-brand-thumb-img" />
               <div class="lab-brand-meta">
-                <span id="ext-lab-brand-name" class="lab-brand-name">Captain Geppy</span>
+                <span id="ext-lab-brand-name" class="lab-brand-name">Geppy</span>
                 <span class="lab-brand-sub">Character Likeness Grounding</span>
               </div>
             </div>
@@ -738,15 +1103,15 @@
           </div>
         </div>
 
-        <!-- Tabs: Changed Files vs Session Changelog -->
+        <!-- Tabs: Changed Files vs Change Log -->
         <div class="commit-tabs">
           <button id="tab-changed-files" class="commit-tab-btn active">
             <i class="fa-solid fa-file-code"></i>
             <span>Changed Files (<span id="modal-changed-count">0</span>)</span>
           </button>
           <button id="tab-session-log" class="commit-tab-btn">
-            <i class="fa-solid fa-timeline"></i>
-            <span>Session Log (<span id="modal-session-log-count">0</span>)</span>
+            <i class="fa-solid fa-list-check"></i>
+            <span>Change Log (<span id="modal-session-log-count">0</span>)</span>
           </button>
         </div>
 
@@ -759,8 +1124,12 @@
           </div>
         </div>
 
-        <!-- Tab Content 2: Session Activity Log -->
+        <!-- Tab Content 2: Change Log -->
         <div id="panel-session-log" class="commit-panel-tab hidden">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; padding: 0 2px;">
+            <span style="font-size: 10px; color: #94a3b8; font-weight: 600;">Recorded edits, fixes &amp; implementations</span>
+            <button type="button" id="btn-clear-committed-log" style="background: transparent; border: 1px solid rgba(148, 163, 184, 0.25); color: #94a3b8; border-radius: 4px; padding: 1px 6px; font-size: 9.5px; cursor: pointer;" title="Clear already-committed history from list">Clear Committed</button>
+          </div>
           <div id="modal-session-timeline" class="modal-session-timeline">
             <div style="color: #64748b; font-size: 11px; text-align: center; padding: 14px 0;">
               No session edits logged yet.
@@ -768,18 +1137,22 @@
           </div>
         </div>
 
-        <!-- Commit Message Section -->
+        <!-- Commit Message & Change Log Section -->
         <div class="commit-msg-section">
           <div class="commit-msg-header">
             <label for="commit-msg-input" class="commit-label">
-              <i class="fa-solid fa-comment-dots"></i> Commit Message:
+              <i class="fa-solid fa-comment-dots"></i> Commit Message &amp; Change Log:
             </label>
-            <button id="btn-generate-ai-commit-msg" class="btn-ai-sparkle" title="Use Captain Geppy to synthesize recent changes into a commit message">
+            <button id="btn-generate-ai-commit-msg" class="btn-ai-sparkle" title="Synthesize recent changes into a commit message and change log">
               <i class="fa-solid fa-wand-magic-sparkles"></i>
-              <span>✨ AI Message</span>
+              <span>✨ AI Change Log</span>
             </button>
           </div>
-          <textarea id="commit-msg-input" class="commit-msg-textarea" rows="2" placeholder="e.g. feat(ui): add glassmorphic styling and SOT contextile"></textarea>
+          <textarea id="commit-msg-input" class="commit-msg-textarea" rows="4" placeholder="e.g. feat(ui): add glassmorphic styling&#10;&#10;Change Log:&#10;- Updated index.css with frosted glass cards"></textarea>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: #cbd5e1; margin-top: 6px; cursor: pointer;">
+            <input type="checkbox" id="chk-write-changelog-md" checked style="accent-color: #10b981; cursor: pointer;" />
+            <span>Also record changes in <code>CHANGELOG.md</code> in repository when saving to GitHub/PC</span>
+          </label>
         </div>
 
         <!-- Feedback Card (for progress or success) -->
@@ -889,7 +1262,7 @@
           </div>
           <div class="impl-step-item" id="impl-step-2">
             <span class="impl-step-dot">2</span>
-            <span>Synthesizing code with Captain Geppy...</span>
+            <span id="impl-step-2-label">Synthesizing code with Geppy...</span>
           </div>
           <div class="impl-step-item" id="impl-step-3">
             <span class="impl-step-dot">3</span>
@@ -1129,6 +1502,7 @@
         </button>
       </div>
     </div>
+  </div>
   <!-- Modal: Sources of Truth Fleet (Big Old List of SOTs) -->
   <div id="modal-sot-fleet" class="modal-overlay hidden" style="display: none;">
     <div class="modal-content sot-fleet-modal-content">
@@ -1174,6 +1548,68 @@
         <div id="sot-fleet-cards-list" class="sot-cards-list">
           <!-- Populated dynamically -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: GeppyBug Reporter & Universal App Update -->
+  <div id="modal-geppy-bug-report" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 440px; border: 1.5px solid rgba(251, 146, 60, 0.65);">
+      <div class="modal-header" style="background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(124, 45, 18, 0.45));">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <img src="icons/geppy_bug_48.png" alt="GeppyBug" style="width: 28px; height: 28px; object-fit: contain;" />
+          <span id="ext-bug-modal-title">Report Bug to GitBridge</span>
+        </div>
+        <button type="button" id="btn-close-ext-bug-modal" class="btn-icon-subtle" title="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px;">
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: #cbd5e1; display: block; margin-bottom: 4px;">Bug Summary / Title *</label>
+          <input type="text" id="ext-bug-title-input" class="input-box" style="width: 100%; box-sizing: border-box;" placeholder="e.g. Button click throws error or layout overlaps" />
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 11px; font-weight: 700; color: #cbd5e1; display: block; margin-bottom: 4px;">Severity</label>
+            <select id="ext-bug-severity-select" class="input-box" style="width: 100%; box-sizing: border-box;">
+              <option value="critical">🚨 Critical</option>
+              <option value="high" selected>🔥 High</option>
+              <option value="medium">⚠️ Medium</option>
+              <option value="low">💡 Low</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: 700; color: #cbd5e1; display: block; margin-bottom: 4px;">Target File (Optional)</label>
+            <input type="text" id="ext-bug-file-input" class="input-box font-mono" style="width: 100%; box-sizing: border-box; font-size: 11px;" placeholder="auto-detect" />
+          </div>
+        </div>
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: #cbd5e1; display: block; margin-bottom: 4px;">Details &amp; Steps to Reproduce</label>
+          <textarea id="ext-bug-desc-input" class="input-box" rows="3" style="width: 100%; box-sizing: border-box; resize: vertical;" placeholder="Describe what happened or paste any console error logs..."></textarea>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px; padding: 8px; background: rgba(2, 6, 23, 0.7); border-radius: 8px; border: 1px solid rgba(51, 65, 85, 0.6); font-size: 11px; color: #e2e8f0;">
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <input type="checkbox" id="ext-bug-chk-autofix" checked style="accent-color: #f97316;" />
+            <span>⚡ <strong>Send to Captain Geppy / Antigravity to Auto-Patch Now</strong></span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <input type="checkbox" id="ext-bug-chk-health" checked style="accent-color: #10b981;" />
+            <span>📋 Log to App Backlog, Health Card &amp; BUGS.md</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <input type="checkbox" id="ext-bug-chk-github" style="accent-color: #6366f1;" />
+            <span>🐙 Create GitHub Issue</span>
+          </label>
+        </div>
+        <div id="ext-bug-feedback" class="commit-feedback hidden"></div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button type="button" id="btn-cancel-ext-bug" class="btn-cancel">Cancel</button>
+        <button type="button" id="btn-submit-ext-bug" class="btn-primary-commit" style="background: linear-gradient(135deg, #ea580c, #d97706); display: inline-flex; align-items: center; gap: 6px;">
+          <img src="icons/geppy_bug_32.png" alt="" style="width: 16px; height: 16px; object-fit: contain;" />
+          <span>Submit Bug Report</span>
+        </button>
       </div>
     </div>
   </div>
