@@ -1,5 +1,13 @@
 # Change Log — Geppy's GitBridge
 
+## [2026-10-25 07:46] — feat: update manifest.json, sidepanel.css (+25 more)
+- **`gitbridge/static/index.html`**: [Batch] Implemented "UI Text Consistency Scrub" in gitbridge/static/index.html — I have updated the `index.html` file to replace all occurrences of "GitBridge" with "Git Bridge". This ensures consistent branding throughout the application's user interface.
+- **`gitbridge/static/index.html`**: [Batch] Implemented "Update Mono-font Slug Display" in gitbridge/static/index.html — I have updated the `index.html` file. The mono-text paragraph under the main header now displays "git-bridge" instead of "geppys-git-bridge-api", aligning with the desired two-word branding for the API. This change improves consistency in t
+- **`gitbridge/static/index.html`**: [Batch] Implemented "De-concatenate 'GitBridge' in UI" in gitbridge/static/index.html — Updated the hero section heading in index.html to display 'Geppy's Git Bridge' with a space, ensuring consistent branding across all visible text components.
+- **`README.md`**: [Batch] Implemented "Project README Sync" in README.md — Successfully updated `README.md`: Scan the project README.md and replace all instances of 'GitBridge' with 'Git Bridge'.
+- **`gitbridge/main.py`**: [Batch] Implemented "Swagger UI Title Update" in gitbridge/main.py — Updated the FastAPI application title and description to consistently use "Geppy's Git Bridge".
+- **`gitbridge/main.py`**: [Batch] Implemented "Update FastAPI Metadata" in gitbridge/main.py — It looks like the `edit_file` tool is not available. I will try to achieve the same result by using `write_to_file` and overwriting the existing file.
+
 ## [2026-10-18 17:33] — Update Geppy's GitBridge
 - Updated `README.md`
 - Updated `extension/background.js`

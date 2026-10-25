@@ -343,7 +343,7 @@ async function fetchAntigravityApi(path, options = {}) {
   }
 }
 
-let currentMode = "brainstorm";
+let currentMode = "home";
 let apps = [];
 let contextiles = [];
 let activeApp = null;
@@ -372,12 +372,32 @@ const btnStopAllPorts = document.getElementById("btn-stop-all-ports");
 const btnClosePortDrawer = document.getElementById("btn-close-port-drawer");
 const btnDetectTab = document.getElementById("btn-detect-tab");
 
+const btnModeHome = document.getElementById("btn-mode-home");
 const btnModeBrainstorm = document.getElementById("btn-mode-brainstorm");
 const btnModeDesigner = document.getElementById("btn-mode-designer");
 const btnModeAssets = document.getElementById("btn-mode-assets");
+const viewHome = document.getElementById("view-home");
 const viewBrainstorm = document.getElementById("view-brainstorm");
 const viewDesigner = document.getElementById("view-designer");
 const viewAssets = document.getElementById("view-assets");
+
+// Home & Google AI Studio Extractor Elements
+const aiStudioExtractorCard = document.getElementById("ai-studio-extractor-card");
+const aiStudioStatusPill = document.getElementById("ai-studio-status-pill");
+const aiStudioDetectSubtitle = document.getElementById("ai-studio-detect-subtitle");
+const aiStudioDetectedBanner = document.getElementById("ai-studio-detected-banner");
+const aiStudioDetectedTitle = document.getElementById("ai-studio-detected-title");
+const aiStudioDetectedUrl = document.getElementById("ai-studio-detected-url");
+const aiStudioExtractMode = document.getElementById("ai-studio-extract-mode");
+const aiStudioCustomName = document.getElementById("ai-studio-custom-name");
+const chkAiStudioDeepAnalyze = document.getElementById("chk-ai-studio-deep-analyze");
+const btnScanAiStudioTab = document.getElementById("btn-scan-ai-studio-tab");
+const btnExtractAiStudio = document.getElementById("btn-extract-ai-studio");
+const btnExtractAiStudioLabel = document.getElementById("btn-extract-ai-studio-label");
+const aiStudioExtractFeedback = document.getElementById("ai-studio-extract-feedback");
+const homeAiStudioDot = document.getElementById("home-ai-studio-dot");
+const btnHomeJumpChat = document.getElementById("btn-home-jump-chat");
+const homeActiveAgentPill = document.getElementById("home-active-agent-pill");
 
 // Assets Subnav & Image Management Elements
 let activeAppImages = [];
@@ -636,6 +656,8 @@ const modalRegisterApp = document.getElementById("modal-register-app");
 const btnCloseRegisterModal = document.getElementById("btn-close-register-modal");
 const btnCancelRegister = document.getElementById("btn-cancel-register");
 const regAppName = document.getElementById("reg-app-name");
+const regAppCategory = document.getElementById("reg-app-category");
+const regAppAutoCatBadge = document.getElementById("reg-app-auto-cat-badge");
 const regAppUrl = document.getElementById("reg-app-url");
 const regModeWorkspace = document.getElementById("reg-mode-workspace");
 const regModeCustom = document.getElementById("reg-mode-custom");
@@ -643,6 +665,21 @@ const regAppCustomPath = document.getElementById("reg-app-custom-path");
 const regRunDeepAnalysis = document.getElementById("reg-run-deep-analysis");
 const regActionFeedback = document.getElementById("reg-action-feedback");
 const btnSubmitRegisterApp = document.getElementById("btn-submit-register-app");
+
+// Galactic App Directory & Category Organizer Elements
+const btnToggleAppDirectory = document.getElementById("btn-toggle-app-directory");
+const galacticAppDirectoryDrawer = document.getElementById("galactic-app-directory-drawer");
+const appDirTotalBadge = document.getElementById("app-dir-total-badge");
+const btnDirAutoCategorize = document.getElementById("btn-dir-auto-categorize");
+const btnDirAddApp = document.getElementById("btn-dir-add-app");
+const btnCloseAppDirectory = document.getElementById("btn-close-app-directory");
+const appDirSearchInput = document.getElementById("app-dir-search-input");
+const chkAppDirShowHidden = document.getElementById("chk-app-dir-show-hidden");
+const appDirCategoryPills = document.getElementById("app-dir-category-pills");
+const galacticAppDirectoryList = document.getElementById("galactic-app-directory-list");
+const btnHeaderBrowseCategories = document.getElementById("btn-header-browse-categories");
+const btnHeaderAutoCategorize = document.getElementById("btn-header-auto-categorize");
+let currentAppDirCategoryFilter = "all";
 
 // SOT Fleet Big List Modal Elements
 const btnOpenSotFleet = document.getElementById("btn-open-sot-fleet");
@@ -716,21 +753,19 @@ if (typeof chrome !== "undefined") {
 }
 
 function toggleChatContextDrawer(forceOpen = null) {
-  if (!chatContextDrawer) return;
-  const isHidden = chatContextDrawer.classList.contains("hidden");
-  const shouldOpen = forceOpen !== null ? forceOpen : isHidden;
-  if (shouldOpen) {
-    chatContextDrawer.classList.remove("hidden");
-    if (btnToggleContextDrawer) btnToggleContextDrawer.classList.add("active");
-  } else {
-    chatContextDrawer.classList.add("hidden");
-    if (btnToggleContextDrawer) btnToggleContextDrawer.classList.remove("active");
-  }
+  // Since SOT Contextiles & Quick Prompts now live permanently on the Home page,
+  // clicking '@' in the Chat input bar opens the SOT Fleet Picker Modal directly!
+  if (forceOpen === false) return;
+  openSotFleetModal();
 }
 
 function setupEventListeners() {
+  if (btnModeHome) btnModeHome.addEventListener("click", () => switchMode("home"));
   btnModeBrainstorm.addEventListener("click", () => switchMode("brainstorm"));
   btnModeDesigner.addEventListener("click", () => switchMode("designer"));
+  if (btnHomeJumpChat) btnHomeJumpChat.addEventListener("click", () => switchMode("brainstorm"));
+  if (btnExtractAiStudio) btnExtractAiStudio.addEventListener("click", () => extractFromAiStudioTab());
+  if (btnScanAiStudioTab) btnScanAiStudioTab.addEventListener("click", () => scanAndPreviewAiStudioTab(true));
   if (btnAntigravityStatus) {
     btnAntigravityStatus.addEventListener("click", () => openActiveAppInAntigravityIde());
   }
@@ -941,6 +976,49 @@ function setupEventListeners() {
   if (btnCloseRegisterModal) btnCloseRegisterModal.addEventListener("click", () => closeRegisterModal());
   if (btnCancelRegister) btnCancelRegister.addEventListener("click", () => closeRegisterModal());
   if (btnSubmitRegisterApp) btnSubmitRegisterApp.addEventListener("click", () => submitRegisterApp());
+  if (regAppName) {
+    regAppName.addEventListener("input", () => updateRegAutoCategoryPreview());
+  }
+  if (regAppCategory) {
+    regAppCategory.addEventListener("change", () => updateRegAutoCategoryPreview());
+  }
+
+  // Galactic Categorized App Directory Listeners
+  if (btnToggleAppDirectory) {
+    btnToggleAppDirectory.addEventListener("click", () => toggleGalacticAppDirectory());
+  }
+  if (btnHeaderBrowseCategories) {
+    btnHeaderBrowseCategories.addEventListener("click", () => {
+      const toolsMenu = document.getElementById("galactic-tools-menu-content");
+      if (toolsMenu) toolsMenu.classList.add("hidden");
+      toggleGalacticAppDirectory(true);
+    });
+  }
+  if (btnHeaderAutoCategorize) {
+    btnHeaderAutoCategorize.addEventListener("click", () => {
+      const toolsMenu = document.getElementById("galactic-tools-menu-content");
+      if (toolsMenu) toolsMenu.classList.add("hidden");
+      triggerAutoCategorizeAllApps();
+    });
+  }
+  if (btnCloseAppDirectory) {
+    btnCloseAppDirectory.addEventListener("click", () => toggleGalacticAppDirectory(false));
+  }
+  if (btnDirAutoCategorize) {
+    btnDirAutoCategorize.addEventListener("click", () => triggerAutoCategorizeAllApps());
+  }
+  if (btnDirAddApp) {
+    btnDirAddApp.addEventListener("click", () => {
+      toggleGalacticAppDirectory(false);
+      openRegisterModal();
+    });
+  }
+  if (appDirSearchInput) {
+    appDirSearchInput.addEventListener("input", () => renderGalacticAppDirectory());
+  }
+  if (chkAppDirShowHidden) {
+    chkAppDirShowHidden.addEventListener("change", () => renderGalacticAppDirectory());
+  }
 
   if (regModeWorkspace) {
     regModeWorkspace.addEventListener("change", () => {
@@ -1281,10 +1359,12 @@ function toggleCodeDrawer(forceOpen = null) {
   const isHidden = viewDesigner.classList.contains("hidden");
   const shouldOpen = forceOpen !== null ? forceOpen : isHidden;
   if (shouldOpen) {
+    if (viewHome) viewHome.classList.add("hidden");
     viewBrainstorm.classList.remove("hidden");
     if (viewAssets) viewAssets.classList.add("hidden");
     viewDesigner.classList.remove("hidden");
     if (btnToggleCodeDrawer) btnToggleCodeDrawer.classList.add("active");
+    if (btnModeHome) btnModeHome.classList.remove("active");
     if (btnModeDesigner) btnModeDesigner.classList.add("active");
     if (btnModeBrainstorm) btnModeBrainstorm.classList.remove("active");
     if (btnModeAssets) btnModeAssets.classList.remove("active");
@@ -1298,7 +1378,7 @@ function toggleCodeDrawer(forceOpen = null) {
     viewDesigner.classList.add("hidden");
     if (btnToggleCodeDrawer) btnToggleCodeDrawer.classList.remove("active");
     if (btnModeDesigner) btnModeDesigner.classList.remove("active");
-    if (!viewAssets || viewAssets.classList.contains("hidden")) {
+    if ((!viewAssets || viewAssets.classList.contains("hidden")) && (!viewHome || viewHome.classList.contains("hidden"))) {
       if (btnModeBrainstorm) btnModeBrainstorm.classList.add("active");
       currentMode = "brainstorm";
     }
@@ -1306,39 +1386,60 @@ function toggleCodeDrawer(forceOpen = null) {
 }
 
 function ensureStudioChatVisible() {
+  if (viewHome && !viewHome.classList.contains("hidden")) {
+    viewHome.classList.add("hidden");
+  }
   if (viewAssets && !viewAssets.classList.contains("hidden")) {
     viewAssets.classList.add("hidden");
   }
   if (viewBrainstorm) {
     viewBrainstorm.classList.remove("hidden");
   }
+  if (btnModeHome) btnModeHome.classList.remove("active");
   if (btnModeAssets) btnModeAssets.classList.remove("active");
   if (viewDesigner && !viewDesigner.classList.contains("hidden")) {
     if (btnModeDesigner) btnModeDesigner.classList.add("active");
+    currentMode = "designer";
   } else {
     if (btnModeBrainstorm) btnModeBrainstorm.classList.add("active");
+    currentMode = "brainstorm";
   }
 }
 
 function switchMode(mode) {
   currentMode = mode;
-  if (mode === "brainstorm") {
+  if (mode === "home") {
+    if (viewHome) viewHome.classList.remove("hidden");
+    if (viewBrainstorm) viewBrainstorm.classList.add("hidden");
+    if (viewAssets) viewAssets.classList.add("hidden");
+    if (btnModeHome) btnModeHome.classList.add("active");
+    if (btnModeBrainstorm) btnModeBrainstorm.classList.remove("active");
+    if (btnModeDesigner) btnModeDesigner.classList.remove("active");
+    if (btnModeAssets) btnModeAssets.classList.remove("active");
+    updateAiStudioCardState(currentBrowserTabUrl);
+  } else if (mode === "brainstorm") {
+    if (viewHome) viewHome.classList.add("hidden");
     viewBrainstorm.classList.remove("hidden");
     if (viewAssets) viewAssets.classList.add("hidden");
     toggleCodeDrawer(false);
+    if (btnModeHome) btnModeHome.classList.remove("active");
     btnModeBrainstorm.classList.add("active");
     btnModeDesigner.classList.remove("active");
     if (btnModeAssets) btnModeAssets.classList.remove("active");
   } else if (mode === "designer") {
+    if (viewHome) viewHome.classList.add("hidden");
     viewBrainstorm.classList.remove("hidden");
     if (viewAssets) viewAssets.classList.add("hidden");
+    if (btnModeHome) btnModeHome.classList.remove("active");
     // Toggle inline Code Drawer open while keeping Central Chat visible!
     const isCurrentlyOpen = !viewDesigner.classList.contains("hidden");
     toggleCodeDrawer(!isCurrentlyOpen ? true : true);
   } else if (mode === "assets") {
+    if (btnModeHome) btnModeHome.classList.remove("active");
     if (btnModeAssets) btnModeAssets.classList.add("active");
     btnModeBrainstorm.classList.remove("active");
     btnModeDesigner.classList.remove("active");
+    if (viewHome) viewHome.classList.add("hidden");
     if (viewAssets) viewAssets.classList.remove("hidden");
     viewBrainstorm.classList.add("hidden");
 
@@ -1565,6 +1666,94 @@ async function syncCentralKeyToApps() {
 }
 
 // --- App Registration & Deep Analysis Modal ---
+const CANONICAL_APP_CATEGORIES = [
+  "Core Platform & Hubs",
+  "AI, Prompts & Planning",
+  "System, Diagnostics & Tech Tools",
+  "Finance, Business & Operations",
+  "Creative, Design & Media",
+  "Communication & Productivity",
+  "Games & Entertainment",
+  "Experimental & Sandbox",
+];
+
+const APP_CATEGORY_ICONS = {
+  "Core Platform & Hubs": "🛸",
+  "AI, Prompts & Planning": "🤖",
+  "System, Diagnostics & Tech Tools": "🛠️",
+  "Finance, Business & Operations": "💼",
+  "Creative, Design & Media": "🎨",
+  "Communication & Productivity": "💬",
+  "Games & Entertainment": "🎮",
+  "Experimental & Sandbox": "🧪",
+};
+
+const APP_CATEGORY_SHORT_LABELS = {
+  "Core Platform & Hubs": "Core & Hubs",
+  "AI, Prompts & Planning": "AI & Prompts",
+  "System, Diagnostics & Tech Tools": "Tech Tools",
+  "Finance, Business & Operations": "Business & Finance",
+  "Creative, Design & Media": "Creative & Media",
+  "Communication & Productivity": "Comms & Docs",
+  "Games & Entertainment": "Games",
+  "Experimental & Sandbox": "Sandbox",
+};
+
+function inferAppCategoryClient(appOrName, slugOverride = "", descOverride = "") {
+  if (appOrName && typeof appOrName === "object" && appOrName.category && CANONICAL_APP_CATEGORIES.includes(appOrName.category)) {
+    return appOrName.category;
+  }
+  const nameL = (typeof appOrName === "object" ? (appOrName.name || "") : String(appOrName || "")).toLowerCase();
+  const slugL = (typeof appOrName === "object" ? (appOrName.slug || "") : String(slugOverride || "")).toLowerCase();
+  const descL = (typeof appOrName === "object" ? (appOrName.description || "") : String(descOverride || "")).toLowerCase();
+  const combinedId = `${slugL} ${nameL}`;
+  const combinedAll = `${slugL} ${nameL} ${descL}`;
+
+  if (slugL.startsWith(".") || slugL.startsWith("test-") || slugL.startsWith("studio-self-repair") || slugL.startsWith("vibe-")) {
+    return "Experimental & Sandbox";
+  }
+  if (["gitbridge", "launchpad", "galactic", "galaxtic", "antigravity-hub", "antigravity hub", "gemini-bridge", "gemini bridge", "screen-stream", "screen stream", "voice-chat", "voice chat"].some((k) => combinedId.includes(k))) {
+    return "Core Platform & Hubs";
+  }
+  if (["diagnostic", "diagnostick", "cortechs", "toolbox", "pulsenet", "tether", "shortcuts", "hardware", "bitlocker", "network"].some((k) => combinedAll.includes(k))) {
+    return "System, Diagnostics & Tech Tools";
+  }
+  if (["pollycomms", "translingual", "portable-aac", "portable aac", "touch-to-speech", "email-exorsist", "email exorcist", "grammer", "grammar", "chat", "messenger"].some((k) => combinedAll.includes(k))) {
+    return "Communication & Productivity";
+  }
+  if (["cashcalender", "cashcalendar", "money", "tradeday", "trade day", "trading", "finance", "budget", "debt", "cpao", "quoting", "divine", "devine", "procurement", "payroll", "invoice"].some((k) => combinedAll.includes(k))) {
+    return "Finance, Business & Operations";
+  }
+  if (["asset-lab", "asset lab", "blanks-canvas", "blanks canvas", "vectorator", "vector", "photoshop", "prompt-to-cut", "prompt to cut", "canvas", "svg", "photo", "image", "video"].some((k) => combinedAll.includes(k))) {
+    return "Creative, Design & Media";
+  }
+  if (["arcade", "mini-golf", "mini golf", "mugen", "changling", "game", "golf", "puzzle"].some((k) => combinedAll.includes(k))) {
+    return "Games & Entertainment";
+  }
+  return "AI, Prompts & Planning";
+}
+
+function getAppCategoryLabel(cat) {
+  const clean = CANONICAL_APP_CATEGORIES.includes(cat) ? cat : "AI, Prompts & Planning";
+  return `${APP_CATEGORY_ICONS[clean] || "📦"} ${clean}`;
+}
+
+function updateRegAutoCategoryPreview() {
+  if (!regAppAutoCatBadge) return;
+  const manualCat = regAppCategory ? regAppCategory.value : "";
+  if (manualCat) {
+    regAppAutoCatBadge.textContent = `${APP_CATEGORY_ICONS[manualCat] || "🏷️"} ${manualCat}`;
+    return;
+  }
+  const typedName = regAppName ? regAppName.value.trim() : "";
+  if (!typedName) {
+    regAppAutoCatBadge.textContent = "✨ Auto-Categorize";
+    return;
+  }
+  const inferred = inferAppCategoryClient(typedName);
+  regAppAutoCatBadge.textContent = `Auto: ${APP_CATEGORY_ICONS[inferred] || "✨"} ${APP_CATEGORY_SHORT_LABELS[inferred] || inferred}`;
+}
+
 function openRegisterModal(prefillData = null) {
   if (!modalRegisterApp) return;
   modalRegisterApp.classList.remove("hidden");
@@ -1581,6 +1770,8 @@ function openRegisterModal(prefillData = null) {
     if (regAppName) regAppName.value = "";
     if (regAppUrl) regAppUrl.value = "";
   }
+  if (regAppCategory) regAppCategory.value = "";
+  updateRegAutoCategoryPreview();
 
   if (regModeWorkspace) regModeWorkspace.checked = true;
   if (regAppCustomPath) {
@@ -1600,6 +1791,7 @@ function closeRegisterModal() {
 
 async function submitRegisterApp() {
   const name = regAppName ? regAppName.value.trim() : "";
+  const selectedCategory = regAppCategory ? regAppCategory.value.trim() : "";
   const liveUrl = regAppUrl ? regAppUrl.value.trim() : "";
   const isCustomPath = regModeCustom ? regModeCustom.checked : false;
   const customPath = regAppCustomPath ? regAppCustomPath.value.trim() : "";
@@ -1618,9 +1810,9 @@ async function submitRegisterApp() {
   }
 
   btnSubmitRegisterApp.disabled = true;
-  btnSubmitRegisterApp.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Registering &amp; Analyzing...';
+  btnSubmitRegisterApp.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Registering &amp; Categorizing...';
   regActionFeedback.className = "commit-feedback warning";
-  regActionFeedback.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Analyzing code architecture, generating HELP.md guide &amp; injecting Gemini key...';
+  regActionFeedback.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Auto-categorizing app, analyzing architecture, generating HELP.md &amp; injecting Gemini key...';
 
   try {
     const res = await fetch(`${SERVER_URL}/api/extension/register-app`, {
@@ -1628,6 +1820,7 @@ async function submitRegisterApp() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: name,
+        category: selectedCategory || null,
         live_url: liveUrl,
         custom_path: isCustomPath ? customPath : null,
         run_deep_analysis: runDeepAnalysis
@@ -1636,12 +1829,14 @@ async function submitRegisterApp() {
 
     const data = await res.json();
     if (res.ok && data.success) {
+      const assignedCat = data.app.category || inferAppCategoryClient(data.app);
       regActionFeedback.className = "commit-feedback success";
       regActionFeedback.innerHTML = `
         <div style="font-weight: 700; margin-bottom: 2px;">
           <i class="fa-solid fa-circle-check"></i> Registered "${escapeHtml(data.app.name)}"!
         </div>
         <div style="font-size: 10.5px; opacity: 0.95;">
+          🏷️ Category: <strong>${escapeHtml(getAppCategoryLabel(assignedCat))}</strong><br>
           📁 <code>${escapeHtml(data.app.local_path)}</code><br>
           ${data.help_file_created ? "✨ Created comprehensive <strong>HELP.md</strong> user guide!<br>" : ""}
           🔑 Injected Central Gemini API key.
@@ -1905,15 +2100,105 @@ function renderSotFleetList(filterArchetype = "all", searchQuery = "") {
 
 
 function insertContextileMention(mentionHandle) {
+  if (currentMode === "home") {
+    switchMode("brainstorm");
+  }
   if (currentMode === "brainstorm") {
-    const val = brainstormInput.value;
+    const val = (brainstormInput.value || "").replace(/@$/, "");
     brainstormInput.value = val ? `${val.trimEnd()} ${mentionHandle} ` : `${mentionHandle} `;
     brainstormInput.focus();
   } else {
-    const val = designerAiInput.value;
+    const val = (designerAiInput.value || "").replace(/@$/, "");
     designerAiInput.value = val ? `${val.trimEnd()} ${mentionHandle} ` : `${mentionHandle} `;
     designerAiInput.focus();
   }
+}
+
+const RECENT_APPS_STORAGE_KEY = "geppy_recent_app_slugs";
+
+function getRecentAppSlugs() {
+  try {
+    const raw = localStorage.getItem(RECENT_APPS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function recordRecentAppUsage(slug, notifyBackend = true) {
+  if (!slug || String(slug).startsWith(".")) return;
+  const nowIso = new Date().toISOString();
+  try {
+    const existing = getRecentAppSlugs().filter((s) => s !== slug);
+    existing.unshift(slug);
+    localStorage.setItem(RECENT_APPS_STORAGE_KEY, JSON.stringify(existing.slice(0, 15)));
+  } catch (e) {}
+
+  const target = (apps || []).find((a) => a.slug === slug);
+  if (target) {
+    target.last_opened_at = nowIso;
+    target.updated_at = nowIso;
+  }
+
+  populateAppDropdown();
+  if (galacticAppDirectoryDrawer && !galacticAppDirectoryDrawer.classList.contains("hidden")) {
+    renderGalacticAppDirectory();
+  }
+
+  if (notifyBackend) {
+    fetch(`${SERVER_URL}/api/apps/${encodeURIComponent(slug)}/touch`, { method: "POST" }).catch(() => {});
+  }
+}
+
+function getAppRecencyTimestamp(a) {
+  if (!a) return 0;
+  const recentSlugs = getRecentAppSlugs();
+  const localIdx = recentSlugs.indexOf(a.slug);
+  // Give locally-tracked recent apps a strong boost in recency order
+  const localBoost = localIdx >= 0 ? (1e13 - localIdx * 1e9) : 0;
+  const rawTs = a.last_opened_at || a.updated_at || a.created_at;
+  let serverTs = 0;
+  if (rawTs) {
+    const parsed = Date.parse(rawTs);
+    if (!Number.isNaN(parsed)) serverTs = parsed;
+  }
+  return Math.max(localBoost, serverTs);
+}
+
+function isAppRecentlyUsed(a) {
+  if (!a) return false;
+  const recentSlugs = getRecentAppSlugs();
+  if (recentSlugs.slice(0, 8).includes(a.slug)) return true;
+  if (a.last_opened_at) return true;
+  return false;
+}
+
+function sortAppsWithRecentAtTop(list) {
+  const recentSlugs = getRecentAppSlugs();
+  return [...(list || [])].sort((a, b) => {
+    if (Boolean(a.is_live) !== Boolean(b.is_live)) return a.is_live ? -1 : 1;
+    const idxA = recentSlugs.indexOf(a.slug);
+    const idxB = recentSlugs.indexOf(b.slug);
+    if (idxA !== -1 || idxB !== -1) {
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      if (idxA !== idxB) return idxA - idxB;
+    }
+    const openedA = a.last_opened_at ? Date.parse(a.last_opened_at) || 0 : 0;
+    const openedB = b.last_opened_at ? Date.parse(b.last_opened_at) || 0 : 0;
+    if (openedA !== openedB) return openedB - openedA;
+    const tsA = getAppRecencyTimestamp(a);
+    const tsB = getAppRecencyTimestamp(b);
+    if (tsA !== tsB) return tsB - tsA;
+    return (a.name || "").trim().localeCompare((b.name || "").trim());
+  });
+}
+
+function getTopRecentApps(sourceApps, limit = 6) {
+  const sorted = sortAppsWithRecentAtTop(sourceApps);
+  return sorted.slice(0, limit);
 }
 
 async function loadApps() {
@@ -1921,7 +2206,15 @@ async function loadApps() {
     const res = await fetch(`${SERVER_URL}/api/apps?include_hidden=true`);
     if (!res.ok) return;
     apps = await res.json();
+    apps.forEach((a) => {
+      if (!a.category || !CANONICAL_APP_CATEGORIES.includes(a.category)) {
+        a.category = inferAppCategoryClient(a);
+      }
+    });
     populateAppDropdown();
+    if (galacticAppDirectoryDrawer && !galacticAppDirectoryDrawer.classList.contains("hidden")) {
+      renderGalacticAppDirectory();
+    }
   } catch (e) {
     console.error("Failed to load apps:", e);
   }
@@ -1936,19 +2229,334 @@ function populateAppDropdown() {
 
   const optDefault = document.createElement("option");
   optDefault.value = "";
-  optDefault.innerText = "-- Select Application --";
+  optDefault.innerText = "-- Select Application (Recent & Categories) --";
   appSelect.appendChild(optDefault);
 
-  apps.forEach((a) => {
-    const opt = document.createElement("option");
-    opt.value = a.slug;
-    opt.innerText = `${a.name}${a.is_live ? " 🟢 (Live)" : ""}${a.is_hidden ? " 👁️ (Hidden)" : ""}`;
-    appSelect.appendChild(opt);
+  const visibleApps = apps.filter((a) => !a.is_hidden && !String(a.slug || "").startsWith("."));
+  const hiddenApps = apps.filter((a) => a.is_hidden && !String(a.slug || "").startsWith("."));
+
+  // 1. Currently Running / Live Apps OptGroup at the very top
+  const liveApps = sortAppsWithRecentAtTop(visibleApps.filter((a) => a.is_live));
+
+  if (liveApps.length > 0) {
+    const liveGroup = document.createElement("optgroup");
+    liveGroup.label = `🟢 Running Now (${liveApps.length})`;
+    liveApps.forEach((a) => {
+      const opt = document.createElement("option");
+      opt.value = a.slug;
+      const catIcon = APP_CATEGORY_ICONS[a.category] || "📦";
+      opt.innerText = `🟢 ${(a.name || a.slug).trim()} ${catIcon}`;
+      liveGroup.appendChild(opt);
+    });
+    appSelect.appendChild(liveGroup);
+  }
+
+  // 2. Recent Apps OptGroup pulled right to the top
+  const recentApps = getTopRecentApps(visibleApps, 6);
+  if (recentApps.length > 0) {
+    const recentGroup = document.createElement("optgroup");
+    recentGroup.label = `🕒 Recent Apps (Top ${recentApps.length})`;
+    recentApps.forEach((a) => {
+      const opt = document.createElement("option");
+      opt.value = a.slug;
+      const catIcon = APP_CATEGORY_ICONS[a.category] || "📦";
+      opt.innerText = `${a.is_live ? "🟢" : "🕒"} ${(a.name || a.slug).trim()} ${catIcon}`;
+      recentGroup.appendChild(opt);
+    });
+    appSelect.appendChild(recentGroup);
+  }
+
+  // 3. Categorized OptGroups in canonical order (with recent apps pulled to the top of each category)
+  const byCategory = {};
+  CANONICAL_APP_CATEGORIES.forEach((c) => { byCategory[c] = []; });
+  visibleApps.forEach((a) => {
+    const cat = CANONICAL_APP_CATEGORIES.includes(a.category) ? a.category : inferAppCategoryClient(a);
+    a.category = cat;
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(a);
   });
+
+  CANONICAL_APP_CATEGORIES.forEach((cat) => {
+    const catApps = sortAppsWithRecentAtTop(byCategory[cat] || []);
+    if (catApps.length === 0) return;
+
+    const grp = document.createElement("optgroup");
+    const icon = APP_CATEGORY_ICONS[cat] || "📦";
+    grp.label = `${icon} ${cat} (${catApps.length})`;
+    catApps.forEach((a) => {
+      const opt = document.createElement("option");
+      opt.value = a.slug;
+      const recBadge = !a.is_live && isAppRecentlyUsed(a) ? "🕒 " : "";
+      opt.innerText = `${a.is_live ? "🟢 " : recBadge}${(a.name || a.slug).trim()}`;
+      grp.appendChild(opt);
+    });
+    appSelect.appendChild(grp);
+  });
+
+  // 4. Hidden Apps OptGroup at the very bottom
+  if (hiddenApps.length > 0) {
+    hiddenApps.sort((a, b) => (a.name || "").trim().localeCompare((b.name || "").trim()));
+    const hiddenGrp = document.createElement("optgroup");
+    hiddenGrp.label = `👁️ Hidden / Archived (${hiddenApps.length})`;
+    hiddenApps.forEach((a) => {
+      const opt = document.createElement("option");
+      opt.value = a.slug;
+      opt.innerText = `👁️ ${(a.name || a.slug).trim()}`;
+      hiddenGrp.appendChild(opt);
+    });
+    appSelect.appendChild(hiddenGrp);
+  }
 
   if (activeApp) {
     appSelect.value = activeApp.slug;
   }
+}
+
+function toggleGalacticAppDirectory(forceState = null) {
+  if (!galacticAppDirectoryDrawer) return;
+  const isCurrentlyHidden = galacticAppDirectoryDrawer.classList.contains("hidden");
+  const shouldOpen = forceState !== null ? Boolean(forceState) : isCurrentlyHidden;
+
+  if (shouldOpen) {
+    // Close port drawer if open so header stays compact
+    if (galacticPortDrawer) galacticPortDrawer.classList.add("hidden");
+    galacticAppDirectoryDrawer.classList.remove("hidden");
+    renderGalacticAppDirectory();
+    if (appDirSearchInput) {
+      setTimeout(() => appDirSearchInput.focus(), 50);
+    }
+  } else {
+    galacticAppDirectoryDrawer.classList.add("hidden");
+  }
+}
+
+async function triggerAutoCategorizeAllApps() {
+  if (btnDirAutoCategorize) {
+    btnDirAutoCategorize.disabled = true;
+    btnDirAutoCategorize.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Categorizing...';
+  }
+  try {
+    const res = await fetch(`${SERVER_URL}/api/apps/auto-categorize?overwrite=true`, { method: "POST" });
+    if (res.ok) {
+      await loadApps();
+      renderGalacticAppDirectory();
+    }
+  } catch (e) {
+    console.error("Failed to auto-categorize apps:", e);
+  } finally {
+    if (btnDirAutoCategorize) {
+      btnDirAutoCategorize.disabled = false;
+      btnDirAutoCategorize.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Categorize';
+    }
+  }
+}
+
+async function updateAppCategoryInline(slug, newCategory) {
+  try {
+    const res = await fetch(`${SERVER_URL}/api/apps/${encodeURIComponent(slug)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: newCategory }),
+    });
+    if (res.ok) {
+      const target = (apps || []).find((a) => a.slug === slug);
+      if (target) target.category = newCategory;
+      populateAppDropdown();
+      renderGalacticAppDirectory();
+    }
+  } catch (e) {
+    console.error("Failed to update app category:", e);
+  }
+}
+
+function renderGalacticAppDirectory() {
+  if (!galacticAppDirectoryList) return;
+  const showHidden = chkAppDirShowHidden ? chkAppDirShowHidden.checked : false;
+  const searchVal = (appDirSearchInput ? appDirSearchInput.value : "").trim().toLowerCase();
+
+  const baseApps = (apps || []).filter((a) => {
+    if (String(a.slug || "").startsWith(".")) return false;
+    if (a.is_hidden && !showHidden) return false;
+    return true;
+  });
+
+  if (appDirTotalBadge) {
+    appDirTotalBadge.textContent = `${baseApps.length} Apps`;
+  }
+
+  // Render Category Filter Pills
+  if (appDirCategoryPills) {
+    const liveCount = baseApps.filter((a) => a.is_live).length;
+    const recentCount = Math.min(8, baseApps.length);
+    const catCounts = {};
+    CANONICAL_APP_CATEGORIES.forEach((c) => { catCounts[c] = 0; });
+    baseApps.forEach((a) => {
+      const c = CANONICAL_APP_CATEGORIES.includes(a.category) ? a.category : inferAppCategoryClient(a);
+      catCounts[c] = (catCounts[c] || 0) + 1;
+    });
+
+    const pillDefs = [
+      { id: "all", label: `All (${baseApps.length})` },
+      ...(recentCount > 0 ? [{ id: "recent", label: `🕒 Recent (${recentCount})` }] : []),
+      ...(liveCount > 0 ? [{ id: "live", label: `🟢 Live (${liveCount})` }] : []),
+      ...CANONICAL_APP_CATEGORIES.filter((c) => catCounts[c] > 0).map((c) => ({
+        id: c,
+        label: `${APP_CATEGORY_ICONS[c] || "📦"} ${APP_CATEGORY_SHORT_LABELS[c] || c} (${catCounts[c]})`,
+      })),
+    ];
+
+    appDirCategoryPills.innerHTML = "";
+    pillDefs.forEach((p) => {
+      const btn = document.createElement("button");
+      const isActive = currentAppDirCategoryFilter === p.id;
+      btn.type = "button";
+      btn.style.cssText = `font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; white-space: nowrap; cursor: pointer; border: 1px solid ${isActive ? "#818cf8" : "rgba(51, 65, 85, 0.85)"}; background: ${isActive ? "rgba(99, 102, 241, 0.28)" : "rgba(15, 23, 42, 0.85)"}; color: ${isActive ? "#e0e7ff" : "#94a3b8"};`;
+      btn.textContent = p.label;
+      btn.addEventListener("click", () => {
+        currentAppDirCategoryFilter = p.id;
+        renderGalacticAppDirectory();
+      });
+      appDirCategoryPills.appendChild(btn);
+    });
+  }
+
+  // Filter apps by search and category pill
+  const topRecentSet = new Set(getTopRecentApps(baseApps, 8).map((a) => a.slug));
+  const filteredApps = baseApps.filter((a) => {
+    const cat = CANONICAL_APP_CATEGORIES.includes(a.category) ? a.category : inferAppCategoryClient(a);
+    if (currentAppDirCategoryFilter === "live") {
+      if (!a.is_live) return false;
+    } else if (currentAppDirCategoryFilter === "recent") {
+      if (!topRecentSet.has(a.slug)) return false;
+    } else if (currentAppDirCategoryFilter !== "all" && cat !== currentAppDirCategoryFilter) {
+      return false;
+    }
+    if (!searchVal) return true;
+    const hay = `${a.name || ""} ${a.slug || ""} ${cat} ${a.description || ""} ${(a.tech_stack || []).join(" ")}`.toLowerCase();
+    return hay.includes(searchVal);
+  });
+
+  galacticAppDirectoryList.innerHTML = "";
+  if (filteredApps.length === 0) {
+    galacticAppDirectoryList.innerHTML = `<div style="font-size: 10.5px; color: #64748b; text-align: center; padding: 12px;">No apps match this filter.</div>`;
+    return;
+  }
+
+  const buildAppDirRow = (a, cat, showRecentTag = false) => {
+    const isSelected = activeApp && activeApp.slug === a.slug;
+    const row = document.createElement("div");
+    row.style.cssText = `display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 8px; border-bottom: 1px solid rgba(30, 41, 59, 0.6); background: ${isSelected ? "rgba(99, 102, 241, 0.18)" : "transparent"}; cursor: pointer;`;
+
+    const left = document.createElement("div");
+    left.style.cssText = "display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;";
+    const recPill = showRecentTag
+      ? `<span style="font-size: 8.5px; color: #38bdf8; background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.3); padding: 0 4px; border-radius: 4px; flex-shrink: 0;">🕒 Recent</span>`
+      : "";
+    left.innerHTML = `
+      <span style="width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: ${a.is_live ? "#10b981" : "#475569"}; box-shadow: ${a.is_live ? "0 0 6px #10b981" : "none"};" title="${a.is_live ? "Running Live" : "Stopped"}"></span>
+      <span style="font-size: 11px; font-weight: ${isSelected ? "800" : "600"}; color: ${isSelected ? "#a5b4fc" : "#f1f5f9"}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(a.description || a.name)}">${escapeHtml((a.name || a.slug).trim())}</span>
+      ${recPill}
+      ${a.is_hidden ? '<span style="font-size: 8.5px; color: #f43f5e; background: rgba(244,63,94,0.15); padding: 0 4px; border-radius: 4px;">Hidden</span>' : ""}
+    `;
+    left.addEventListener("click", async () => {
+      await onAppSelected(a.slug);
+      toggleGalacticAppDirectory(false);
+    });
+
+    const right = document.createElement("div");
+    right.style.cssText = "display: flex; align-items: center; gap: 4px; flex-shrink: 0;";
+
+    const catSel = document.createElement("select");
+    catSel.title = "Change category for this app";
+    catSel.style.cssText = "background: #0f172a; color: #94a3b8; border: 1px solid #334155; border-radius: 4px; font-size: 9px; padding: 1px 3px; max-width: 78px; cursor: pointer;";
+    CANONICAL_APP_CATEGORIES.forEach((cOpt) => {
+      const o = document.createElement("option");
+      o.value = cOpt;
+      o.textContent = `${APP_CATEGORY_ICONS[cOpt] || "📦"} ${APP_CATEGORY_SHORT_LABELS[cOpt] || cOpt}`;
+      if (cOpt === cat) o.selected = true;
+      catSel.appendChild(o);
+    });
+    catSel.addEventListener("click", (ev) => ev.stopPropagation());
+    catSel.addEventListener("change", (ev) => {
+      ev.stopPropagation();
+      updateAppCategoryInline(a.slug, ev.target.value);
+    });
+
+    const actBtn = document.createElement("button");
+    actBtn.type = "button";
+    actBtn.style.cssText = `font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 4px; cursor: pointer; border: 1px solid ${a.is_live ? "rgba(16,185,129,0.45)" : "rgba(99,102,241,0.45)"}; background: ${a.is_live ? "rgba(16,185,129,0.15)" : "rgba(99,102,241,0.18)"}; color: ${a.is_live ? "#6ee7b7" : "#c7d2fe"};`;
+    actBtn.innerHTML = a.is_live ? '<i class="fa-solid fa-arrow-up-right-from-square"></i> Open' : '<i class="fa-solid fa-rocket"></i>';
+    actBtn.title = a.is_live ? `Open ${a.name} (${a.live_url})` : `Select & Launch ${a.name}`;
+    actBtn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      await onAppSelected(a.slug);
+      toggleGalacticAppDirectory(false);
+      await launchSelectedApp();
+    });
+
+    right.appendChild(catSel);
+    right.appendChild(actBtn);
+    row.appendChild(left);
+    row.appendChild(right);
+    return row;
+  };
+
+  // If viewing "All" (no search filter) or "Recent" filter, surface a pinned "🕒 Recently Used" section right at the top!
+  if ((currentAppDirCategoryFilter === "all" && !searchVal) || currentAppDirCategoryFilter === "recent") {
+    const recentList = getTopRecentApps(filteredApps, currentAppDirCategoryFilter === "recent" ? 8 : 5);
+    if (recentList.length > 0) {
+      const recSection = document.createElement("div");
+      recSection.style.cssText = "background: rgba(15, 23, 42, 0.78); border: 1px solid rgba(56, 189, 248, 0.45); border-radius: 7px; overflow: hidden;";
+      const recHeader = document.createElement("div");
+      recHeader.style.cssText = "padding: 4px 8px; background: linear-gradient(90deg, rgba(14, 116, 144, 0.35), rgba(30, 41, 59, 0.8)); border-bottom: 1px solid rgba(56, 189, 248, 0.35); display: flex; align-items: center; justify-content: space-between; font-size: 10px; font-weight: 800; color: #7dd3fc;";
+      recHeader.innerHTML = `<span>🕒 Recently Used (Pulled to Top)</span><span style="font-size: 9px; color: #bae6fd; font-weight: 600;">Top ${recentList.length}</span>`;
+      recSection.appendChild(recHeader);
+
+      const recRows = document.createElement("div");
+      recRows.style.cssText = "display: flex; flex-direction: column;";
+      recentList.forEach((a) => {
+        const cat = CANONICAL_APP_CATEGORIES.includes(a.category) ? a.category : inferAppCategoryClient(a);
+        recRows.appendChild(buildAppDirRow(a, cat, false));
+      });
+      recSection.appendChild(recRows);
+      galacticAppDirectoryList.appendChild(recSection);
+      if (currentAppDirCategoryFilter === "recent") {
+        return;
+      }
+    }
+  }
+
+  // Group filtered apps by category (with recent apps sorted to the top of each category)
+  const grouped = {};
+  CANONICAL_APP_CATEGORIES.forEach((c) => { grouped[c] = []; });
+  filteredApps.forEach((a) => {
+    const cat = CANONICAL_APP_CATEGORIES.includes(a.category) ? a.category : inferAppCategoryClient(a);
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(a);
+  });
+
+  CANONICAL_APP_CATEGORIES.forEach((cat) => {
+    const list = sortAppsWithRecentAtTop(grouped[cat] || []);
+    if (list.length === 0) return;
+
+    const section = document.createElement("div");
+    section.style.cssText = "background: rgba(2, 6, 23, 0.55); border: 1px solid rgba(51, 65, 85, 0.65); border-radius: 7px; overflow: hidden;";
+
+    const header = document.createElement("div");
+    header.style.cssText = "padding: 4px 8px; background: rgba(30, 41, 59, 0.75); border-bottom: 1px solid rgba(51, 65, 85, 0.5); display: flex; align-items: center; justify-content: space-between; font-size: 10px; font-weight: 800; color: #c7d2fe;";
+    header.innerHTML = `<span>${APP_CATEGORY_ICONS[cat] || "📦"} ${escapeHtml(cat)}</span><span style="font-size: 9px; color: #94a3b8; font-weight: 600;">${list.length}</span>`;
+    section.appendChild(header);
+
+    const rowsWrap = document.createElement("div");
+    rowsWrap.style.cssText = "display: flex; flex-direction: column;";
+
+    list.forEach((a, idx) => {
+      rowsWrap.appendChild(buildAppDirRow(a, cat, idx === 0 && isAppRecentlyUsed(a)));
+    });
+
+    section.appendChild(rowsWrap);
+    galacticAppDirectoryList.appendChild(section);
+  });
 }
 
 // --- Active Tab App Detection, Off-Target Page Indicator & Instance Tracking ---
@@ -2011,9 +2619,349 @@ function formatTabShortLabel(url) {
   }
 }
 
+function isAiStudioUrl(url) {
+  if (!url) return false;
+  return /(aistudio\.google\.com|makersuite\.google\.com)/i.test(String(url));
+}
+
+function updateAiStudioCardState(url = currentBrowserTabUrl) {
+  const onAiStudio = isAiStudioUrl(url);
+  if (homeAiStudioDot) {
+    homeAiStudioDot.style.display = onAiStudio ? "inline-block" : "none";
+  }
+  if (aiStudioExtractorCard) {
+    aiStudioExtractorCard.classList.toggle("ai-studio-live", onAiStudio);
+  }
+  if (aiStudioStatusPill) {
+    if (onAiStudio) {
+      aiStudioStatusPill.textContent = "🟢 AI Studio Detected";
+      aiStudioStatusPill.classList.add("detected");
+    } else {
+      aiStudioStatusPill.textContent = "Ready to Extract";
+      aiStudioStatusPill.classList.remove("detected");
+    }
+  }
+  if (btnExtractAiStudioLabel) {
+    btnExtractAiStudioLabel.textContent = onAiStudio
+      ? "Extract This AI Studio App / Prompt to GitBridge"
+      : "Extract from AI Studio Tab to GitBridge";
+  }
+  if (!onAiStudio && aiStudioDetectedBanner) {
+    aiStudioDetectedBanner.classList.add("hidden");
+  }
+}
+
+async function resolveTargetAiStudioTab() {
+  if (typeof chrome === "undefined" || !chrome.tabs) return null;
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab && isAiStudioUrl(activeTab.url)) {
+      return activeTab;
+    }
+    // Check if another open tab in the current window is on Google AI Studio
+    const allTabs = await chrome.tabs.query({ currentWindow: true });
+    const aiStudioTab = allTabs.find((t) => t && isAiStudioUrl(t.url));
+    if (aiStudioTab) return aiStudioTab;
+    return activeTab || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function scrapeAiStudioDomFromTab(tabId) {
+  if (!tabId || typeof chrome === "undefined" || !chrome.scripting) return null;
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const clean = (s) => String(s || "").replace(/\u200B/g, "").trim();
+        const url = window.location.href;
+
+        // 1. Detect project / prompt / app title
+        let title = "";
+        const titleSelectors = [
+          'input[aria-label*="prompt title" i]',
+          'input[aria-label*="title" i]',
+          'input[placeholder*="Untitled" i]',
+          '.prompt-title input',
+          '.title-input',
+          '[data-test-id*="title" i]',
+          'header h1',
+          'h1'
+        ];
+        for (const sel of titleSelectors) {
+          const el = document.querySelector(sel);
+          if (el) {
+            const val = clean(el.value || el.textContent);
+            if (val && !/^google ai studio$/i.test(val) && val.length >= 2) {
+              title = val;
+              break;
+            }
+          }
+        }
+        if (!title) {
+          title = clean(document.title)
+            .replace(/\s*[-|–|•]\s*Google AI Studio.*$/i, "")
+            .replace(/^Google AI Studio\s*[-|–|•]?\s*/i, "")
+            .trim();
+        }
+        if (!title || /^untitled/i.test(title)) {
+          title = title || "AI Studio Project";
+        }
+
+        // 2. Detect System Instructions
+        let systemInstructions = "";
+        const sysSelectors = [
+          'textarea[aria-label*="system" i]',
+          'textarea[placeholder*="system instruction" i]',
+          '[aria-label*="System instructions" i] textarea',
+          'ms-system-instructions textarea',
+          '.system-instructions textarea',
+          '[data-test-id*="system-instructions" i]'
+        ];
+        for (const sel of sysSelectors) {
+          const el = document.querySelector(sel);
+          if (el) {
+            const val = clean(el.value || el.innerText || el.textContent);
+            if (val && val.length > 5) {
+              systemInstructions = val;
+              break;
+            }
+          }
+        }
+
+        // 3. Detect Model name
+        let modelName = "";
+        const modelSelectors = [
+          '[aria-label*="model selector" i]',
+          'ms-model-selector',
+          '.model-selector',
+          '[data-test-id*="model-selector" i]'
+        ];
+        for (const sel of modelSelectors) {
+          const el = document.querySelector(sel);
+          if (el) {
+            const val = clean(el.innerText || el.textContent);
+            if (val) {
+              modelName = val.split("\n")[0].trim();
+              break;
+            }
+          }
+        }
+
+        // 4. Collect Prompt / Conversation Turns
+        const prompts = [];
+        const turnEls = document.querySelectorAll(
+          "ms-chat-turn, ms-prompt-chunk, .chat-turn, .prompt-turn, [data-turn-role]"
+        );
+        if (turnEls && turnEls.length > 0) {
+          turnEls.forEach((turnEl, idx) => {
+            const text = clean(turnEl.innerText || turnEl.textContent);
+            if (!text || text.length < 2) return;
+            const roleAttr = (
+              turnEl.getAttribute("data-turn-role") ||
+              turnEl.className ||
+              ""
+            ).toLowerCase();
+            const role = roleAttr.includes("user")
+              ? "User"
+              : roleAttr.includes("model")
+              ? "Model"
+              : `Turn ${idx + 1}`;
+            prompts.push({ role, content: text.slice(0, 12000) });
+          });
+        } else {
+          // Fallback: grab all non-empty textareas
+          document.querySelectorAll("textarea").forEach((ta, i) => {
+            const v = clean(ta.value || ta.textContent);
+            if (v && v !== systemInstructions && v.length > 3) {
+              prompts.push({ role: `Prompt ${i + 1}`, content: v.slice(0, 12000) });
+            }
+          });
+        }
+
+        // 5. Collect Code Blocks & Editor Contents
+        const codeBlocks = [];
+        const seenCode = new Set();
+        document.querySelectorAll("pre code, pre, .cm-content, .monaco-editor .view-lines").forEach((codeEl) => {
+          const codeText = clean(codeEl.innerText || codeEl.textContent);
+          if (!codeText || codeText.length < 16 || seenCode.has(codeText)) return;
+          seenCode.add(codeText);
+          let lang = "";
+          const cls = String(codeEl.className || "");
+          const langMatch = cls.match(/language-([a-z0-9_+-]+)/i);
+          if (langMatch) lang = langMatch[1];
+          codeBlocks.push({
+            language: lang,
+            filename: "",
+            content: codeText
+          });
+        });
+
+        // 6. Visible Page Text Summary
+        const pageText = clean(document.body ? document.body.innerText : "").slice(0, 18000);
+
+        return {
+          url,
+          title,
+          system_instructions: systemInstructions,
+          model: modelName,
+          prompts: prompts.slice(0, 30),
+          code_blocks: codeBlocks.slice(0, 20),
+          files: [],
+          page_text: pageText
+        };
+      }
+    });
+    return results && results[0] && results[0].result ? results[0].result : null;
+  } catch (e) {
+    console.warn("Could not scrape AI Studio tab DOM:", e);
+    return null;
+  }
+}
+
+async function scanAndPreviewAiStudioTab(showFeedback = false) {
+  const targetTab = await resolveTargetAiStudioTab();
+  if (!targetTab) return null;
+
+  updateAiStudioCardState(targetTab.url);
+  const scraped = await scrapeAiStudioDomFromTab(targetTab.id);
+  const detectedTitle = (scraped && scraped.title) || (targetTab.title || "").replace(/\s*[-|–]\s*Google AI Studio.*$/i, "").trim() || "AI Studio Project";
+
+  if (aiStudioDetectedBanner) {
+    aiStudioDetectedBanner.classList.remove("hidden");
+  }
+  if (aiStudioDetectedTitle) {
+    aiStudioDetectedTitle.textContent = `✨ ${detectedTitle}`;
+  }
+  if (aiStudioDetectedUrl) {
+    try {
+      const u = new URL(targetTab.url);
+      aiStudioDetectedUrl.textContent = `${u.hostname}${u.pathname.slice(0, 24)}`;
+    } catch (e) {
+      aiStudioDetectedUrl.textContent = "aistudio.google.com";
+    }
+  }
+  if (aiStudioCustomName && !aiStudioCustomName.value.trim() && detectedTitle && !/^AI Studio Project$/i.test(detectedTitle)) {
+    aiStudioCustomName.placeholder = `Default: ${detectedTitle}`;
+  }
+
+  if (showFeedback && aiStudioExtractFeedback) {
+    const promptCount = scraped && Array.isArray(scraped.prompts) ? scraped.prompts.length : 0;
+    const codeCount = scraped && Array.isArray(scraped.code_blocks) ? scraped.code_blocks.length : 0;
+    aiStudioExtractFeedback.classList.remove("hidden");
+    aiStudioExtractFeedback.innerHTML = `
+      <div style="color: #7dd3fc; font-weight: 700;">🔍 Scanned "${escapeHtml(detectedTitle)}"</div>
+      <div style="color: #cbd5e1; margin-top: 2px;">
+        Found <strong>${promptCount}</strong> prompt turn(s), <strong>${codeCount}</strong> code block(s)${scraped && scraped.system_instructions ? ", plus <strong>System Instructions</strong>" : ""}. Click <strong>Extract</strong> below to import into GitBridge!
+      </div>
+    `;
+  }
+  return { tab: targetTab, scraped, detectedTitle };
+}
+
+async function extractFromAiStudioTab() {
+  if (!btnExtractAiStudio) return;
+  const origHtml = btnExtractAiStudio.innerHTML;
+  btnExtractAiStudio.disabled = true;
+  btnExtractAiStudio.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> <span>Extracting from AI Studio...</span>';
+
+  if (aiStudioExtractFeedback) {
+    aiStudioExtractFeedback.classList.remove("hidden");
+    aiStudioExtractFeedback.innerHTML = '<i class="fa-solid fa-spinner animate-spin" style="color: #38bdf8;"></i> Inspecting active tab DOM, prompts, system instructions, and code blocks...';
+  }
+
+  try {
+    const scanResult = await scanAndPreviewAiStudioTab(false);
+    if (!scanResult || !scanResult.tab) {
+      throw new Error("Could not access an active browser tab to extract.");
+    }
+
+    const { tab, scraped, detectedTitle } = scanResult;
+    const mode = aiStudioExtractMode ? aiStudioExtractMode.value : "auto";
+    const customName = aiStudioCustomName ? aiStudioCustomName.value.trim() : "";
+    const runDeep = chkAiStudioDeepAnalyze ? Boolean(chkAiStudioDeepAnalyze.checked) : true;
+
+    const payload = {
+      url: (scraped && scraped.url) || tab.url || "",
+      title: detectedTitle,
+      custom_name: customName,
+      target_slug: activeApp ? activeApp.slug : "",
+      mode: mode,
+      system_instructions: (scraped && scraped.system_instructions) || "",
+      description: "",
+      model: (scraped && scraped.model) || "",
+      prompts: (scraped && scraped.prompts) || [],
+      code_blocks: (scraped && scraped.code_blocks) || [],
+      files: (scraped && scraped.files) || [],
+      page_text: (scraped && scraped.page_text) || "",
+      run_deep_analysis: runDeep
+    };
+
+    const res = await fetch(`${SERVER_URL}/api/extension/extract-ai-studio`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.detail || data.message || "Extraction request failed.");
+    }
+
+    await loadApps();
+    if (data.app) {
+      const matchedInCatalog = (apps || []).find((a) => a.slug === data.app.slug) || data.app;
+      await setActiveApp(matchedInCatalog);
+    }
+
+    const filesWritten = Array.isArray(data.written_files) ? data.written_files : [];
+    if (aiStudioExtractFeedback) {
+      aiStudioExtractFeedback.innerHTML = `
+        <div style="color: #6ee7b7; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+          <i class="fa-solid fa-circle-check"></i>
+          <span>${escapeHtml(data.message || "Extracted to GitBridge!")}</span>
+        </div>
+        <div style="color: #cbd5e1; margin-top: 4px; font-size: 10px;">
+          📁 <strong>Path:</strong> <code>${escapeHtml(data.local_path || "")}</code><br/>
+          📄 <strong>Saved Files (${filesWritten.length}):</strong> <code>${escapeHtml(filesWritten.join(", "))}</code>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; margin-top: 7px;">
+          <button type="button" id="btn-extracted-open-chat" class="btn-home-mini" style="background: rgba(56, 189, 248, 0.2); color: #7dd3fc; border-color: rgba(56, 189, 248, 0.5);">
+            <i class="fa-solid fa-comments"></i> Chat with Geppy
+          </button>
+          <button type="button" id="btn-extracted-open-code" class="btn-home-mini" style="background: rgba(99, 102, 241, 0.22); color: #c7d2fe; border-color: rgba(99, 102, 241, 0.5);">
+            <i class="fa-solid fa-code"></i> Inspect Extracted Code
+          </button>
+        </div>
+      `;
+      const btnOpenChat = document.getElementById("btn-extracted-open-chat");
+      const btnOpenCode = document.getElementById("btn-extracted-open-code");
+      if (btnOpenChat) {
+        btnOpenChat.addEventListener("click", () => switchMode("brainstorm"));
+      }
+      if (btnOpenCode) {
+        btnOpenCode.addEventListener("click", () => switchMode("designer"));
+      }
+    }
+  } catch (err) {
+    if (aiStudioExtractFeedback) {
+      aiStudioExtractFeedback.classList.remove("hidden");
+      aiStudioExtractFeedback.innerHTML = `<span style="color: #fda4af;"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Extraction Error:</strong> ${escapeHtml(err.message || String(err))}</span>`;
+    }
+  } finally {
+    btnExtractAiStudio.disabled = false;
+    btnExtractAiStudio.innerHTML = origHtml;
+    updateAiStudioCardState(currentBrowserTabUrl);
+  }
+}
+
 function updatePageMatchIndicator() {
   if (!offTargetPageBanner) return;
-  if (!activeApp || !currentBrowserTabUrl) {
+  updateAiStudioCardState(currentBrowserTabUrl);
+
+  // Never dim or show off-target warning when the user is on Google AI Studio or on the Home tab
+  if (!activeApp || !currentBrowserTabUrl || isAiStudioUrl(currentBrowserTabUrl)) {
     offTargetPageBanner.classList.add("hidden");
     document.body.classList.remove("page-mismatch-dimmed");
     return;
@@ -2091,6 +3039,21 @@ async function detectAppFromUrl(url, explicitTabId = null, options = { autoSwitc
   if (currentTabId) activeTabId = currentTabId;
   currentBrowserTabUrl = url;
 
+  updateAiStudioCardState(url);
+
+  // 0. Smart AI Studio Detection: Automatically switch to Home & pre-scan AI Studio tab!
+  if (isAiStudioUrl(url)) {
+    if (unrecognizedAppBar) unrecognizedAppBar.classList.add("hidden");
+    if (offTargetPageBanner) offTargetPageBanner.classList.add("hidden");
+    document.body.classList.remove("page-mismatch-dimmed");
+    switchMode("home");
+    scanAndPreviewAiStudioTab(false);
+    if (!activeApp && apps.length > 0) {
+      await setActiveApp(apps[0]);
+    }
+    return;
+  }
+
   let parsedHost = null;
   let parsedPort = null;
   let isLocal = false;
@@ -2115,6 +3078,7 @@ async function detectAppFromUrl(url, explicitTabId = null, options = { autoSwitc
       } else {
         updatePageMatchIndicator();
       }
+      if (currentMode === "home") switchMode("brainstorm");
       return;
     }
   }
@@ -2137,6 +3101,7 @@ async function detectAppFromUrl(url, explicitTabId = null, options = { autoSwitc
         }
       }
       updatePageMatchIndicator();
+      if (currentMode === "home") switchMode("brainstorm");
       return;
     }
   }
@@ -2167,6 +3132,7 @@ async function detectAppFromUrl(url, explicitTabId = null, options = { autoSwitc
         }
       }
       updatePageMatchIndicator();
+      if (currentMode === "home") switchMode("brainstorm");
       return;
     }
   }
@@ -2191,6 +3157,7 @@ async function detectAppFromUrl(url, explicitTabId = null, options = { autoSwitc
         } else {
           updatePageMatchIndicator();
         }
+        if (currentMode === "home") switchMode("brainstorm");
         return;
       } else {
         currentTabDetectedApp = null;
@@ -2217,6 +3184,11 @@ async function detectAppFromUrl(url, explicitTabId = null, options = { autoSwitc
     }
   } catch (e) {
     console.warn("App detection request failed:", e);
+  }
+
+  // Unrecognized page -> auto-switch to Home view!
+  if (autoSwitch) {
+    switchMode("home");
   }
 
   // Fallback: If no app matched and none is currently active, select first app
@@ -2261,6 +3233,7 @@ async function setActiveApp(app) {
   }
 
   activeApp = app;
+  recordRecentAppUsage(app.slug);
   appSelect.value = app.slug;
 
   // Track active app instance & mappings without falsely overwriting tabAppMap for unrelated tabs
@@ -2675,12 +3648,16 @@ function attachIdeasDockToBubble(aiBubble, extractedTasks, objectiveTitleOverrid
       id: t.id || `task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       title: t.title,
       category: t.category || "feature",
+      target_file: t.target_file || "",
       description: t.description || "",
       suggested_prompt: t.suggested_prompt || t.title,
       objective_id: t.objective_id || null,
       objective_title: t.objective_title || mainObjectiveTitle,
       completed: isCompleted
     };
+    if (t.target_file && !taskObj.target_file) {
+      taskObj.target_file = t.target_file;
+    }
 
     const ideaCard = document.createElement("div");
     const catClass = ["design", "feature", "ux", "polish", "fix"].includes(taskObj.category?.toLowerCase())
@@ -2884,10 +3861,14 @@ function attachIdeasDockToBubble(aiBubble, extractedTasks, objectiveTitleOverrid
       const stepSummaries = [];
       const allToolSteps = [];
       const allModifiedFiles = new Set();
-      const firstGuess = guessBestTargetFile(queue[0].taskObj, appFileList) || activeFilePath || (fileSelect && fileSelect.value);
-      if (firstGuess && firstGuess !== activeFilePath) {
+      const isFileInTree = (fp) => (appFileList || []).some(f => String((typeof f === "object" && f ? f.path : f) || "").toLowerCase() === String(fp || "").toLowerCase());
+      const firstGuess = guessBestTargetFile(queue[0].taskObj, appFileList) || activeFilePath || (fileSelect && fileSelect.value) || "index.html";
+      if (firstGuess && isFileInTree(firstGuess) && firstGuess !== activeFilePath) {
         if (fileSelect) fileSelect.value = firstGuess;
         await openFile(firstGuess);
+      } else if (firstGuess && !isFileInTree(firstGuess)) {
+        activeFilePath = firstGuess;
+        if (codeEditor) codeEditor.value = "";
       } else if (!activeFilePath && fileSelect && fileSelect.value) {
         await openFile(fileSelect.value);
       }
@@ -2897,7 +3878,7 @@ function attachIdeasDockToBubble(aiBubble, extractedTasks, objectiveTitleOverrid
         actionType: "batch",
         title: `${mainObjectiveTitle} (${total} Step${total === 1 ? "" : "s"})`,
         instruction: queue.map((q, idx) => `${idx + 1}. ${q.taskObj.title}`).join(" • "),
-        targetFile: activeFilePath || "app files"
+        targetFile: activeFilePath || firstGuess || "app files"
       });
 
       for (let i = 0; i < total; i++) {
@@ -2922,15 +3903,19 @@ function attachIdeasDockToBubble(aiBubble, extractedTasks, objectiveTitleOverrid
 
         entry.setStepRunning(true, i + 1, total);
 
-        // Smart-select target file for this specific step
-        const stepFile = guessBestTargetFile(taskObj, appFileList) || activeFilePath || (fileSelect && fileSelect.value);
-        if (stepFile && stepFile !== activeFilePath) {
+        // Smart-select target file for this specific step (supporting both existing files and new files to be created!)
+        const stepFile = guessBestTargetFile(taskObj, appFileList) || activeFilePath || (fileSelect && fileSelect.value) || "index.html";
+        const stepExistsInTree = isFileInTree(stepFile);
+        if (stepFile && stepExistsInTree && stepFile !== activeFilePath) {
           if (fileSelect) fileSelect.value = stepFile;
           await openFile(stepFile);
+        } else if (stepFile && !stepExistsInTree) {
+          activeFilePath = stepFile;
+          if (codeEditor) codeEditor.value = "";
         }
 
-        const targetFile = activeFilePath || stepFile || "index.html";
-        const beforeStepCode = codeEditor ? codeEditor.value : "";
+        const targetFile = stepFile || activeFilePath || "index.html";
+        const beforeStepCode = stepExistsInTree ? (codeEditor ? codeEditor.value : "") : "";
         const instruction = taskObj.suggested_prompt || `${taskObj.title}: ${taskObj.description || ""}`;
 
         updateActionChatBubbleStep(
@@ -2962,10 +3947,9 @@ function attachIdeasDockToBubble(aiBubble, extractedTasks, objectiveTitleOverrid
             const finalTargetFile = data.target_file || targetFile;
             allModifiedFiles.add(finalTargetFile);
             const baselineUsed = typeof data.baseline_code === "string" ? data.baseline_code : beforeStepCode;
-            if (finalTargetFile !== activeFilePath) {
-              activeFilePath = finalTargetFile;
-              if (fileSelect) fileSelect.value = finalTargetFile;
-            }
+            await loadFileTree(activeApp.slug, finalTargetFile, false);
+            activeFilePath = finalTargetFile;
+            if (fileSelect) fileSelect.value = finalTargetFile;
             if (codeEditor) codeEditor.value = data.modified_code;
             recordEditedFileState(finalTargetFile, baselineUsed, data.modified_code, true);
             isUnsaved = false;
@@ -3817,6 +4801,12 @@ function initGalacticAgentCrewBar() {
       }
     });
 
+    if (homeActiveAgentPill) {
+      homeActiveAgentPill.textContent = `Active: ${pill.textContent.trim()}`;
+    }
+
+    ensureStudioChatVisible();
+
     if (brainstormInput) {
       if (activeGalacticAgentId === "crew-council") {
         brainstormInput.placeholder = "⚡ Briefing Full AI Crew Council (@design + @arch + @social + @strategy)...";
@@ -3874,8 +4864,14 @@ setTimeout(initGalacticAgentCrewBar, 150);
 
 async function submitBrainstorm(overridePrompt = null, extraOptions = {}) {
   initGalacticAgentCrewBar();
+  const hasPendingRefs = Array.isArray(window._pendingVisualReferences) && window._pendingVisualReferences.length > 0;
   let prompt = overridePrompt || brainstormInput.value.trim();
+  if (!prompt && hasPendingRefs) {
+    prompt = "Examine this selected UI area / screenshot from the app and let me know what you see or how we should improve it.";
+  }
   if (!prompt) return;
+
+  ensureStudioChatVisible();
 
   // If user is replying to an active Antigravity error via the main chat input (when reply mode is toggled or prompt starts with @antigravity)
   if (!overridePrompt && (window._replyingToAntigravityErrorId || /^@antigravity\b/i.test(prompt))) {
@@ -3891,10 +4887,17 @@ async function submitBrainstorm(overridePrompt = null, extraOptions = {}) {
     prompt = `@crew ${prompt}`;
   }
 
+  const attachedRefs = typeof window.consumePendingVisualReferences === "function"
+    ? window.consumePendingVisualReferences()
+    : [];
+  const refsChatHtml = typeof window.renderUserVisualRefsChatHtml === "function"
+    ? window.renderUserVisualRefsChatHtml(attachedRefs)
+    : "";
+
   const isSystemTriggered = Boolean(overridePrompt) || isWatchdogOrSystemDiagnosticText(prompt);
   if (!overridePrompt) brainstormInput.value = "";
 
-  appendChatBubble("user", escapeHtml(prompt), { isSystemTriggered });
+  appendChatBubble("user", `${refsChatHtml}<div>${escapeHtml(prompt)}</div>`, { isSystemTriggered });
   chatHistory.push({ sender: "user", text: prompt, isSystemTriggered, timestamp: Date.now() });
   if (activeApp && activeApp.slug) {
     saveAppChatHistory(activeApp.slug, chatHistory);
@@ -3921,7 +4924,11 @@ async function submitBrainstorm(overridePrompt = null, extraOptions = {}) {
   btnSendBrainstorm.disabled = true;
 
   try {
-    let liveFrameB64 = extraOptions.screen_frame_b64 || window._latestGalacticStreamFrameB64 || null;
+    let liveFrameB64 =
+      (attachedRefs.length > 0 ? (attachedRefs[0].cropped_b64 || attachedRefs[0].full_annotated_b64) : null) ||
+      extraOptions.screen_frame_b64 ||
+      window._latestGalacticStreamFrameB64 ||
+      null;
     if (!liveFrameB64 && window._galacticScreenStreamActive && typeof window.captureGalacticTabFrameB64 === "function") {
       liveFrameB64 = await window.captureGalacticTabFrameB64();
     }
@@ -3937,6 +4944,7 @@ async function submitBrainstorm(overridePrompt = null, extraOptions = {}) {
         is_image: isImgReq,
         agent_id: (activeGalacticAgentId && activeGalacticAgentId !== "crew-council") ? activeGalacticAgentId : null,
         screen_frame_b64: liveFrameB64,
+        visual_references: attachedRefs,
         voice_mode: useVoiceMode,
         consult_crew: useConsultCrew
       })
@@ -3990,7 +4998,22 @@ async function submitBrainstorm(overridePrompt = null, extraOptions = {}) {
 
       const aiBubble = appendChatBubble("ai", agentBadgeHtml + formatMarkdown(displayMarkdown), { isSystemTriggered });
       if (Array.isArray(data.tool_steps) && data.tool_steps.length > 0) {
-        attachAntigravityToolTraceToBubble(aiBubble, data.tool_steps, data.engine || "antigravity_sdk", []);
+        attachAntigravityToolTraceToBubble(aiBubble, data.tool_steps, data.engine || "antigravity_sdk", data.modified_files || []);
+      }
+      if (data.auto_applied) {
+        const finalFile = data.target_file || activeFilePath || "index.html";
+        if (activeApp && activeApp.slug) {
+          await loadFileTree(activeApp.slug, finalFile, false);
+        }
+        activeFilePath = finalFile;
+        if (fileSelect) fileSelect.value = finalFile;
+        if (typeof data.modified_code === "string" && codeEditor) {
+          codeEditor.value = data.modified_code;
+          recordEditedFileState(finalFile, data.baseline_code || "", data.modified_code, true);
+          isUnsaved = false;
+          if (unsavedIndicator) unsavedIndicator.style.display = "none";
+        }
+        reloadActiveTabWithBadge(true, finalFile, { forceFullReload: true, modifiedCode: data.modified_code });
       }
       if (data.social_kit) {
         attachSocialKitCardToBubble(aiBubble, data.social_kit);
@@ -5144,11 +6167,23 @@ function guessBestTargetFile(task, fileList = []) {
 
   // 0. If task already has an explicit target_file from Geppy's backend file-tree analysis, honor it
   if (task && task.target_file) {
-    const tfNorm = String(task.target_file).replace(/\\/g, "/").trim();
+    const tfNorm = String(task.target_file).replace(/\\/g, "/").trim().replace(/^\.\//, "");
     const exactMatch = paths.find(p => p.toLowerCase() === tfNorm.toLowerCase());
-    if (exactMatch && !(/^index\.html$/i.test(exactMatch) && paths.some(p => /\.(jsx|tsx|js|ts|vue)$/i.test(p)) && !/index\.html|favicon|meta|head|title/i.test(text))) {
+    if (exactMatch && !(/^index\.html$/i.test(exactMatch) && paths.some(p => /\.(jsx|tsx|js|ts|vue)$/i.test(p)) && !/index\.html|favicon|meta|head|title|dashboard|directory/i.test(text))) {
       return exactMatch;
     }
+    // Preserve newly requested files that don't exist on disk yet so they aren't clobbered into an existing script
+    if (!exactMatch && /\.(html|htm|py|js|jsx|ts|tsx|css|scss|vue|svelte|json)$/i.test(tfNorm)) {
+      return tfNorm;
+    }
+  }
+
+  // 0b. Explicit new file creation phrase in prompt/task text
+  const newFileMatch = text.match(/(?:create|build|write|add|save\s+as|named|called)\s+(?:a\s+)?(?:new\s+)?(?:file|script|page|dashboard|module|app)?\s*(?:named|called|at|in)?\s*[`'"]?([a-z0-9_./-]+\.(?:html|py|js|jsx|ts|tsx|css|scss|vue|json))[`'"]?/i);
+  if (newFileMatch && newFileMatch[1]) {
+    const candidateNew = newFileMatch[1].replace(/\\/g, "/").replace(/^\.\//, "");
+    const existing = paths.find(p => p.toLowerCase() === candidateNew.toLowerCase());
+    return existing || candidateNew;
   }
 
   // 1. Check if the task text explicitly names a file path or basename from the project (longest first)
@@ -5165,6 +6200,13 @@ function guessBestTargetFile(task, fileList = []) {
     if (new RegExp(`(?<![a-z0-9_/-])${escaped}(?![a-z0-9_])`, "i").test(text)) {
       return p;
     }
+  }
+
+  // 1b. If user asks for an HTML dashboard / UI / gallery / frontend and no HTML or SPA entrypoint exists yet, target index.html
+  const hasHtmlEntry = paths.some(p => /index\.html$/i.test(p));
+  const hasSpaEntry = paths.some(p => /(app|main)\.(tsx|jsx|vue|svelte)$/i.test(p));
+  if (!hasHtmlEntry && !hasSpaEntry && /\b(html|dashboard|webpage|web\s+page|frontend|ui|gallery|interface|directory\s+listing)\b/i.test(text) && !/\b(flask|fastapi|\.py)\b/i.test(text)) {
+    return "index.html";
   }
 
   // 2. Match specific module stems (e.g. physics.js, audio.js, levels.js, launcher_service.py)
@@ -5549,12 +6591,23 @@ async function implementTaskDirectly(task, card = null, bypassModal = false) {
   if (!appFileList || appFileList.length === 0) {
     await loadFileTree(activeApp.slug);
   }
-  const guessedFile = guessBestTargetFile(task, appFileList) || activeFilePath || (fileSelect && fileSelect.value);
-  if (guessedFile && guessedFile !== activeFilePath) {
-    if (fileSelect) fileSelect.value = guessedFile;
-    await openFile(guessedFile);
-  } else if (!activeFilePath && fileSelect && fileSelect.value) {
-    await openFile(fileSelect.value);
+  const guessedFile = guessBestTargetFile(task, appFileList) || activeFilePath || (fileSelect && fileSelect.value) || "index.html";
+  const fileExistsInTree = (appFileList || []).some(
+    (f) => String(typeof f === "object" ? f.path : f).toLowerCase() === String(guessedFile).toLowerCase()
+  );
+
+  let baselineBeforeEdit = "";
+  if (fileExistsInTree) {
+    if (guessedFile && guessedFile !== activeFilePath) {
+      if (fileSelect) fileSelect.value = guessedFile;
+      await openFile(guessedFile);
+    } else if (!activeFilePath && fileSelect && fileSelect.value) {
+      await openFile(fileSelect.value);
+    }
+    baselineBeforeEdit = codeEditor ? codeEditor.value : "";
+  } else {
+    activeFilePath = guessedFile;
+    baselineBeforeEdit = "";
   }
 
   if (!activeFilePath) {
@@ -5574,8 +6627,6 @@ async function implementTaskDirectly(task, card = null, bypassModal = false) {
 
   btnApplyDesignerAi.disabled = true;
   btnApplyDesignerAi.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Implementing...';
-
-  const baselineBeforeEdit = codeEditor.value;
 
   // 3. Immediately post Geppy's "I'm working on that now!" bubble in Central Chat
   const actionBubble = startActionChatBubble({
@@ -5602,10 +6653,9 @@ async function implementTaskDirectly(task, card = null, bypassModal = false) {
     if (res.ok && data.success) {
       const finalTargetFile = data.target_file || activeFilePath;
       const baselineUsed = typeof data.baseline_code === "string" ? data.baseline_code : baselineBeforeEdit;
-      if (finalTargetFile !== activeFilePath) {
-        activeFilePath = finalTargetFile;
-        if (fileSelect) fileSelect.value = finalTargetFile;
-      }
+      await loadFileTree(activeApp.slug, finalTargetFile, false);
+      activeFilePath = finalTargetFile;
+      if (fileSelect) fileSelect.value = finalTargetFile;
       codeEditor.value = data.modified_code;
       recordEditedFileState(finalTargetFile, baselineUsed, data.modified_code, isLivePreviewEnabled);
       isUnsaved = !isLivePreviewEnabled;
@@ -5827,10 +6877,20 @@ async function runSelectedBatch() {
 
   for (let i = 0; i < total; i++) {
     const task = tasksToRun[i];
-    const bestFile = guessBestTargetFile(task, appFileList);
-    if (bestFile && bestFile !== activeFilePath) {
-      if (fileSelect) fileSelect.value = bestFile;
-      await openFile(bestFile);
+    const bestFile = guessBestTargetFile(task, appFileList) || activeFilePath || "index.html";
+    const existsInTree = (appFileList || []).some(
+      (f) => String(typeof f === "object" ? f.path : f).toLowerCase() === String(bestFile).toLowerCase()
+    );
+    let beforeTaskCode = "";
+    if (existsInTree) {
+      if (bestFile && bestFile !== activeFilePath) {
+        if (fileSelect) fileSelect.value = bestFile;
+        await openFile(bestFile);
+      }
+      beforeTaskCode = codeEditor ? codeEditor.value : "";
+    } else {
+      activeFilePath = bestFile;
+      beforeTaskCode = "";
     }
     const pct = Math.round((i / total) * 100);
     if (batchProgressBar) batchProgressBar.style.width = `${pct}%`;
@@ -5843,7 +6903,6 @@ async function runSelectedBatch() {
       `[${i + 1}/${total}] Antigravity Agent implementing <strong>${escapeHtml(task.title)}</strong> in <code>${escapeHtml(activeFilePath)}</code>...`
     );
 
-    const beforeTaskCode = codeEditor.value;
     const instruction = task.suggested_prompt || task.title;
     try {
       const res = await fetchAntigravityApi("/api/extension/apply-design", {
@@ -5869,10 +6928,9 @@ async function runSelectedBatch() {
         const finalTargetFile = data.target_file || activeFilePath;
         batchModifiedFiles.add(finalTargetFile);
         const baselineUsed = typeof data.baseline_code === "string" ? data.baseline_code : beforeTaskCode;
-        if (finalTargetFile !== activeFilePath) {
-          activeFilePath = finalTargetFile;
-          if (fileSelect) fileSelect.value = finalTargetFile;
-        }
+        await loadFileTree(activeApp.slug, finalTargetFile, false);
+        activeFilePath = finalTargetFile;
+        if (fileSelect) fileSelect.value = finalTargetFile;
         codeEditor.value = data.modified_code;
         recordEditedFileState(finalTargetFile, baselineUsed, data.modified_code, true);
         isUnsaved = false;
@@ -7333,7 +8391,7 @@ function reloadActiveTabWithBadge(isEditedPreview, filePathLabel, options = {}) 
   }
 }
 
-async function loadFileTree(slug) {
+async function loadFileTree(slug, preferredPathOverride = null, autoOpen = true) {
   if (!slug) return;
   fileSelect.innerHTML = '<option value="">Loading files...</option>';
 
@@ -7358,8 +8416,12 @@ async function loadFileTree(slug) {
       fileSelect.appendChild(opt);
     });
 
-    // Prefer static/index.html or src/App.tsx over root stub index.html
+    // Prefer explicit override first, then static/index.html or src/App.tsx over root stub index.html
+    const overrideObj = preferredPathOverride
+      ? files.find((f) => String(f.path).toLowerCase() === String(preferredPathOverride).toLowerCase())
+      : null;
     const preferred =
+      overrideObj ||
       files.find((f) => /static\/index\.html$/i.test(f.path)) ||
       files.find((f) => /src\/app\.(tsx|jsx|vue)$/i.test(f.path)) ||
       files.find((f) => /index\.html|app\.(jsx|tsx|vue|js)|main\.py/i.test(f.name)) ||
@@ -7367,7 +8429,9 @@ async function loadFileTree(slug) {
 
     if (preferred) {
       fileSelect.value = preferred.path;
-      openFile(preferred.path);
+      if (autoOpen) {
+        openFile(preferred.path);
+      }
     }
   } catch (e) {
     console.error("Failed to load file tree:", e);
@@ -7596,10 +8660,20 @@ async function applyDesignerAiEdit(overrideInstruction = null, actionType = "fix
   if (!appFileList || appFileList.length === 0) {
     await loadFileTree(activeApp.slug);
   }
-  const guessed = guessBestTargetFile({ title: instruction, suggested_prompt: instruction }, appFileList) || activeFilePath || (fileSelect && fileSelect.value);
-  if (guessed && guessed !== activeFilePath) {
-    if (fileSelect) fileSelect.value = guessed;
-    await openFile(guessed);
+  const guessed = guessBestTargetFile({ title: instruction, suggested_prompt: instruction }, appFileList) || activeFilePath || (fileSelect && fileSelect.value) || "index.html";
+  const existsInTree = (appFileList || []).some(
+    (f) => String(typeof f === "object" ? f.path : f).toLowerCase() === String(guessed).toLowerCase()
+  );
+  let baselineBeforeEdit = "";
+  if (existsInTree) {
+    if (guessed && guessed !== activeFilePath) {
+      if (fileSelect) fileSelect.value = guessed;
+      await openFile(guessed);
+    }
+    baselineBeforeEdit = codeEditor ? codeEditor.value : "";
+  } else {
+    activeFilePath = guessed;
+    baselineBeforeEdit = "";
   }
   if (!activeFilePath) {
     alert("Please select a target file in the File Bar above.");
@@ -7615,15 +8689,26 @@ async function applyDesignerAiEdit(overrideInstruction = null, actionType = "fix
     btnChatDirectEdit.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i>';
   }
 
-  const baselineBeforeEdit = codeEditor.value;
   const shortTitle = instruction.length > 56 ? `${instruction.slice(0, 56)}...` : instruction;
+  const attachedRefs = typeof window.consumePendingVisualReferences === "function"
+    ? window.consumePendingVisualReferences()
+    : [];
+  const refsChatHtml = typeof window.renderUserVisualRefsChatHtml === "function"
+    ? window.renderUserVisualRefsChatHtml(attachedRefs)
+    : "";
+
+  if (refsChatHtml) {
+    appendChatBubble("user", `${refsChatHtml}<div>${escapeHtml(instruction)}</div>`);
+    chatHistory.push({ sender: "user", text: instruction, timestamp: Date.now() });
+    if (activeApp && activeApp.slug) saveAppChatHistory(activeApp.slug, chatHistory);
+  }
 
   const actionBubble = startActionChatBubble({
     actionType: actionType,
     title: shortTitle,
     instruction: instruction,
     targetFile: activeFilePath,
-    userPromptText: instruction
+    userPromptText: refsChatHtml ? null : instruction
   });
 
   try {
@@ -7635,7 +8720,9 @@ async function applyDesignerAiEdit(overrideInstruction = null, actionType = "fix
         file_path: activeFilePath,
         current_code: baselineBeforeEdit,
         instruction: instruction,
-        save_to_disk: isLivePreviewEnabled
+        save_to_disk: isLivePreviewEnabled,
+        visual_references: attachedRefs,
+        screen_frame_b64: attachedRefs.length > 0 ? (attachedRefs[0].cropped_b64 || attachedRefs[0].full_annotated_b64) : null
       })
     });
 
@@ -7643,10 +8730,9 @@ async function applyDesignerAiEdit(overrideInstruction = null, actionType = "fix
     if (res.ok && data.success) {
       const finalTargetFile = data.target_file || activeFilePath;
       const baselineUsed = typeof data.baseline_code === "string" ? data.baseline_code : baselineBeforeEdit;
-      if (finalTargetFile !== activeFilePath) {
-        activeFilePath = finalTargetFile;
-        if (fileSelect) fileSelect.value = finalTargetFile;
-      }
+      await loadFileTree(activeApp.slug, finalTargetFile, false);
+      activeFilePath = finalTargetFile;
+      if (fileSelect) fileSelect.value = finalTargetFile;
       codeEditor.value = data.modified_code;
       recordEditedFileState(finalTargetFile, baselineUsed, data.modified_code, isLivePreviewEnabled);
       isUnsaved = !isLivePreviewEnabled;
@@ -9939,6 +11025,822 @@ function updateGalacticTtsButtonUi() {
     });
   }
 })();
+
+// ============================================================================
+// 4. VISUAL SCREENSHOT & REGION / ELEMENT SELECTION TOOL FOR CHAT REFERENCES
+// ============================================================================
+window._pendingVisualReferences = [];
+let _editingVisualRefId = null;
+let _markupTool = "pen";
+let _markupBaseImage = null;
+let _markupStrokes = [];
+let _isDrawingMarkup = false;
+let _markupStartPt = null;
+
+async function resolveTargetAppTab() {
+  if (typeof chrome === "undefined" || !chrome.tabs) return null;
+  let targetPort = "";
+  if (activeApp && activeApp.live_url) {
+    try { targetPort = new URL(activeApp.live_url).port; } catch (e) {}
+  } else if (activeApp && typeof isGitBridgeApp === "function" && isGitBridgeApp(activeApp)) {
+    targetPort = "8000";
+  }
+
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  if (!tabs || tabs.length === 0) return null;
+
+  let matched = null;
+  if (activeApp && activeApp.slug) {
+    matched = tabs.find((t) => t.id && tabAppMap && tabAppMap[t.id] === activeApp.slug);
+  }
+  if (!matched && targetPort) {
+    matched = tabs.find((t) => {
+      if (!t.url) return false;
+      try {
+        const u = new URL(t.url);
+        return ["localhost", "127.0.0.1", "0.0.0.0"].includes(u.hostname) && u.port === String(targetPort);
+      } catch (e) {
+        return false;
+      }
+    });
+  }
+  return matched || tabs.find((t) => t.active) || tabs[0];
+}
+
+async function captureVisibleTabRawDataUrl(windowId = null) {
+  if (typeof chrome === "undefined" || !chrome.tabs || !chrome.tabs.captureVisibleTab) return null;
+  return new Promise((resolve) => {
+    try {
+      chrome.tabs.captureVisibleTab(windowId, { format: "png" }, (dataUrl) => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          resolve(null);
+          return;
+        }
+        resolve(dataUrl || null);
+      });
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+async function cropAndAnnotateSelectionFromTabScreenshot(fullDataUrl, selectionPayload) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const rect = selectionPayload.rect || {};
+        const dpr = Number(selectionPayload.dpr || window.devicePixelRatio || 1);
+        const vpW = Number(selectionPayload.viewportWidth || img.width / dpr || img.width);
+        const vpH = Number(selectionPayload.viewportHeight || img.height / dpr || img.height);
+        const scaleX = img.width / vpW;
+        const scaleY = img.height / vpH;
+
+        const sx = Math.max(0, Math.round((rect.x || 0) * scaleX));
+        const sy = Math.max(0, Math.round((rect.y || 0) * scaleY));
+        const sw = Math.min(img.width - sx, Math.max(24, Math.round((rect.width || 120) * scaleX)));
+        const sh = Math.min(img.height - sy, Math.max(24, Math.round((rect.height || 80) * scaleY)));
+
+        // 1. High-resolution cropped selection image
+        const cropCanvas = document.createElement("canvas");
+        const maxCropDim = 1000;
+        const cropScale = Math.min(1, maxCropDim / Math.max(sw, sh, 1));
+        cropCanvas.width = Math.max(1, Math.round(sw * cropScale));
+        cropCanvas.height = Math.max(1, Math.round(sh * cropScale));
+        const cropCtx = cropCanvas.getContext("2d");
+        cropCtx.drawImage(img, sx, sy, sw, sh, 0, 0, cropCanvas.width, cropCanvas.height);
+        const croppedB64 = cropCanvas.toDataURL("image/jpeg", 0.88);
+
+        // 2. Full viewport context frame with glowing callout box around the selected region
+        const fullCanvas = document.createElement("canvas");
+        const maxFullW = 1280;
+        const fullScale = Math.min(1, maxFullW / Math.max(img.width, 1));
+        fullCanvas.width = Math.max(1, Math.round(img.width * fullScale));
+        fullCanvas.height = Math.max(1, Math.round(img.height * fullScale));
+        const fCtx = fullCanvas.getContext("2d");
+        fCtx.drawImage(img, 0, 0, fullCanvas.width, fullCanvas.height);
+
+        const bx = sx * fullScale;
+        const by = sy * fullScale;
+        const bw = sw * fullScale;
+        const bh = sh * fullScale;
+
+        fCtx.save();
+        fCtx.strokeStyle = "#00f2fe";
+        fCtx.lineWidth = 4;
+        fCtx.strokeRect(bx, by, bw, bh);
+        fCtx.strokeStyle = "#f97316";
+        fCtx.lineWidth = 2;
+        fCtx.strokeRect(Math.max(0, bx - 3), Math.max(0, by - 3), bw + 6, bh + 6);
+        fCtx.restore();
+
+        const fullAnnotatedB64 = fullCanvas.toDataURL("image/jpeg", 0.76);
+        resolve({ croppedB64, fullAnnotatedB64 });
+      } catch (err) {
+        resolve({ croppedB64: fullDataUrl, fullAnnotatedB64: fullDataUrl });
+      }
+    };
+    img.onerror = () => resolve({ croppedB64: fullDataUrl, fullAnnotatedB64: fullDataUrl });
+    img.src = fullDataUrl;
+  });
+}
+
+function renderVisualRefTray() {
+  const tray = document.getElementById("chat-visual-ref-tray");
+  const listEl = document.getElementById("chat-visual-ref-list");
+  const countEl = document.getElementById("chat-visual-ref-count");
+  const snipBtn = document.getElementById("btn-chat-snip-region");
+  if (!tray || !listEl) return;
+
+  const refs = window._pendingVisualReferences || [];
+  if (refs.length === 0) {
+    tray.classList.add("hidden");
+    listEl.innerHTML = "";
+    if (snipBtn) snipBtn.classList.remove("active");
+    return;
+  }
+
+  tray.classList.remove("hidden");
+  if (countEl) countEl.textContent = String(refs.length);
+  if (snipBtn) snipBtn.classList.add("active");
+  listEl.innerHTML = "";
+
+  refs.forEach((ref) => {
+    const item = document.createElement("div");
+    item.className = "visual-ref-item";
+    const dimText = ref.rect && ref.rect.width && ref.rect.height
+      ? `${Math.round(ref.rect.width)}×${Math.round(ref.rect.height)}px`
+      : "Viewport";
+    const selectorBadge = ref.selector
+      ? `<div class="visual-ref-selector" title="${escapeHtml(ref.selector)}">${escapeHtml(ref.selector)}</div>`
+      : "";
+    const subLabel = ref.note
+      ? `📝 ${ref.note}`
+      : (ref.element_text ? `"${ref.element_text.slice(0, 40)}"` : `${dimText} • Click thumb to markup`);
+
+    item.innerHTML = `
+      <div class="visual-ref-thumb-wrap" title="Click to inspect or draw markup on this visual reference">
+        <img src="${ref.cropped_b64}" alt="Visual Reference" />
+        <div class="visual-ref-thumb-overlay"><i class="fa-solid fa-pen"></i></div>
+      </div>
+      <div class="visual-ref-meta">
+        <div class="visual-ref-title">${escapeHtml(ref.label || "Selected Region")} <span style="color:#38bdf8;font-weight:600;font-size:9px;">(${dimText})</span></div>
+        ${selectorBadge}
+        <div class="visual-ref-sub">${escapeHtml(subLabel)}</div>
+      </div>
+      <button type="button" class="btn-visual-ref-remove" title="Remove reference">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    `;
+
+    const thumbWrap = item.querySelector(".visual-ref-thumb-wrap");
+    if (thumbWrap) {
+      thumbWrap.addEventListener("click", () => openVisualRefMarkupModal(ref.id));
+    }
+    const removeBtn = item.querySelector(".btn-visual-ref-remove");
+    if (removeBtn) {
+      removeBtn.addEventListener("click", () => {
+        window._pendingVisualReferences = window._pendingVisualReferences.filter((r) => r.id !== ref.id);
+        renderVisualRefTray();
+      });
+    }
+    listEl.appendChild(item);
+  });
+}
+
+window.addVisualReferenceToChat = function (refObj) {
+  if (!refObj || !refObj.cropped_b64) return;
+  ensureStudioChatVisible();
+  const id = refObj.id || `vref-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const normalized = {
+    id,
+    mode: refObj.mode || "selection",
+    label: refObj.label || (refObj.mode === "full" ? "📸 Full App Screenshot" : "🎯 Selected UI Area"),
+    selector: refObj.selector || "",
+    tag_name: refObj.tag_name || "",
+    element_text: refObj.element_text || "",
+    outer_html: refObj.outer_html || "",
+    computed_styles: refObj.computed_styles || {},
+    rect: refObj.rect || null,
+    note: refObj.note || "",
+    original_cropped_b64: refObj.cropped_b64,
+    cropped_b64: refObj.cropped_b64,
+    full_annotated_b64: refObj.full_annotated_b64 || refObj.cropped_b64,
+  };
+  window._pendingVisualReferences.push(normalized);
+  renderVisualRefTray();
+  if (brainstormInput) {
+    if (!brainstormInput.value.trim()) {
+      brainstormInput.placeholder = normalized.selector
+        ? `Referenced ${normalized.selector} — ask Geppy or click ⚡ Edit...`
+        : "Describe what to change or inspect in this screenshot selection...";
+    }
+    brainstormInput.focus();
+  }
+};
+
+window.consumePendingVisualReferences = function () {
+  const list = Array.isArray(window._pendingVisualReferences) ? [...window._pendingVisualReferences] : [];
+  window._pendingVisualReferences = [];
+  renderVisualRefTray();
+  return list;
+};
+
+window.renderUserVisualRefsChatHtml = function (refs) {
+  if (!Array.isArray(refs) || refs.length === 0) return "";
+  const cards = refs.map((r) => {
+    const dim = r.rect && r.rect.width && r.rect.height
+      ? `${Math.round(r.rect.width)}×${Math.round(r.rect.height)}px`
+      : "Full Tab";
+    return `
+      <div style="display:flex; align-items:center; gap:8px; background:rgba(15,23,42,0.78); border:1px solid rgba(56,189,248,0.45); border-radius:8px; padding:5px 7px; margin-bottom:6px;">
+        <img src="${r.cropped_b64}" alt="Reference" style="width:58px; height:44px; object-fit:cover; border-radius:5px; border:1px solid rgba(56,189,248,0.5); background:#020617; flex-shrink:0;" />
+        <div style="min-width:0; flex:1; text-align:left;">
+          <div style="font-size:10.5px; font-weight:700; color:#e0f2fe;">${escapeHtml(r.label || "Visual Selection")} <span style="font-size:9px; color:#7dd3fc;">(${dim})</span></div>
+          ${r.selector ? `<div style="font-size:9.5px; font-family:monospace; color:#67e8f9; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><code>${escapeHtml(r.selector)}</code></div>` : ""}
+          ${r.note ? `<div style="font-size:9.5px; color:#fcd34d;">📝 ${escapeHtml(r.note)}</div>` : ""}
+        </div>
+      </div>
+    `;
+  }).join("");
+  return `<div class="chat-user-visual-refs">${cards}</div>`;
+};
+
+async function grabFullAppScreenshotToChat() {
+  const btn = document.getElementById("btn-chat-snap-screen");
+  const origHtml = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i>';
+  }
+  try {
+    const tab = await resolveTargetAppTab();
+    if (tab && tab.id && !tab.active) {
+      await chrome.tabs.update(tab.id, { active: true });
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    const dataUrl = await captureVisibleTabRawDataUrl(tab ? tab.windowId : null);
+    if (!dataUrl) {
+      alert("Could not capture screenshot of the current tab. Make sure an http:// or https:// app tab is open.");
+      return;
+    }
+    window.addVisualReferenceToChat({
+      mode: "full",
+      label: "📸 Full App Screenshot",
+      cropped_b64: dataUrl,
+      full_annotated_b64: dataUrl,
+    });
+  } catch (err) {
+    console.error("Full screenshot capture error:", err);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml || '<i class="fa-solid fa-camera"></i>';
+    }
+  }
+}
+
+async function startInteractiveRegionSnipToChat() {
+  const tab = await resolveTargetAppTab();
+  if (!tab || !tab.id) {
+    alert("No active browser tab found to select from.");
+    return;
+  }
+  if (tab.url && /^(chrome|edge|about|chrome-extension):/i.test(tab.url)) {
+    alert("Cannot inject the interactive region selector on internal browser pages. Please switch to your running localhost app tab.");
+    return;
+  }
+
+  ensureStudioChatVisible();
+
+  if (!tab.active) {
+    try {
+      await chrome.tabs.update(tab.id, { active: true });
+      await new Promise((r) => setTimeout(r, 140));
+    } catch (e) {}
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const existing = document.getElementById("geppy-galactic-snip-overlay");
+        if (existing) existing.remove();
+
+        const overlay = document.createElement("div");
+        overlay.id = "geppy-galactic-snip-overlay";
+        overlay.style.cssText = [
+          "position:fixed",
+          "inset:0",
+          "z-index:2147483646",
+          "cursor:crosshair",
+          "background:rgba(2,6,23,0.18)",
+          "user-select:none",
+          "font-family:system-ui,-apple-system,sans-serif"
+        ].join(";");
+
+        const banner = document.createElement("div");
+        banner.style.cssText = [
+          "position:fixed",
+          "top:14px",
+          "left:50%",
+          "transform:translateX(-50%)",
+          "z-index:2147483647",
+          "background:linear-gradient(135deg,rgba(15,23,42,0.96),rgba(8,47,73,0.96))",
+          "color:#f8fafc",
+          "border:1.5px solid #38bdf8",
+          "border-radius:999px",
+          "padding:8px 18px",
+          "font-size:12.5px",
+          "font-weight:700",
+          "box-shadow:0 12px 30px rgba(0,0,0,0.55)",
+          "display:flex",
+          "align-items:center",
+          "gap:10px",
+          "pointer-events:none"
+        ].join(";");
+        banner.innerHTML = `<span style="color:#38bdf8;font-size:15px;">🎯</span> <span><strong>Galactic Visual Selector:</strong> Drag a box over any area <em>OR</em> click any UI element to add it to Chat • <kbd style="background:#1e293b;padding:1px 6px;border-radius:4px;border:1px solid #475569;font-size:11px;">Esc</kbd> to cancel</span>`;
+
+        const hoverBox = document.createElement("div");
+        hoverBox.style.cssText = [
+          "position:fixed",
+          "pointer-events:none",
+          "border:2px dashed #38bdf8",
+          "background:rgba(56,189,248,0.10)",
+          "border-radius:6px",
+          "z-index:2147483646",
+          "display:none",
+          "transition:all 0.04s ease"
+        ].join(";");
+
+        const hoverLabel = document.createElement("div");
+        hoverLabel.style.cssText = [
+          "position:fixed",
+          "pointer-events:none",
+          "background:#0f172a",
+          "color:#67e8f9",
+          "border:1px solid #38bdf8",
+          "border-radius:5px",
+          "padding:2px 7px",
+          "font-size:11px",
+          "font-family:monospace",
+          "font-weight:700",
+          "z-index:2147483647",
+          "display:none",
+          "white-space:nowrap",
+          "box-shadow:0 4px 12px rgba(0,0,0,0.45)"
+        ].join(";");
+
+        const dragBox = document.createElement("div");
+        dragBox.style.cssText = [
+          "position:fixed",
+          "pointer-events:none",
+          "border:2.5px solid #f97316",
+          "background:rgba(249,115,22,0.14)",
+          "box-shadow:0 0 0 9999px rgba(2,6,23,0.42), 0 0 18px rgba(249,115,22,0.5)",
+          "border-radius:6px",
+          "z-index:2147483647",
+          "display:none"
+        ].join(";");
+
+        overlay.appendChild(banner);
+        overlay.appendChild(hoverBox);
+        overlay.appendChild(hoverLabel);
+        overlay.appendChild(dragBox);
+        document.body.appendChild(overlay);
+
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let lastHoveredEl = null;
+
+        function buildCssSelector(el) {
+          if (!el || el.nodeType !== 1) return "";
+          const tag = el.tagName.toLowerCase();
+          if (el.id) return `${tag}#${el.id}`;
+          const cls = typeof el.className === "string"
+            ? el.className.trim().split(/\s+/).filter((c) => c && !c.startsWith("geppy-")).slice(0, 2).join(".")
+            : "";
+          const self = cls ? `${tag}.${cls}` : tag;
+          const parent = el.parentElement;
+          if (parent && parent !== document.body && parent !== document.documentElement) {
+            const pTag = parent.tagName.toLowerCase();
+            if (parent.id) return `${pTag}#${parent.id} > ${self}`;
+            const pCls = typeof parent.className === "string"
+              ? parent.className.trim().split(/\s+/).filter(Boolean).slice(0, 1).join(".")
+              : "";
+            return `${pCls ? `${pTag}.${pCls}` : pTag} > ${self}`;
+          }
+          return self;
+        }
+
+        function extractDomMetadata(el) {
+          if (!el || el === document.body || el === document.documentElement) {
+            return { selector: "body", tag_name: "body", element_text: "", outer_html: "", computed_styles: {} };
+          }
+          const cs = window.getComputedStyle(el);
+          const text = (el.innerText || el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 240);
+          let outer = (el.outerHTML || "").trim();
+          if (outer.length > 650) {
+            outer = outer.slice(0, 650) + " ...";
+          }
+          return {
+            selector: buildCssSelector(el),
+            tag_name: el.tagName.toLowerCase(),
+            element_text: text,
+            outer_html: outer,
+            computed_styles: {
+              color: cs.color,
+              backgroundColor: cs.backgroundColor,
+              fontSize: cs.fontSize,
+              fontWeight: cs.fontWeight,
+              borderRadius: cs.borderRadius,
+              padding: cs.padding
+            }
+          };
+        }
+
+        function getElementUnderPoint(x, y) {
+          overlay.style.pointerEvents = "none";
+          const el = document.elementFromPoint(x, y);
+          overlay.style.pointerEvents = "auto";
+          return el;
+        }
+
+        const onMouseMove = (e) => {
+          if (!isDragging) {
+            const el = getElementUnderPoint(e.clientX, e.clientY);
+            lastHoveredEl = el;
+            if (el && el !== document.body && el !== document.documentElement) {
+              const r = el.getBoundingClientRect();
+              hoverBox.style.display = "block";
+              hoverBox.style.left = `${r.left}px`;
+              hoverBox.style.top = `${r.top}px`;
+              hoverBox.style.width = `${r.width}px`;
+              hoverBox.style.height = `${r.height}px`;
+
+              const sel = buildCssSelector(el);
+              hoverLabel.style.display = "block";
+              hoverLabel.textContent = `${sel} (${Math.round(r.width)}×${Math.round(r.height)}px)`;
+              hoverLabel.style.left = `${Math.max(8, Math.min(window.innerWidth - 240, r.left))}px`;
+              hoverLabel.style.top = `${Math.max(8, r.top - 26)}px`;
+            } else {
+              hoverBox.style.display = "none";
+              hoverLabel.style.display = "none";
+            }
+            return;
+          }
+
+          const x = Math.min(startX, e.clientX);
+          const y = Math.min(startY, e.clientY);
+          const w = Math.abs(e.clientX - startX);
+          const h = Math.abs(e.clientY - startY);
+
+          if (w > 6 || h > 6) {
+            hoverBox.style.display = "none";
+            dragBox.style.display = "block";
+            dragBox.style.left = `${x}px`;
+            dragBox.style.top = `${y}px`;
+            dragBox.style.width = `${w}px`;
+            dragBox.style.height = `${h}px`;
+
+            hoverLabel.style.display = "block";
+            hoverLabel.textContent = `Selection: ${Math.round(w)}×${Math.round(h)}px`;
+            hoverLabel.style.left = `${x}px`;
+            hoverLabel.style.top = `${Math.max(8, y - 26)}px`;
+          }
+        };
+
+        const onMouseDown = (e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          isDragging = true;
+          startX = e.clientX;
+          startY = e.clientY;
+        };
+
+        const cleanup = () => {
+          window.removeEventListener("keydown", onKeyDown, true);
+          if (overlay && overlay.parentNode) overlay.remove();
+        };
+
+        const onMouseUp = (e) => {
+          if (!isDragging) return;
+          isDragging = false;
+          e.preventDefault();
+          e.stopPropagation();
+
+          const dx = Math.abs(e.clientX - startX);
+          const dy = Math.abs(e.clientY - startY);
+          let finalRect = null;
+          let targetEl = null;
+          let mode = "region";
+
+          if (dx <= 8 && dy <= 8) {
+            // Single click -> Snap the hovered DOM element!
+            targetEl = getElementUnderPoint(e.clientX, e.clientY) || lastHoveredEl;
+            if (targetEl && targetEl !== document.body && targetEl !== document.documentElement) {
+              const r = targetEl.getBoundingClientRect();
+              finalRect = {
+                x: Math.max(0, r.left - 4),
+                y: Math.max(0, r.top - 4),
+                width: Math.min(window.innerWidth, r.width + 8),
+                height: Math.min(window.innerHeight, r.height + 8)
+              };
+              mode = "element";
+            }
+          }
+
+          if (!finalRect) {
+            const x = Math.min(startX, e.clientX);
+            const y = Math.min(startY, e.clientY);
+            const w = Math.max(32, dx);
+            const h = Math.max(32, dy);
+            finalRect = { x, y, width: w, height: h };
+            targetEl = getElementUnderPoint(x + w / 2, y + h / 2) || lastHoveredEl;
+          }
+
+          const domMeta = extractDomMetadata(targetEl);
+          cleanup();
+
+          // Wait two animation frames so the overlay is completely gone before capturing the tab screenshot
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                chrome.runtime.sendMessage({
+                  type: "GALACTIC_SNIP_SELECTION_COMPLETE",
+                  payload: {
+                    mode,
+                    rect: finalRect,
+                    dpr: window.devicePixelRatio || 1,
+                    viewportWidth: window.innerWidth,
+                    viewportHeight: window.innerHeight,
+                    ...domMeta
+                  }
+                });
+              }, 40);
+            });
+          });
+        };
+
+        const onKeyDown = (e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            cleanup();
+          }
+        };
+
+        overlay.addEventListener("mousemove", onMouseMove);
+        overlay.addEventListener("mousedown", onMouseDown);
+        overlay.addEventListener("mouseup", onMouseUp);
+        window.addEventListener("keydown", onKeyDown, true);
+      }
+    });
+  } catch (err) {
+    console.error("Failed to start region snip overlay:", err);
+    alert("Could not start visual selector on this tab. Try refreshing the app tab first.");
+  }
+}
+
+function redrawMarkupCanvas() {
+  const canvas = document.getElementById("visual-ref-markup-canvas");
+  if (!canvas || !_markupBaseImage) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(_markupBaseImage, 0, 0, canvas.width, canvas.height);
+
+  _markupStrokes.forEach((st) => {
+    ctx.save();
+    ctx.strokeStyle = "#f97316";
+    ctx.fillStyle = "#f97316";
+    ctx.lineWidth = 3.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    if (st.tool === "pen" && st.points && st.points.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(st.points[0].x, st.points[0].y);
+      for (let i = 1; i < st.points.length; i++) {
+        ctx.lineTo(st.points[i].x, st.points[i].y);
+      }
+      ctx.stroke();
+    } else if (st.tool === "box" && st.start && st.end) {
+      const x = Math.min(st.start.x, st.end.x);
+      const y = Math.min(st.start.y, st.end.y);
+      const w = Math.abs(st.end.x - st.start.x);
+      const h = Math.abs(st.end.y - st.start.y);
+      ctx.strokeRect(x, y, w, h);
+    } else if (st.tool === "arrow" && st.start && st.end) {
+      const headLen = 13;
+      const angle = Math.atan2(st.end.y - st.start.y, st.end.x - st.start.x);
+      ctx.beginPath();
+      ctx.moveTo(st.start.x, st.start.y);
+      ctx.lineTo(st.end.x, st.end.y);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(st.end.x, st.end.y);
+      ctx.lineTo(st.end.x - headLen * Math.cos(angle - Math.PI / 6), st.end.y - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(st.end.x - headLen * Math.cos(angle + Math.PI / 6), st.end.y - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  });
+}
+
+function openVisualRefMarkupModal(refId) {
+  const ref = (window._pendingVisualReferences || []).find((r) => r.id === refId);
+  const modal = document.getElementById("modal-visual-ref-preview");
+  const canvas = document.getElementById("visual-ref-markup-canvas");
+  const metaBox = document.getElementById("visual-ref-dom-meta-box");
+  const noteInput = document.getElementById("visual-ref-note-input");
+  if (!ref || !modal || !canvas) return;
+
+  _editingVisualRefId = ref.id;
+  _markupStrokes = [];
+  if (noteInput) noteInput.value = ref.note || "";
+  if (metaBox) {
+    metaBox.innerHTML = ref.selector
+      ? `<strong>Target Element:</strong> <code>${escapeHtml(ref.selector)}</code>${ref.element_text ? `<br><span style="color:#94a3b8;">Text: "${escapeHtml(ref.element_text.slice(0, 90))}"</span>` : ""}`
+      : `<strong>Selection Mode:</strong> ${escapeHtml(ref.label || "Visual Region")}`;
+  }
+
+  const img = new Image();
+  img.onload = () => {
+    _markupBaseImage = img;
+    const maxW = 440;
+    const maxH = 290;
+    const scale = Math.min(1, maxW / Math.max(img.width, 1), maxH / Math.max(img.height, 1));
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    redrawMarkupCanvas();
+  };
+  img.src = ref.original_cropped_b64 || ref.cropped_b64;
+
+  modal.classList.remove("hidden");
+}
+
+(function initVisualRefAndSnippingTools() {
+  const btnSnipRegion = document.getElementById("btn-chat-snip-region");
+  const btnSnapScreen = document.getElementById("btn-chat-snap-screen");
+  const btnHomeSnip = document.getElementById("btn-home-snip-to-chat");
+  const btnAddMore = document.getElementById("btn-visual-ref-add-more");
+  const btnClearAll = document.getElementById("btn-visual-ref-clear-all");
+
+  if (btnSnipRegion) btnSnipRegion.addEventListener("click", startInteractiveRegionSnipToChat);
+  if (btnHomeSnip) btnHomeSnip.addEventListener("click", startInteractiveRegionSnipToChat);
+  if (btnAddMore) btnAddMore.addEventListener("click", startInteractiveRegionSnipToChat);
+  if (btnSnapScreen) btnSnapScreen.addEventListener("click", grabFullAppScreenshotToChat);
+  if (btnClearAll) {
+    btnClearAll.addEventListener("click", () => {
+      window._pendingVisualReferences = [];
+      renderVisualRefTray();
+    });
+  }
+
+  // Listen for completed region/element selections from the injected page overlay
+  if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener(async (msg) => {
+      if (!msg || msg.type !== "GALACTIC_SNIP_SELECTION_COMPLETE" || !msg.payload) return;
+      const sel = msg.payload;
+      const tab = await resolveTargetAppTab();
+      const rawTabShot = await captureVisibleTabRawDataUrl(tab ? tab.windowId : null);
+      if (!rawTabShot) return;
+
+      const { croppedB64, fullAnnotatedB64 } = await cropAndAnnotateSelectionFromTabScreenshot(rawTabShot, sel);
+      const label = sel.mode === "element" && sel.selector
+        ? `🎯 Element <${sel.tag_name || "div"}>`
+        : "🎯 Selected Area";
+
+      window.addVisualReferenceToChat({
+        mode: sel.mode || "selection",
+        label,
+        selector: sel.selector || "",
+        tag_name: sel.tag_name || "",
+        element_text: sel.element_text || "",
+        outer_html: sel.outer_html || "",
+        computed_styles: sel.computed_styles || {},
+        rect: sel.rect || null,
+        cropped_b64: croppedB64,
+        full_annotated_b64: fullAnnotatedB64
+      });
+    });
+  }
+
+  // Support Ctrl+V pasting screenshots/images directly into #brainstorm-input
+  if (brainstormInput) {
+    brainstormInput.addEventListener("paste", (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type && items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (!file) continue;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            if (ev.target && ev.target.result) {
+              window.addVisualReferenceToChat({
+                mode: "pasted",
+                label: "📋 Pasted Screenshot",
+                cropped_b64: ev.target.result,
+                full_annotated_b64: ev.target.result
+              });
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    });
+  }
+
+  // Wire Markup Modal controls
+  const modal = document.getElementById("modal-visual-ref-preview");
+  const canvas = document.getElementById("visual-ref-markup-canvas");
+  const btnClose = document.getElementById("btn-close-visual-ref-modal");
+  const btnCancel = document.getElementById("btn-cancel-visual-ref-modal");
+  const btnSave = document.getElementById("btn-save-visual-ref-modal");
+  const btnReset = document.getElementById("btn-visual-markup-reset");
+  const noteInput = document.getElementById("visual-ref-note-input");
+
+  const closeModal = () => {
+    if (modal) modal.classList.add("hidden");
+    _editingVisualRefId = null;
+  };
+  if (btnClose) btnClose.addEventListener("click", closeModal);
+  if (btnCancel) btnCancel.addEventListener("click", closeModal);
+
+  document.querySelectorAll(".btn-visual-markup-tool").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      _markupTool = btn.getAttribute("data-tool") || "pen";
+      document.querySelectorAll(".btn-visual-markup-tool").forEach((b) =>
+        b.classList.toggle("active", b === btn)
+      );
+    });
+  });
+
+  if (btnReset) {
+    btnReset.addEventListener("click", () => {
+      _markupStrokes = [];
+      redrawMarkupCanvas();
+    });
+  }
+
+  if (canvas) {
+    const getCanvasPt = (e) => {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: ((e.clientX - r.left) / Math.max(r.width, 1)) * canvas.width,
+        y: ((e.clientY - r.top) / Math.max(r.height, 1)) * canvas.height
+      };
+    };
+
+    canvas.addEventListener("mousedown", (e) => {
+      _isDrawingMarkup = true;
+      const pt = getCanvasPt(e);
+      _markupStartPt = pt;
+      if (_markupTool === "pen") {
+        _markupStrokes.push({ tool: "pen", points: [pt] });
+      } else {
+        _markupStrokes.push({ tool: _markupTool, start: pt, end: pt });
+      }
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (!_isDrawingMarkup || _markupStrokes.length === 0) return;
+      const pt = getCanvasPt(e);
+      const current = _markupStrokes[_markupStrokes.length - 1];
+      if (current.tool === "pen") {
+        current.points.push(pt);
+      } else {
+        current.end = pt;
+      }
+      redrawMarkupCanvas();
+    });
+
+    window.addEventListener("mouseup", () => {
+      _isDrawingMarkup = false;
+    });
+  }
+
+  if (btnSave) {
+    btnSave.addEventListener("click", () => {
+      const ref = (window._pendingVisualReferences || []).find((r) => r.id === _editingVisualRefId);
+      if (ref && canvas) {
+        if (_markupStrokes.length > 0) {
+          ref.cropped_b64 = canvas.toDataURL("image/jpeg", 0.9);
+        }
+        if (noteInput) {
+          ref.note = noteInput.value.trim();
+        }
+        renderVisualRefTray();
+      }
+      closeModal();
+    });
+  }
+})();
+
 
 
 

@@ -4,11 +4,11 @@
   "poll_interval_seconds": 15,
   "watch_folder": "d:\\Geppy_Apps\\_Gemini_Bridge",
   "google_doc_url": "",
-  "last_checked_at": "2026-10-18T17:33:42.567427",
+  "last_checked_at": "2026-10-25T07:46:44.510083",
   "last_doc_hash": "",
   "file_signatures": {
     "d:\\Geppy_Apps\\_Gemini_Bridge\\GEMINI_UNIVERSE_BRIDGE.md": "edfae8c315114d19",
-    "d:\\Geppy_Apps\\_Gemini_Bridge\\app_universe_export.csv": "61a75194b6e6ae74"
+    "d:\\Geppy_Apps\\_Gemini_Bridge\\app_universe_export.csv": "15575726fb036b4f"
   },
   "tasks": [
     {

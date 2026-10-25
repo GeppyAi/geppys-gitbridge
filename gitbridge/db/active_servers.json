@@ -1,29 +1,112 @@
 {
-  "mugen-changling-editor": {
-    "slug": "mugen-changling-editor",
-    "name": "Mugen Changling Editor",
-    "pid": 19172,
+  "devine2": {
+    "slug": "devine2",
+    "name": "Devine2",
+    "pid": 8848,
     "all_pids": [
-      5576,
-      12792,
-      19172,
-      21188,
-      27584,
-      33984,
-      35596,
-      36532,
-      37896
+      8848,
+      33384
     ],
     "port": 3001,
     "all_ports": [
-      3001,
-      5173,
-      5174
+      3001
     ],
     "url": "http://localhost:3001",
-    "command": "npm run dev",
-    "folder_path": "d:\\Geppy_Apps\\Mugen Changling Editor",
-    "started_at": 1792352502.2728105,
+    "command": "npm run dev -- -p 3001",
+    "folder_path": "d:\\Geppy_Apps\\Devine2",
+    "started_at": 1792459916.625516,
+    "status": "healthy"
+  },
+  "tshirt-hades": {
+    "slug": "tshirt-hades",
+    "name": "Tshirt Hades",
+    "pid": 29576,
+    "all_pids": [
+      29564,
+      29576,
+      31536,
+      31868
+    ],
+    "port": 5173,
+    "all_ports": [
+      5173
+    ],
+    "url": "http://localhost:5173",
+    "command": "npx vite --port 5173 --host 127.0.0.1",
+    "folder_path": "d:\\Geppy_Apps\\Tshirt_Hades",
+    "started_at": 1792522381.8310294,
+    "status": "healthy"
+  },
+  "geppy-s-cashcalender": {
+    "slug": "geppy-s-cashcalender",
+    "name": "Geppy'S Cashcalender",
+    "pid": 31980,
+    "all_pids": [
+      24372,
+      31980
+    ],
+    "port": 5174,
+    "all_ports": [
+      5174
+    ],
+    "url": "http://localhost:5174",
+    "command": "npx vite --port 5174 --host 127.0.0.1",
+    "folder_path": "d:\\Geppy_Apps\\Geppy's Cashcalender",
+    "started_at": 1792591106.581968,
+    "status": "healthy"
+  },
+  "geppy-s-printshop": {
+    "slug": "geppy-s-printshop",
+    "name": "Geppy's Printshop",
+    "pid": 32048,
+    "all_pids": [
+      26744,
+      32048
+    ],
+    "port": 5175,
+    "all_ports": [
+      5175
+    ],
+    "url": "http://localhost:5175",
+    "command": "node D:\\Geppy_Apps\\Geppy's Printshop\\node_modules\\.bin\\\\..\\vite\\bin\\vite.js --host 127.0.0.1 --port 5173",
+    "folder_path": "d:\\Geppy_Apps\\Geppy's Printshop",
+    "started_at": 1792798042.3157113,
+    "status": "healthy"
+  },
+  "gepharts-tech-toolbox": {
+    "slug": "gepharts-tech-toolbox",
+    "name": "Gepharts Tech Toolbox",
+    "pid": 41956,
+    "all_pids": [
+      29792,
+      41956
+    ],
+    "port": 8080,
+    "all_ports": [
+      8080
+    ],
+    "url": "http://localhost:8080",
+    "command": "\"D:\\Geppy_Apps\\Geppy's GitBridge\\.venv\\Scripts\\python.exe\" -m http.server 8080",
+    "folder_path": "d:\\Geppy_Apps\\Gepharts Tech ToolBox",
+    "started_at": 1792881492.9007204,
+    "status": "healthy"
+  },
+  "contextiles": {
+    "slug": "contextiles",
+    "name": "Contextiles",
+    "pid": 41536,
+    "all_pids": [
+      16080,
+      41536
+    ],
+    "port": 8081,
+    "all_ports": [
+      8081
+    ],
+    "url": "http://localhost:8081",
+    "command": "\"D:\\Geppy_Apps\\Geppy's GitBridge\\.venv\\Scripts\\python.exe\" -m http.server 8081",
+    "folder_path": "d:\\Geppy_Apps\\contextiles",
+    "started_at": 1792881509.6635957,
     "status": "healthy"
   }
 }

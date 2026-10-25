@@ -145,14 +145,37 @@ def open_geppy_stream_chat_standalone(icon=None, item=None):
 
 
 def scan_folders(icon=None, item=None):
-    """Trigger API workspace folder scan."""
-    try:
-        req = urllib.request.Request(f"{SERVER_URL}/api/workspace/scan", method="POST")
-        with urllib.request.urlopen(req) as response:
-            res = json.loads(response.read().decode())
-            print(f"[TrayApp] Workspace Scan Result: {res}")
-    except Exception as e:
-        print(f"[TrayApp] Scan failed: {e}")
+    """Trigger API workspace folder scan and auto-categorize discovered apps."""
+    def _do_scan():
+        try:
+            req = urllib.request.Request(f"{SERVER_URL}/api/workspace/scan", method="POST")
+            with urllib.request.urlopen(req, timeout=15) as response:
+                res = json.loads(response.read().decode())
+                print(f"[TrayApp] Workspace Scan Result: {res}")
+            refresh_tray_menu()
+        except Exception as e:
+            print(f"[TrayApp] Scan failed: {e}")
+    threading.Thread(target=_do_scan, daemon=True).start()
+
+def auto_categorize_apps_tray(icon=None, item=None):
+    """Trigger auto-categorization of all apps and refresh the tray menu."""
+    def _do_categorize():
+        try:
+            from gitbridge.db.database import SessionLocal
+            from gitbridge.services.analyzer_service import AppAnalyzerService
+            db = SessionLocal()
+            try:
+                AppAnalyzerService.auto_categorize_all_apps(db, overwrite=True)
+            finally:
+                db.close()
+        except Exception:
+            try:
+                req = urllib.request.Request(f"{SERVER_URL}/api/apps/auto-categorize?overwrite=true", method="POST")
+                urllib.request.urlopen(req, timeout=10)
+            except Exception as e:
+                print(f"[TrayApp] Auto-categorize failed: {e}")
+        refresh_tray_menu()
+    threading.Thread(target=_do_categorize, daemon=True).start()
 
 def get_active_servers():
     """Fetch currently running app servers directly from AppLauncherService (with HTTP fallback)."""
@@ -167,27 +190,52 @@ def get_active_servers():
             return []
 
 def fetch_all_apps():
-    """Fetch all registered apps from DB or API."""
+    """Fetch all registered apps from DB or API, including their auto-inferred category."""
     try:
         from gitbridge.db.database import SessionLocal
         from gitbridge.db.models import AppProfileModel
         from gitbridge.services.launcher_service import ACTIVE_SERVERS
+        from gitbridge.services.analyzer_service import AppAnalyzerService
         db = SessionLocal()
         try:
             apps = db.query(AppProfileModel).all()
             out = []
+            dirty = False
             for a in apps:
                 is_gb = a.slug in ("geppys-gitbridge", "geppy-s-gitbridge", "gitbridge")
                 is_live = True if is_gb else (a.slug in ACTIVE_SERVERS)
                 live_url = "http://127.0.0.1:8000" if is_gb else (ACTIVE_SERVERS[a.slug]["url"] if is_live else a.live_url)
+                cat = AppAnalyzerService.normalize_category(getattr(a, "category", None))
+                if not cat:
+                    cat = AppAnalyzerService.infer_app_category(
+                        name=a.name or "",
+                        slug=a.slug or "",
+                        description=a.description or "",
+                        tech_stack=a.tech_stack or [],
+                        tags=a.tags or [],
+                    )
+                    try:
+                        a.category = cat
+                        dirty = True
+                    except Exception:
+                        pass
                 out.append({
                     "slug": a.slug,
                     "name": a.name,
-                    "is_hidden": bool(getattr(a, "is_hidden", False)),
+                    "category": cat,
+                    "is_hidden": bool(getattr(a, "is_hidden", False)) or str(a.slug or "").startswith("."),
                     "is_live": is_live,
                     "live_url": live_url,
-                    "port": 8000 if is_gb else (ACTIVE_SERVERS[a.slug]["port"] if is_live else None)
+                    "port": 8000 if is_gb else (ACTIVE_SERVERS[a.slug]["port"] if is_live else None),
+                    "last_opened_at": getattr(a, "last_opened_at", None),
+                    "updated_at": getattr(a, "updated_at", None),
+                    "created_at": getattr(a, "created_at", None),
                 })
+            if dirty:
+                try:
+                    db.commit()
+                except Exception:
+                    pass
             return out
         finally:
             db.close()
@@ -197,6 +245,31 @@ def fetch_all_apps():
                 return json.loads(response.read().decode())
         except Exception:
             return []
+
+def _app_recent_ts(a: dict) -> float:
+    """Return numeric timestamp for sorting recent apps to the top."""
+    for key in ("last_opened_at", "updated_at", "created_at"):
+        val = a.get(key)
+        if not val:
+            continue
+        try:
+            if hasattr(val, "timestamp"):
+                return float(val.timestamp())
+            from datetime import datetime as _dt
+            return float(_dt.fromisoformat(str(val).replace("Z", "+00:00")).timestamp())
+        except Exception:
+            continue
+    return 0.0
+
+def _app_category_sort_key(a: dict):
+    """Sort key inside category menus: Live first, then explicitly opened, then most recent timestamp, then A-Z."""
+    has_opened = 1 if a.get("last_opened_at") else 0
+    return (
+        0 if a.get("is_live") else 1,
+        -has_opened,
+        -_app_recent_ts(a),
+        (a.get("name") or "").strip().lower()
+    )
 
 def launch_app_handler(slug):
     """Return callback to launch app via API and open browser."""
@@ -215,42 +288,122 @@ def launch_app_handler(slug):
         threading.Thread(target=do_launch, daemon=True).start()
     return handler
 
-def get_all_app_launch_items():
-    """Build dynamic menu items for launching or controlling ALL discovered applications directly from System Tray."""
-    apps = fetch_all_apps()
-    items = []
-    
-    if apps:
-        apps_sorted = sorted(apps, key=lambda x: x.get("name", "").lower())
-        for a in apps_sorted:
-            # Strictly skip hidden apps from System Tray menu
-            if a.get("is_hidden"):
-                continue
-            slug = a.get("slug")
-            name = a.get("name", slug)
-            is_live = a.get("is_live")
-            live_url = a.get("live_url")
-            port = a.get("port")
+def _build_single_app_tray_item(a: dict, show_category_tag: bool = False):
+    """Build a single pystray MenuItem for an app (live submenu if running, or 1-click launch if stopped)."""
+    slug = a.get("slug")
+    name = (a.get("name") or slug or "").strip()
+    is_live = a.get("is_live")
+    live_url = a.get("live_url")
+    port = a.get("port")
+    cat = a.get("category") or ""
+    cat_suffix = f"  [{cat}]" if (show_category_tag and cat) else ""
 
-            if is_live and live_url:
-                port_str = f" :{port}" if port else " Live"
-                live_submenu = Menu(
-                    item(f"🌐 Open {name} ({live_url})", open_server_url(live_url)),
-                    item(f"🔄 Restart {name}", restart_single_server(slug)),
-                    item(f"⏹️ Stop & Close {name}", stop_single_server(slug))
-                )
-                items.append(item(f"🟢 {name} ({port_str.strip()})", live_submenu))
-            else:
-                title = f"🚀 Launch {name}"
-                items.append(item(title, launch_app_handler(slug)))
+    if is_live and live_url:
+        port_str = f":{port}" if port else "Live"
+        live_submenu = Menu(
+            item(f"🌐 Open {name} ({live_url})", open_server_url(live_url, slug)),
+            item(f"🔄 Restart {name}", restart_single_server(slug)),
+            item(f"⏹️ Stop & Close {name}", stop_single_server(slug))
+        )
+        return item(f"🟢 {name} ({port_str}){cat_suffix}", live_submenu)
     else:
-        items.append(item("No registered apps found", None, enabled=False))
+        return item(f"🚀 Launch {name}{cat_suffix}", launch_app_handler(slug))
+
+def get_recent_apps_items(limit: int = 8):
+    """Build menu items for the most recently opened/used/updated apps, pulled to the top."""
+    apps = fetch_all_apps()
+    visible_apps = [
+        a for a in (apps or [])
+        if not a.get("is_hidden") and not str(a.get("slug", "")).startswith(".")
+    ]
+    if not visible_apps:
+        return [item("No recent apps yet", None, enabled=False)]
+
+    recent_sorted = sorted(
+        visible_apps,
+        key=lambda x: (
+            0 if x.get("is_live") else 1,
+            0 if x.get("last_opened_at") else 1,
+            -_app_recent_ts(x),
+            (x.get("name") or "").strip().lower()
+        )
+    )[:limit]
+
+    return [_build_single_app_tray_item(a, show_category_tag=True) for a in recent_sorted]
+
+def get_all_app_launch_items():
+    """Build categorized dynamic submenus for launching or controlling ALL discovered applications from System Tray."""
+    from gitbridge.services.analyzer_service import AppAnalyzerService
+
+    apps = fetch_all_apps()
+    visible_apps = [
+        a for a in (apps or [])
+        if not a.get("is_hidden") and not str(a.get("slug", "")).startswith(".")
+    ]
+
+    if not visible_apps:
+        return [item("No registered apps found", None, enabled=False)]
+
+    items = []
+
+    # 1. Surface Currently Running / Live Apps at top of directory if any
+    live_apps = sorted(
+        [a for a in visible_apps if a.get("is_live")],
+        key=_app_category_sort_key
+    )
+    if live_apps:
+        live_items = [_build_single_app_tray_item(a, show_category_tag=True) for a in live_apps]
+        items.append(item(f"🟢 Running Now ({len(live_apps)})", Menu(*live_items)))
+
+    # 2. Surface Recently Opened / Used Apps right at the top
+    recent_items = get_recent_apps_items(limit=8)
+    if recent_items:
+        items.append(item("🕒 Recent Apps (Top 8)", Menu(*recent_items)))
+        items.append(Menu.SEPARATOR)
+
+    # 3. Group apps by Canonical Category (with recent apps pulled to the top of each category)
+    grouped = {cat: [] for cat in AppAnalyzerService.CANONICAL_CATEGORIES}
+    for a in visible_apps:
+        cat = AppAnalyzerService.normalize_category(a.get("category"))
+        if not cat:
+            cat = AppAnalyzerService.infer_app_category(
+                name=a.get("name") or "",
+                slug=a.get("slug") or "",
+            )
+        grouped.setdefault(cat, []).append(a)
+
+    for cat in AppAnalyzerService.CANONICAL_CATEGORIES:
+        cat_apps = grouped.get(cat, [])
+        if not cat_apps:
+            continue
+        # Sort so live apps and recently opened apps appear at the top of their category!
+        cat_apps_sorted = sorted(cat_apps, key=_app_category_sort_key)
+        icon_char = AppAnalyzerService.CATEGORY_ICONS.get(cat, "📦")
+        live_in_cat = sum(1 for a in cat_apps_sorted if a.get("is_live"))
+        live_tag = f" • {live_in_cat} 🟢" if live_in_cat > 0 else ""
+        cat_menu_items = [_build_single_app_tray_item(a) for a in cat_apps_sorted]
+        items.append(item(f"{icon_char} {cat} ({len(cat_apps_sorted)}{live_tag})", Menu(*cat_menu_items)))
+
+    # 4. Alphabetical All Apps fallback + Auto-Categorize utility
+    items.append(Menu.SEPARATOR)
+    all_sorted = sorted(visible_apps, key=lambda x: (x.get("name") or "").strip().lower())
+    all_az_items = [_build_single_app_tray_item(a) for a in all_sorted]
+    items.append(item(f"🔤 All Apps (A–Z) ({len(all_sorted)})", Menu(*all_az_items)))
+    items.append(item("🏷️ Auto-Categorize All Apps", auto_categorize_apps_tray))
 
     return items
 
-def open_server_url(url):
-    """Open specific running app live URL in browser."""
+def open_server_url(url, slug=None):
+    """Open specific running app live URL in browser and mark it as recently opened."""
     def handler(icon, item):
+        if slug:
+            def _touch():
+                try:
+                    req = urllib.request.Request(f"{SERVER_URL}/api/apps/{slug}/touch", method="POST")
+                    urllib.request.urlopen(req, timeout=2)
+                except Exception:
+                    pass
+            threading.Thread(target=_touch, daemon=True).start()
         webbrowser.open(url)
     return handler
 
@@ -378,7 +531,9 @@ def create_dynamic_menu():
 
     menu_items.extend([
         Menu.SEPARATOR,
-        item("📱 App Launch Directory", Menu(get_all_app_launch_items)),
+        item("🕒 Recent Apps (Top 8)", Menu(get_recent_apps_items)),
+        item("📱 App Launch Directory (By Category)", Menu(get_all_app_launch_items)),
+        item("🏷️ Auto-Categorize All Apps", auto_categorize_apps_tray),
         item("👨‍🚀 Captain Geppy AI Bridge (Web Tab)", lambda icon, it: webbrowser.open(f"{SERVER_URL}/#chat")),
         item("🛸 Source of Truth (SOT) Engine", lambda icon, it: webbrowser.open(f"{SERVER_URL}/#sot")),
         item("🔍 Scan App Folders", scan_folders),
@@ -541,13 +696,16 @@ def register_gitbridge_url_protocol():
 
 
 def _tray_menu_auto_sync_loop():
-    """Background loop that keeps the Windows System Tray menu synchronized with running apps."""
+    """Background loop that keeps the Windows System Tray menu synchronized with running apps and catalog changes."""
     _attach_thread_to_interactive_desktop()
     last_state = None
     while IS_RUNNING:
         try:
             servers = get_active_servers()
-            sig = tuple((s.get("slug"), s.get("port")) for s in servers) if isinstance(servers, list) else ()
+            srv_sig = tuple((s.get("slug"), s.get("port")) for s in servers) if isinstance(servers, list) else ()
+            apps = fetch_all_apps()
+            app_sig = tuple((a.get("slug"), a.get("category"), a.get("is_hidden")) for a in (apps or []))
+            sig = (srv_sig, app_sig)
             if sig != last_state:
                 last_state = sig
                 refresh_tray_menu()

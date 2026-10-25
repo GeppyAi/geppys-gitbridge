@@ -350,7 +350,18 @@ Click the action buttons below to **Set as Official App Icon**, **Save to App Fo
         include_audio: bool = False,
         app_slug: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Attach Gemini AI voice (`audio_data_url`) when in voice mode or requested."""
+        """Attach active AI model metadata and optional Gemini AI voice (`audio_data_url`) when in voice mode or requested."""
+        try:
+            from gitbridge.services.central_key_service import CentralKeyService
+            mstate = CentralKeyService.get_model_state()
+            result_dict.setdefault("model_used", mstate.get("last_used_model") or mstate.get("active_model"))
+            result_dict.setdefault("model_mode", mstate.get("mode", "auto"))
+            result_dict.setdefault("model_label", mstate.get("mode_label", ""))
+            result_dict.setdefault("model_reason", mstate.get("last_selection_reason", ""))
+            result_dict["model_state"] = mstate
+        except Exception:
+            pass
+
         if not (voice_mode or include_audio):
             return result_dict
         spoken = (result_dict.get("spoken_reply") or result_dict.get("text") or "").strip()
@@ -388,6 +399,7 @@ Click the action buttons below to **Set as Official App Icon**, **Save to App Fo
         consult_crew: bool = False,
         consult_agents: Optional[List[str]] = None,
         include_audio: bool = False,
+        model_override: Optional[str] = None,
         db: Optional[Session] = None
     ) -> Dict[str, Any]:
         """
@@ -407,8 +419,47 @@ Click the action buttons below to **Set as Official App Icon**, **Save to App Fo
 
         from gitbridge.services.agent_crew_service import AgentCrewService
         from gitbridge.services.antigravity_service import AntigravityDaemonPool
+        from gitbridge.services.central_key_service import CentralKeyService
 
         try:
+            # Handle explicit model override or natural-language/voice model switch command
+            if model_override and model_override.strip():
+                CentralKeyService.set_model_mode(model_override.strip(), reason="Selected from UI")
+                AntigravityDaemonPool.sync_with_central_model()
+
+            switch_cmd = CentralKeyService.detect_and_apply_model_switch_command(prompt)
+            if switch_cmd:
+                AntigravityDaemonPool.sync_with_central_model()
+                # If the user's message was primarily a command to switch models, confirm immediately
+                if len((prompt or "").strip()) <= 90:
+                    is_gb = (not app_slug) or (app_slug.lower() in ("geppys-gitbridge", "gitbridge"))
+                    leader = "Captain Geppy" if is_gb else "Geppy"
+                    mode_lbl = switch_cmd.get("mode_label", switch_cmd.get("mode"))
+                    act_mod = switch_cmd.get("active_model", "gemini-3-flash-preview")
+                    reason_txt = switch_cmd.get("last_selection_reason", "Updated per your request.")
+                    reply_md = (
+                        f"### 🧠 {leader} AI Model Updated!\n\n"
+                        f"I've switched my AI engine to **{mode_lbl}** (`{act_mod}`).\n\n"
+                        f"- **Routing Mode**: `{switch_cmd.get('mode')}`\n"
+                        f"- **Active Primary Model**: `{act_mod}`\n"
+                        f"- **Why**: {reason_txt}\n\n"
+                        f"Whenever my mode is set to **Auto**, I automatically shift gears between **Flash-Lite** (instant voice & quick tasks), **Gemini 3 Flash** (fast coding & live vision), and **Gemini 2.5 Pro** (deep architecture & complex debugging) based on what you need!"
+                    )
+                    spoken = f"{leader} here! I've switched my AI model to {mode_lbl}. {reason_txt}"
+                    res = {
+                        "sender": "ai",
+                        "text": reply_md,
+                        "spoken_reply": spoken,
+                        "is_image": False,
+                        "image_data": None,
+                        "extracted_tasks": [],
+                        "model_switched": True,
+                        "model_state": switch_cmd,
+                        "app_slug": app_slug,
+                        "file_path": file_path,
+                    }
+                    return cls._attach_optional_ai_voice(res, voice_mode=voice_mode, include_audio=include_audio, app_slug=app_slug)
+
             if is_image or cls.is_image_request(prompt):
                 img_result = cls.generate_chat_image(prompt=prompt, app_slug=app_slug, db=db)
                 spoken = AgentCrewService.build_spoken_summary(img_result["text"])
@@ -721,6 +772,14 @@ Click the action buttons below to **Set as Official App Icon**, **Save to App Fo
             if voice_mode else ""
         )
 
+        from gitbridge.services.central_key_service import CentralKeyService
+        mstate = CentralKeyService.get_model_state()
+        model_awareness = (
+            f"\n- Adaptive AI Model Engine: Your current routing mode is `{mstate.get('mode')}` ({mstate.get('mode_label')}). "
+            f"You can dynamically switch between `gemini-2.5-flash-lite` (instant voice/greetings), `gemini-3-flash-preview` (fast coding & live vision), "
+            f"and `gemini-2.5-pro` (deep architectural reasoning & complex debugging) based on task needs, or whenever the user asks you to switch models."
+        )
+
         is_gb = (not app_slug) or (app_slug.lower() in ("geppys-gitbridge", "gitbridge")) or (app_obj and "gitbridge" in app_obj.name.lower())
         if is_gb:
             system_instruction = f"""You are Captain Geppy — Commander and Face of Geppy's GitBridge!
@@ -730,7 +789,7 @@ Persona & Communication Style:
 - Live Screen Co-Designer: When Live Screen Stream frames are attached, you can literally SEE what the user is working on in GitBridge and Galactic — reference their visible screen layout, components, and errors directly!
 - Source of Truth (SOT) Authority: When SOT Contextiles (@handle) are referenced, treat them as sacred Ground Truth baselines.
 - Practicality: Always provide production-ready, beautiful code, drop-in UI solutions, and aesthetic improvements.
-- Version Control & Git Savvy: You are aware of the app's local git status and modified files.
+- Version Control & Git Savvy: You are aware of the app's local git status and modified files.{model_awareness}
 - Format responses cleanly with Markdown, code fences, and bulleted action steps.{voice_hint}"""
         else:
             target_app_label = app_obj.name if app_obj else app_slug
@@ -741,10 +800,9 @@ Persona & Communication Style:
 - Live Screen Co-Designer: When Live Screen Stream frames are attached, you can literally SEE what the user is working on in real time — comment on what is visible on their screen and help them design live!
 - Source of Truth (SOT) Authority: When SOT Contextiles (@handle) are referenced, use their exact visual descriptors, lighting, and modifiers.
 - Practicality: Always provide production-ready, clean code and UI solutions tailored specifically to "{target_app_label}".
-- Version Control & Git Savvy: You are aware of the app's local git status and modified files.
+- Version Control & Git Savvy: You are aware of the app's local git status and modified files.{model_awareness}
 - Format responses cleanly with Markdown, code fences, and bulleted action steps.{voice_hint}"""
 
-        from gitbridge.services.central_key_service import CentralKeyService
         messages = []
         for h in history[-8:]:
             role = "user" if h.get("sender") == "user" else "model"
@@ -759,7 +817,8 @@ Persona & Communication Style:
             messages,
             system_instruction,
             timeout=25,
-            images_b64=vision_frames if vision_frames else None
+            images_b64=vision_frames if vision_frames else None,
+            task_hint="voice_chat" if voice_mode else "chat",
         )
         if ai_response:
             return ai_response

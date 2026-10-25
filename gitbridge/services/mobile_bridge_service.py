@@ -519,12 +519,11 @@ class MobileBridgeService:
             try:
                 git_dir = os.path.join(app_obj.local_path, ".git")
                 if not os.path.exists(git_dir):
-                    subprocess.run(["git", "init"], cwd=app_obj.local_path, capture_output=True, timeout=8)
-                subprocess.run(["git", "add", "."], cwd=app_obj.local_path, capture_output=True, timeout=10)
-                subprocess.run(
+                    WorkspaceService._run_git_silent(["git", "init"], cwd=app_obj.local_path, timeout=8)
+                WorkspaceService._run_git_silent(["git", "add", "."], cwd=app_obj.local_path, timeout=10)
+                WorkspaceService._run_git_silent(
                     ["git", "commit", "-m", f"chore(bridge-backup): snapshot before mobile mod {task_id}"],
                     cwd=app_obj.local_path,
-                    capture_output=True,
                     timeout=10
                 )
             except Exception as git_err:
@@ -565,18 +564,15 @@ class MobileBridgeService:
             commit_hash = ""
             try:
                 short_instr = task["instruction"][:50].strip()
-                subprocess.run(["git", "add", target_file], cwd=app_obj.local_path, capture_output=True, timeout=8)
-                subprocess.run(
+                WorkspaceService._run_git_silent(["git", "add", target_file], cwd=app_obj.local_path, timeout=8)
+                WorkspaceService._run_git_silent(
                     ["git", "commit", "-m", f"feat(mobile-bridge): {short_instr}"],
                     cwd=app_obj.local_path,
-                    capture_output=True,
                     timeout=10
                 )
-                commit_hash = subprocess.run(
+                commit_hash = WorkspaceService._run_git_silent(
                     ["git", "rev-parse", "--short", "HEAD"],
                     cwd=app_obj.local_path,
-                    capture_output=True,
-                    text=True,
                     timeout=5
                 ).stdout.strip()
             except Exception:

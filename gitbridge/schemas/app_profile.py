@@ -60,6 +60,7 @@ class AppProfileBase(BaseModel):
     slug: str = Field(..., description="Unique slug identifier (e.g., 'geppys-gitbridge')")
     name: str = Field(..., description="Full application name")
     description: Optional[str] = Field(None, description="App summary description")
+    category: Optional[str] = Field("AI, Prompts & Planning", description="Application category for organization in Galactic, Tray Menu, and Catalog")
     status: AppStatus = Field(AppStatus.IN_DEVELOPMENT, description="Current lifecycle status")
     github_url: Optional[str] = Field(None, description="GitHub repository URL")
     github_repo_name: Optional[str] = Field(None, description="GitHub repo full name owner/repo")
@@ -79,6 +80,7 @@ class AppProfileBase(BaseModel):
     priority_tier: Optional[str] = Field("Tier 2 (Core Infrastructure)", description="Market / Portfolio priority score")
     health_report_md: Optional[str] = Field(None, description="Generated Markdown Health Card report")
     last_commit_at: Optional[datetime] = Field(None, description="Last commit date from GitHub")
+    last_opened_at: Optional[datetime] = Field(None, description="Timestamp when app was last opened, launched, or active")
     open_issues_count: Optional[int] = Field(0, description="Count of open GitHub issues and PRs")
     tags: List[str] = Field(default_factory=list, description="Categorization tags")
     backlog: List[dict] = Field(default_factory=list, description="Brainstorm tasks and ideas backlog")
@@ -91,6 +93,7 @@ class AppProfileCreate(AppProfileBase):
 class AppProfileUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    category: Optional[str] = None
     status: Optional[AppStatus] = None
     is_hidden: Optional[bool] = None
     github_url: Optional[str] = None
@@ -106,6 +109,7 @@ class AppProfileUpdate(BaseModel):
     priority_tier: Optional[str] = None
     health_report_md: Optional[str] = None
     last_commit_at: Optional[datetime] = None
+    last_opened_at: Optional[datetime] = None
     open_issues_count: Optional[int] = None
     tags: Optional[List[str]] = None
     backlog: Optional[List[dict]] = None

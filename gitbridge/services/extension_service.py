@@ -87,26 +87,233 @@ class ExtensionService:
         }
 
     @staticmethod
+    def get_app_runtime_and_context_digest(
+        app_obj: Optional[AppProfileModel],
+        primary_file_path: Optional[str] = None,
+        max_total_chars: int = 14000
+    ) -> Dict[str, Any]:
+        """
+        Gather comprehensive runtime server telemetry (from ACTIVE_SERVERS), entrypoint diagnostics
+        (e.g. missing index.html causing http.server directory listings), and multi-file code context
+        so both Brainstorm and Edit agents have full architectural awareness in a single shot.
+        """
+        result = {
+            "project_files": [],
+            "has_html_entrypoint": False,
+            "has_react_or_vite": False,
+            "is_http_server_without_html": False,
+            "server_info": None,
+            "runtime_diagnostic": "",
+            "multi_file_context": "",
+            "local_path": ""
+        }
+        if not app_obj:
+            return result
+
+        local_path = os.path.abspath(app_obj.local_path) if (app_obj.local_path and os.path.exists(app_obj.local_path)) else ""
+        result["local_path"] = local_path
+
+        tree = WorkspaceService.get_app_file_tree(app_obj)
+        project_files = [f.get("path") for f in (tree or []) if f.get("path")]
+        result["project_files"] = project_files
+
+        lower_files = [p.lower() for p in project_files]
+        has_html_entrypoint = any(
+            p in ("index.html", "static/index.html", "public/index.html", "src/index.html", "sidepanel.html")
+            or p.endswith("/index.html")
+            for p in lower_files
+        )
+        has_react_or_vite = any(
+            p.endswith(("app.tsx", "app.jsx", "app.vue", "main.tsx", "main.jsx", "vite.config.ts", "vite.config.js"))
+            for p in lower_files
+        )
+        result["has_html_entrypoint"] = has_html_entrypoint
+        result["has_react_or_vite"] = has_react_or_vite
+
+        # Inspect ACTIVE_SERVERS for live localhost command & port
+        server_info = None
+        try:
+            from gitbridge.services.launcher_service import ACTIVE_SERVERS
+            server_info = ACTIVE_SERVERS.get(app_obj.slug)
+        except Exception:
+            pass
+        result["server_info"] = server_info
+
+        diag_lines = []
+        if local_path:
+            diag_lines.append(f"- Local Workspace Directory (Windows OS): `{local_path}` (NEVER use Linux `/home/...` paths; use `os.path.dirname(os.path.abspath(__file__))` or `{local_path}`).")
+
+        if server_info:
+            srv_url = server_info.get("url") or f"http://localhost:{server_info.get('port')}"
+            srv_cmd = server_info.get("command") or ""
+            srv_port = server_info.get("port")
+            diag_lines.append(f"- Active Localhost Server: Running on `{srv_url}` (Port `{srv_port}`) via command: `{srv_cmd}`")
+            if "http.server" in srv_cmd.lower() and not has_html_entrypoint:
+                result["is_http_server_without_html"] = True
+                diag_lines.append(
+                    f"- ⚠️ CRITICAL ENTRYPOINT ALERT: `{app_obj.name}` is currently served by Python's static `http.server` on `{srv_url}`, "
+                    f"and there is NO `index.html` in `{local_path}`! Because `index.html` is missing, the browser only shows a raw "
+                    f"`Directory listing for /` page! Creating a standalone Python script (like `dashboard.py` on port 5000) without creating "
+                    f"`index.html` in the root folder will leave `{srv_url}` stuck on a directory listing. To make an HTML dashboard or UI load "
+                    f"in the browser, you MUST create a complete, self-contained `index.html` in the project root (and if you also use a Flask/FastAPI "
+                    f"server, ensure it serves `index.html` at `/` and uses `int(os.environ.get('PORT', {srv_port}))`)."
+                )
+        elif not has_html_entrypoint and not has_react_or_vite:
+            result["is_http_server_without_html"] = True
+            diag_lines.append(
+                f"- ⚠️ ENTRYPOINT NOTICE: `{app_obj.name}` currently has NO `index.html` or web UI entrypoint (only `{', '.join(project_files[:8])}`). "
+                f"When launched on localhost without `index.html`, static serving displays a raw directory listing. To provide a visual dashboard "
+                f"or web UI, create `index.html` in the root directory."
+            )
+
+        # Check static assets directory (e.g. generated PNGs in static/ or assets/) so dashboard code knows exact asset filenames
+        if local_path:
+            for asset_sub in ("static", "assets", "public", "."):
+                sub_dir = os.path.join(local_path, asset_sub) if asset_sub != "." else local_path
+                if os.path.exists(sub_dir) and os.path.isdir(sub_dir):
+                    try:
+                        img_files = [
+                            f for f in os.listdir(sub_dir)
+                            if f.lower().endswith((".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".json"))
+                            and os.path.isfile(os.path.join(sub_dir, f))
+                        ]
+                        if img_files:
+                            prefix = f"{asset_sub}/" if asset_sub != "." else ""
+                            sample_list = ", ".join(f"`{prefix}{fn}`" for fn in sorted(img_files)[:15])
+                            diag_lines.append(f"- Discovered Files in `{asset_sub}/`: {sample_list}")
+                    except Exception:
+                        pass
+
+        result["runtime_diagnostic"] = "\n".join(diag_lines)
+
+        # Read up to 6 key project files so the AI sees the whole picture (especially in small/medium projects)
+        priority_files: List[str] = []
+        if primary_file_path and primary_file_path in project_files:
+            priority_files.append(primary_file_path)
+        for p in project_files:
+            if p not in priority_files and os.path.splitext(p)[1].lower() in (".html", ".py", ".jsx", ".tsx", ".js", ".ts", ".vue", ".css", ".json"):
+                priority_files.append(p)
+
+        used_chars = 0
+        context_blocks: List[str] = []
+        for fp in priority_files[:6]:
+            if used_chars >= max_total_chars:
+                break
+            f_res = WorkspaceService.read_app_file(app_obj, fp)
+            if f_res.get("success") and f_res.get("content"):
+                content_str = f_res["content"]
+                budget = min(5500, max_total_chars - used_chars)
+                snippet = content_str[:budget]
+                context_blocks.append(f"File Content (`{fp}`):\n```\n{snippet}\n```")
+                used_chars += len(snippet)
+
+        result["multi_file_context"] = "\n\n".join(context_blocks)
+        return result
+
+    @staticmethod
+    def should_auto_execute_in_chat(
+        message: str,
+        app_obj: Optional[AppProfileModel],
+        project_files: List[str],
+        is_http_server_without_html: bool = False
+    ) -> bool:
+        """
+        Determine if a user's message in Galactic Chat is a direct build/create/edit/fix instruction
+        (or a report that the dashboard/UI is still showing a directory listing / not loading) that should
+        be executed and applied to disk immediately in 1 shot rather than just returning a brainstorm chat reply.
+        """
+        if not app_obj or not app_obj.local_path or not os.path.exists(app_obj.local_path):
+            return False
+        msg = (message or "").strip()
+        if not msg:
+            return False
+        msg_lower = msg.lower()
+
+        # Never auto-execute if user explicitly asks only to brainstorm, explain, or list ideas
+        if re.search(r"^\s*(brainstorm|give\s+me\s+\d*\s*ideas|what\s+ideas|list\s+ideas|explain\s+how|what\s+is\s+this\s+app)\b", msg_lower):
+            return False
+
+        # 1. User says the app is still showing a directory listing or not loading the HTML dashboard
+        if re.search(
+            r"(giving\s+(me|us)\s+a\s+directory|directory\s+listing|still\s+not\s+loading|not\s+loading\s+that\s+(html\s+)?dashboard|still\s+just\s+a\s+directory|build\s+(an?\s+|the\s+)?(html\s+|web\s+)?dashboard|create\s+(an?\s+|the\s+)?(html\s+|web\s+)?dashboard|make\s+this\s+an\s+actual\s+app)",
+            msg_lower
+        ):
+            return True
+
+        # 2. If the app has NO index.html and the user mentions dashboard, html, ui, frontend, or page
+        if is_http_server_without_html and re.search(r"\b(dashboard|html|index\.html|ui|frontend|interface|webpage|web\s+app|gallery)\b", msg_lower):
+            return True
+
+        # 3. Direct imperative build/edit/fix command in chat (e.g., "Build a...", "Create a...", "Add a...", "Fix the...", "Update the...")
+        if re.search(
+            r"^\s*(please\s+|can\s+you\s+|could\s+you\s+|go\s+ahead\s+and\s+|let'?s\s+)?(build|create|implement|add|update|edit|change|modify|fix|wire|replace|redesign|convert|turn\s+this\s+into)\b",
+            msg_lower
+        ) and not msg_lower.endswith("?"):
+            return True
+
+        return False
+
+    @staticmethod
     def resolve_best_target_file(
         app_obj: Optional[AppProfileModel],
         instruction: str,
         requested_file_path: Optional[str] = None
     ) -> str:
         """
-        Intelligently determine which file in the app's repository should be edited for a given instruction.
-        Prevents accidentally editing a root index.html shell when the logic lives in js/physics.js, src/App.tsx, etc.
+        Intelligently determine which file in the app's repository should be edited or created for a given instruction.
+        Preserves explicit new filenames (e.g. index.html, dashboard.py, request_tile.py) when creating new files,
+        and routes HTML dashboard / directory-listing fixes to index.html when no HTML entrypoint exists yet.
         """
         if not app_obj:
             return requested_file_path or "index.html"
 
         files = WorkspaceService.get_app_file_tree(app_obj)
         paths = [f.get("path") for f in (files or []) if f.get("path")]
-        if not paths:
-            return requested_file_path or "index.html"
-
         text = (instruction or "").strip()
         text_lower = text.lower()
         req_norm = (requested_file_path or "").replace("\\", "/").strip()
+
+        lower_paths = [p.lower() for p in paths]
+        has_html_entrypoint = any(
+            p in ("index.html", "static/index.html", "public/index.html", "src/index.html", "sidepanel.html")
+            or p.endswith("/index.html")
+            for p in lower_paths
+        )
+        has_react_or_vite = any(
+            p.endswith(("app.tsx", "app.jsx", "app.vue", "main.tsx", "main.jsx"))
+            for p in lower_paths
+        )
+
+        # 0a. Check if the instruction explicitly asks to create/write a specific filename (e.g. "Create a new file named dashboard.py", "Create index.html")
+        new_file_match = re.search(
+            r"\b(?:create|add|write|build|named|called|file)\s+(?:a\s+)?(?:new\s+)?(?:file|script|page|template)?\s*(?:named|called)?\s*[`'\" unlocked]*([a-zA-Z0-9_./-]+\.(?:html|py|js|jsx|ts|tsx|css|json|vue))\b",
+            text,
+            re.IGNORECASE
+        )
+        if new_file_match:
+            candidate_new = new_file_match.group(1).replace("\\", "/").lstrip("/")
+            existing_match = next((p for p in paths if p.lower() == candidate_new.lower()), None)
+            return existing_match or candidate_new
+
+        # 0b. If the app has NO index.html (and no React/Vite UI) and the instruction is about building/loading/fixing
+        #     an HTML dashboard, web UI, gallery, or fixing a "directory listing", target "index.html"!
+        wants_dashboard_or_html = bool(re.search(
+            r"\b(html|dashboard|index\.html|directory|ui|frontend|interface|webpage|web\s+page|web\s+app|gallery|not\s+loading|actual\s+app)\b",
+            text_lower
+        ))
+        if not has_html_entrypoint and not has_react_or_vite and wants_dashboard_or_html:
+            # Unless the instruction specifically names an existing .py file and is ONLY about backend python logic
+            if not re.search(r"\b(agent_watcher\.py|request_tile\.py)\b", text_lower):
+                return "index.html"
+
+        # 0c. If requested_file_path is a valid new file path (not yet in paths) with a known code extension, honor it!
+        if req_norm and not any(p.lower() == req_norm.lower() for p in paths):
+            ext_req = os.path.splitext(req_norm)[1].lower()
+            if ext_req in (".html", ".py", ".js", ".jsx", ".ts", ".tsx", ".css", ".scss", ".vue", ".json"):
+                return req_norm
+
+        if not paths:
+            return req_norm or "index.html"
 
         # 1. Explicit full relative path mentioned in instruction (longest match first)
         for p in sorted(paths, key=len, reverse=True):
@@ -115,17 +322,26 @@ class ExtensionService:
             if p.lower() in text_lower:
                 return p
 
-        # 2. Explicit filename (basename) mentioned in instruction (e.g. "App.tsx", "physics.js", "server.js")
+        # 2. Explicit filename (basename) mentioned in instruction (e.g. "App.tsx", "physics.js", "dashboard.py", "index.html")
         for p in sorted(paths, key=len, reverse=True):
             base = os.path.basename(p).lower()
             if base == "index.html":
-                if "index.html" not in text_lower:
+                if "index.html" not in text_lower and not (wants_dashboard_or_html and not has_react_or_vite):
                     continue
                 static_html = next((x for x in paths if x.lower().endswith("static/index.html")), None)
                 if static_html:
                     return static_html
             if re.search(r"(?<![a-z0-9_/-])" + re.escape(base) + r"(?![a-z0-9_])", text_lower):
                 return p
+
+        # 2b. If index.html exists in a non-React/Vite app and the user asks about the HTML dashboard, UI, or directory listing, prefer index.html
+        if wants_dashboard_or_html and not has_react_or_vite:
+            html_entry = (
+                next((x for x in paths if x.lower().endswith("static/index.html")), None)
+                or next((x for x in paths if x.lower() == "index.html"), None)
+            )
+            if html_entry:
+                return html_entry
 
         # 3. If requested_file_path is explicitly a non-HTML file that exists in paths, verify if it's already specific
         #    (unless another file's stem is strongly named in the instruction)
@@ -252,6 +468,7 @@ class ExtensionService:
 
         try:
             import subprocess
+            no_win_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
             # Case 1: client/src/... with client/package.json and client/dist
             if norm_rel.startswith("client/") and os.path.exists(os.path.join(local_root, "client", "package.json")) and os.path.exists(os.path.join(local_root, "client", "dist")):
                 client_dir = os.path.join(local_root, "client")
@@ -261,7 +478,8 @@ class ExtensionService:
                     shell=True,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
-                    timeout=35
+                    timeout=35,
+                    creationflags=no_win_flag,
                 )
                 return True
             # Case 2: root src/... with root package.json and dist/index.html, where server serves dist/
@@ -277,12 +495,70 @@ class ExtensionService:
                         shell=True,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
-                        timeout=35
+                        timeout=35,
+                        creationflags=no_win_flag,
                     )
                     return True
         except Exception as e:
             print(f"[ExtensionService] Notice during frontend bundle rebuild for {app_obj.slug}: {e}")
         return False
+
+    @staticmethod
+    def format_visual_references_context(
+        visual_references: Optional[List[Dict[str, Any]]] = None
+    ) -> tuple[str, List[str]]:
+        """
+        Extract structured DOM/UI selection metadata and base64 images from user-attached
+        visual references (region snips, element clicks, or full-tab screenshots).
+        """
+        if not visual_references or not isinstance(visual_references, list):
+            return "", []
+
+        lines = [
+            "USER-SELECTED VISUAL REFERENCE(S) FROM LIVE APP VIEWPORT:",
+            "(The user specifically captured/selected the following UI area(s) or DOM element(s) to reference in their request:)"
+        ]
+        images_b64: List[str] = []
+
+        for idx, ref in enumerate(visual_references[:4], 1):
+            if not isinstance(ref, dict):
+                continue
+            mode = ref.get("mode") or "selection"
+            label = ref.get("label") or ("Full Screenshot" if mode == "full" else "Selected UI Region")
+            selector = (ref.get("selector") or "").strip()
+            tag_name = (ref.get("tag_name") or "").strip()
+            elem_text = (ref.get("element_text") or "").strip()
+            outer_html = (ref.get("outer_html") or "").strip()
+            note = (ref.get("note") or "").strip()
+            rect = ref.get("rect") or {}
+            styles = ref.get("computed_styles") or {}
+
+            rect_str = ""
+            if isinstance(rect, dict) and rect.get("width") and rect.get("height"):
+                rect_str = f" ({int(rect.get('width', 0))}×{int(rect.get('height', 0))}px at x={int(rect.get('x', 0))}, y={int(rect.get('y', 0))})"
+
+            lines.append(f"  [{idx}] {label}{rect_str}")
+            if selector:
+                lines.append(f"      • Target DOM Selector: `{selector}`" + (f" (`<{tag_name}>`)" if tag_name else ""))
+            if note:
+                lines.append(f"      • User Annotation Note on Selection: \"{note}\"")
+            if elem_text:
+                lines.append(f"      • Visible Text Inside Selection: \"{elem_text[:260]}\"")
+            if styles and isinstance(styles, dict):
+                style_pairs = [f"{k}: {v}" for k, v in styles.items() if v]
+                if style_pairs:
+                    lines.append(f"      • Computed Styles: {', '.join(style_pairs[:8])}")
+            if outer_html:
+                lines.append(f"      • HTML Snippet of Selected Element:\n```html\n{outer_html[:700]}\n```")
+
+            cropped = ref.get("cropped_b64") or ref.get("image_b64")
+            full_annot = ref.get("full_annotated_b64")
+            if cropped and isinstance(cropped, str) and len(cropped) > 64:
+                images_b64.append(cropped)
+            if full_annot and isinstance(full_annot, str) and len(full_annot) > 64 and full_annot != cropped:
+                images_b64.append(full_annot)
+
+        return "\n".join(lines), images_b64
 
     @staticmethod
     def brainstorm(
@@ -293,6 +569,7 @@ class ExtensionService:
         is_image: bool = False,
         agent_id: Optional[str] = None,
         screen_frame_b64: Optional[str] = None,
+        visual_references: Optional[List[Dict[str, Any]]] = None,
         voice_mode: bool = False,
         consult_crew: bool = False,
         consult_agents: Optional[List[str]] = None,
@@ -303,10 +580,13 @@ class ExtensionService:
         from gitbridge.services.agent_crew_service import AgentCrewService
         from gitbridge.services.antigravity_service import AntigravityDaemonPool
 
-        if screen_frame_b64 and isinstance(screen_frame_b64, str) and len(screen_frame_b64) > 64:
+        visual_ref_context, visual_ref_images = ExtensionService.format_visual_references_context(visual_references)
+        primary_frame = (visual_ref_images[0] if visual_ref_images else None) or screen_frame_b64
+
+        if primary_frame and isinstance(primary_frame, str) and len(primary_frame) > 64:
             LiveScreenStreamHub.push_frame(
                 source="galactic",
-                frame_b64=screen_frame_b64,
+                frame_b64=primary_frame,
                 app_slug=slug or "",
                 viewport_title=f"Galactic Live Tab ({slug or 'App'})",
             )
@@ -428,30 +708,84 @@ class ExtensionService:
         file_context = ""
         project_files_list: List[str] = []
         best_relevant_file = None
+        digest = ExtensionService.get_app_runtime_and_context_digest(app_obj, primary_file_path=file_path)
         if app_obj:
-            tree = WorkspaceService.get_app_file_tree(app_obj)
-            project_files_list = [f.get("path") for f in (tree or []) if f.get("path")]
+            project_files_list = digest["project_files"]
             if project_files_list:
-                file_context += f"\nProject Files in {app_name}: {', '.join(project_files_list[:40])}\n"
+                file_context += f"\nProject Files in {app_name}: {', '.join(project_files_list[:45])}\n"
+            if digest.get("runtime_diagnostic"):
+                file_context += f"\nRuntime & Server Architecture Diagnostics:\n{digest['runtime_diagnostic']}\n"
 
             best_relevant_file = ExtensionService.resolve_best_target_file(app_obj, message, file_path)
-            files_to_read = []
-            if best_relevant_file:
-                files_to_read.append(best_relevant_file)
-            if file_path and file_path not in files_to_read:
-                files_to_read.append(file_path)
+            if digest.get("multi_file_context"):
+                file_context += f"\n{digest['multi_file_context']}\n"
 
-            for fp in files_to_read[:2]:
-                file_res = WorkspaceService.read_app_file(app_obj, fp)
-                if file_res.get("success") and file_res.get("content"):
-                    file_context += f"\nFile Content ({fp}):\n```\n{file_res['content'][:3500]}\n```\n"
+        # Check active live screen stream frames (from Galactic and/or GitBridge) + user-selected visual reference snippets
+        extra_vision_list: List[str] = []
+        if visual_ref_images:
+            extra_vision_list.extend(visual_ref_images)
+        if screen_frame_b64 and screen_frame_b64 not in extra_vision_list:
+            extra_vision_list.append(screen_frame_b64)
 
-        # Check active live screen stream frames (from Galactic and/or GitBridge)
         vision_frames, vision_note = LiveScreenStreamHub.get_active_vision_frames(
-            extra_frames=[screen_frame_b64] if screen_frame_b64 else None
+            extra_frames=extra_vision_list if extra_vision_list else None
         )
+        if visual_ref_context:
+            file_context = f"\n{visual_ref_context}\n{file_context}"
         if vision_note:
             file_context = f"{vision_note}\n{file_context}"
+
+        # Direct 1-Shot Execution from Chat: When the user explicitly asks to build/create/edit/fix something
+        # or reports that the HTML dashboard is still not loading / showing a directory listing, execute it directly!
+        if (
+            not is_image
+            and not consult_crew
+            and not agent_id
+            and app_obj
+            and ExtensionService.should_auto_execute_in_chat(
+                message=message,
+                app_obj=app_obj,
+                project_files=project_files_list,
+                is_http_server_without_html=bool(digest.get("is_http_server_without_html")),
+            )
+        ):
+            target_for_auto = best_relevant_file or file_path or "index.html"
+            auto_edit_res = ExtensionService.apply_design(
+                slug=slug,
+                file_path=target_for_auto,
+                current_code="",
+                instruction=message,
+                db=db,
+                save_to_disk=True,
+                visual_references=visual_references,
+                screen_frame_b64=screen_frame_b64,
+            )
+            if auto_edit_res and auto_edit_res.get("success") and auto_edit_res.get("modified_code"):
+                final_tf = auto_edit_res.get("target_file") or target_for_auto
+                mod_files = auto_edit_res.get("modified_files") or [final_tf]
+                explanation = auto_edit_res.get("explanation") or f"Built and applied updates to `{final_tf}`."
+                files_str = ", ".join(f"`{f}`" for f in mod_files)
+                reply_md = (
+                    f"✅ **Done! I built and applied the update directly to {files_str}:**\n\n"
+                    f"{explanation}"
+                )
+                return {
+                    "text": reply_md,
+                    "spoken_reply": AgentCrewService.build_spoken_summary(explanation),
+                    "extracted_tasks": [],
+                    "auto_applied": True,
+                    "target_file": final_tf,
+                    "modified_files": mod_files,
+                    "modified_code": auto_edit_res.get("modified_code", ""),
+                    "baseline_code": auto_edit_res.get("baseline_code", ""),
+                    "saved_to_disk": True,
+                    "live_stream_seen": len(vision_frames) > 0,
+                    "antigravity_error": auto_edit_res.get("antigravity_error"),
+                    "engine": auto_edit_res.get("engine", "antigravity_sdk"),
+                    "service_port": auto_edit_res.get("service_port"),
+                    "elapsed_ms": auto_edit_res.get("elapsed_ms"),
+                    "tool_steps": auto_edit_res.get("tool_steps", []),
+                }
 
         # Check active open Antigravity errors
         open_ag_errors = [e for e in AntigravityDaemonPool.get_errors(slug=slug, limit=3) if e.get("status") == "open"]
@@ -495,7 +829,10 @@ Git & Commit Savvy: You are aware of git changes in this app. When the user asks
 
 IMPORTANT INSTRUCTION FOR TASK / SERIES EXTRACTION:
 Whenever you propose a series of things that need to be done (whether feature ideas, UI/UX improvements, step-by-step plans, or bug/Watchdog fixes), ALWAYS include them in a structured JSON block at the very end of your message wrapped in ```tasks ... ``` fences so the user gets a "Proceed" button to run them systematically.
-CRITICAL: For each task, set `"target_file"` to the exact relative file path from the project's file list where that code actually lives (for example, `js/physics.js` for physics/friction logic, `js/app.js` for app state/controls, `src/App.tsx` for React UI, `css/styles.css` for styling — NEVER target `index.html` for JS logic that lives in `.js`/`.ts`/`.tsx` files!).
+CRITICAL RULES FOR `target_file` AND DASHBOARDS:
+1. If the app has NO `index.html` (or is serving a directory listing via `http.server`) and you propose creating a web UI, HTML dashboard, or gallery, ALWAYS set `"target_file": "index.html"` so the browser immediately renders `index.html` at the root URL!
+2. Prefer 1 comprehensive, complete step over 3-4 tiny fragmented micro-steps so the user gets a fully working feature in 1 shot!
+3. When creating a new file (such as `index.html`, `dashboard.py`, `request_tile.py`), set `"target_file"` to that exact new filename. When editing existing code, set `"target_file"` to the exact relative file path where that code lives.
 Format of the tasks block:
 ```tasks
 [
@@ -589,13 +926,18 @@ Keep the conversational response inspiring, direct, and actionable. Keep the ```
             if len(fallback_items) >= 2:
                 extracted_tasks = fallback_items[:10]
 
-        # Ensure every extracted task has an accurate target_file resolved against the project's actual file tree
+        # Ensure every extracted task has an accurate target_file resolved against the project's actual file tree (or valid new file)
         if app_obj and extracted_tasks:
+            has_react_or_vite = bool(digest.get("has_react_or_vite"))
             for t in extracted_tasks:
                 if isinstance(t, dict):
                     combined_task_text = f"{t.get('title', '')} {t.get('description', '')} {t.get('suggested_prompt', '')} {message}"
-                    req_tf = t.get("target_file")
-                    if req_tf and req_tf in project_files_list and not req_tf.lower().endswith("index.html"):
+                    req_tf = (t.get("target_file") or "").replace("\\", "/").strip()
+                    ext_tf = os.path.splitext(req_tf)[1].lower() if req_tf else ""
+                    if req_tf and req_tf in project_files_list and not (req_tf.lower() == "index.html" and has_react_or_vite):
+                        t["target_file"] = req_tf
+                    elif req_tf and ext_tf in (".html", ".py", ".js", ".jsx", ".ts", ".tsx", ".css", ".scss", ".vue", ".json") and not (req_tf.lower() == "index.html" and has_react_or_vite):
+                        # Honor valid new filename proposed by the AI (e.g. index.html, dashboard.py, request_tile.py)
                         t["target_file"] = req_tf
                     else:
                         t["target_file"] = ExtensionService.resolve_best_target_file(
@@ -933,13 +1275,22 @@ RULES:
         current_code: str,
         instruction: str,
         db: Session,
-        save_to_disk: bool = True
+        save_to_disk: bool = True,
+        visual_references: Optional[List[Dict[str, Any]]] = None,
+        screen_frame_b64: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Apply an AI design suggestion, brainstorm task, or user prompt to code."""
         app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
         app_name = app_obj.name if app_obj else slug
 
-        # 1. Verify / resolve the best target file in the app's repository
+        visual_ref_context, visual_ref_images = ExtensionService.format_visual_references_context(visual_references)
+        edit_images: List[str] = []
+        if visual_ref_images:
+            edit_images.extend(visual_ref_images)
+        if screen_frame_b64 and isinstance(screen_frame_b64, str) and len(screen_frame_b64) > 64 and screen_frame_b64 not in edit_images:
+            edit_images.append(screen_frame_b64)
+
+        # 1. Verify / resolve the best target file in the app's repository (supporting both existing files and new files!)
         requested_fp = (file_path or "").replace("\\", "/").strip()
         resolved_fp = ExtensionService.resolve_best_target_file(app_obj, instruction, requested_fp) if app_obj else requested_fp
         if resolved_fp and resolved_fp != requested_fp and app_obj:
@@ -948,12 +1299,21 @@ RULES:
                 print(f"[ExtensionService] Smart-rerouted edit from '{requested_fp}' -> '{resolved_fp}' for instruction: {instruction[:70]}")
                 file_path = resolved_fp
                 current_code = read_res.get("content", "")
-        elif app_obj and file_path and not (current_code and current_code.strip()):
+            else:
+                print(f"[ExtensionService] Smart-rerouted to new file '{resolved_fp}' (from '{requested_fp}') for instruction: {instruction[:70]}")
+                file_path = resolved_fp
+                current_code = ""
+        elif app_obj and file_path:
             read_res = WorkspaceService.read_app_file(app_obj, file_path)
             if read_res.get("success"):
-                current_code = read_res.get("content", "")
+                if not (current_code and current_code.strip()):
+                    current_code = read_res.get("content", "")
+            else:
+                # Target file does not exist on disk yet — reset current_code so another file's code is never leaked into a new file!
+                current_code = ""
 
         authoritative_baseline = current_code or ""
+        digest = ExtensionService.get_app_runtime_and_context_digest(app_obj, primary_file_path=file_path)
 
         def _finalize(result_payload: Dict[str, Any]) -> Dict[str, Any]:
             result_payload["target_file"] = file_path
@@ -963,6 +1323,11 @@ RULES:
                 rebuilt = ExtensionService.maybe_rebuild_frontend_bundle(app_obj, file_path)
                 result_payload["saved_to_disk"] = bool(save_res.get("success", False))
                 result_payload["rebuilt_bundle"] = rebuilt
+                try:
+                    from gitbridge.services.launcher_service import AppLauncherService
+                    AppLauncherService.upgrade_static_server_if_needed(app_obj)
+                except Exception:
+                    pass
             else:
                 result_payload["saved_to_disk"] = False
             try:
@@ -987,6 +1352,8 @@ RULES:
             mention_res = SOTService.resolve_mentions(instruction, db)
             if mention_res.get("has_mentions"):
                 sot_grounding = mention_res.get("grounding_prompt", "")
+        if visual_ref_context:
+            sot_grounding = f"{sot_grounding}\n\n{visual_ref_context}".strip()
 
         is_gb = bool(slug and slug.lower() in ("geppys-gitbridge", "gitbridge")) or ("gitbridge" in app_name.lower())
         identity_rule = (
@@ -1003,11 +1370,16 @@ RULES:
                     app_obj=app_obj,
                     instruction=instruction,
                     target_file_hint=file_path,
-                    current_code_override=current_code if (file_path == requested_fp) else None,
+                    current_code_override=current_code if (file_path == requested_fp and current_code) else None,
                     sot_grounding=sot_grounding,
                     save_to_disk=save_to_disk
                 )
                 if ag_edit and ag_edit.get("success") and ag_edit.get("modified_code"):
+                    try:
+                        from gitbridge.services.launcher_service import AppLauncherService
+                        AppLauncherService.upgrade_static_server_if_needed(app_obj)
+                    except Exception:
+                        pass
                     return ag_edit
             except Exception as ag_err:
                 print(f"[ExtensionService] Antigravity edit fallback notice: {ag_err}")
@@ -1026,13 +1398,12 @@ RULES:
                 return _finalize(patch_res)
 
         project_files_note = ""
-        if app_obj:
-            tree = WorkspaceService.get_app_file_tree(app_obj)
-            all_paths = [f.get("path") for f in (tree or []) if f.get("path")]
-            if all_paths:
-                project_files_note = f"\nProject Files in {app_name}: {', '.join(all_paths[:35])}"
+        if digest.get("project_files"):
+            project_files_note = f"\nProject Files in {app_name}: {', '.join(digest['project_files'][:40])}"
+        if digest.get("runtime_diagnostic"):
+            project_files_note += f"\nRuntime Diagnostics:\n{digest['runtime_diagnostic']}"
 
-        system_prompt = f"""You are Geppy's Lead UI/UX & Full-Stack Engineer modifying code for "{app_name}".
+        system_prompt = f"""You are Geppy's Lead UI/UX & Full-Stack Engineer modifying or creating code for "{app_name}".
 File Path: {file_path}{project_files_note}
 Your task is to implement the user's design/feature edit instruction with total precision directly inside `{file_path}`.
 If SOT Grounding specifications are provided, follow their visual style, tokens, and aesthetic rules strictly.
@@ -1040,22 +1411,24 @@ CRITICAL RULES:
 1. Return ONLY the complete, updated code for `{file_path}`. Do NOT wrap it in markdown commentary before or after.
 2. If using markdown code block fences (```code ... ```), ensure the code inside is the complete replacement file content.
 3. Preserve all existing functionality, routes, classes, methods, and logic unless specifically asked to change them.
-4. Modify the real implementation in `{file_path}` (do NOT inject unused dummy globals or disconnected placeholders).{identity_rule}"""
+4. When building an HTML dashboard or `index.html`, generate a COMPLETE, rich, modern, interactive, self-contained HTML5 application (with clean dark-mode CSS, live data/asset fetching, interactive controls, and responsive grid) that works immediately in the browser.{identity_rule}"""
 
         prompt_text = f"Instruction: {instruction}\n"
         if sot_grounding:
             prompt_text = f"{sot_grounding}\n{prompt_text}"
+        if digest.get("multi_file_context"):
+            prompt_text += f"\nProject Context & Companion Files:\n{digest['multi_file_context']}\n"
         if current_code and current_code.strip():
-            prompt_text += f"\nCurrent File Content ({file_path}):\n```\n{current_code}\n```"
+            prompt_text += f"\nCurrent Target File Content ({file_path}):\n```\n{current_code}\n```"
         else:
-            prompt_text += f"\nTarget File: {file_path} is currently empty or a new file. Generate complete, clean, professional code from scratch for this file."
+            prompt_text += f"\nTarget File: `{file_path}` is a NEW file (or currently empty). Generate complete, rich, production-ready code from scratch for `{file_path}` that integrates seamlessly with the project files shown above."
 
         messages = [{
             "role": "user",
             "parts": [{"text": prompt_text}]
         }]
 
-        raw = call_gemini(messages, system_prompt)
+        raw = call_gemini(messages, system_prompt, images_b64=edit_images if edit_images else None)
         if raw:
             modified_code = raw.strip()
             # Strip code fence if Gemini wrapped the full file

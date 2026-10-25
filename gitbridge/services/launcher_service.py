@@ -440,9 +440,9 @@ class ServerMonitor:
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
             except Exception:
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000))
         else:
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000))
 
 
 # Auto-start server monitor
@@ -466,7 +466,12 @@ class AppLauncherService:
         
         # Fallback to netstat
         try:
-            out = subprocess.check_output(['netstat', '-ano', '-p', 'tcp'], text=True, errors='ignore')
+            out = subprocess.check_output(
+                ['netstat', '-ano', '-p', 'tcp'],
+                text=True,
+                errors='ignore',
+                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+            )
             for line in out.splitlines():
                 parts = line.strip().split()
                 if len(parts) >= 4 and parts[0] == 'TCP' and parts[3] == 'LISTENING':
@@ -504,7 +509,12 @@ class AppLauncherService:
         if not listening_ports:
             # Fallback to netstat by matching PIDs
             try:
-                out = subprocess.check_output(['netstat', '-ano', '-p', 'tcp'], text=True, errors='ignore')
+                out = subprocess.check_output(
+                    ['netstat', '-ano', '-p', 'tcp'],
+                    text=True,
+                    errors='ignore',
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+                )
                 pid_set = set(pids)
                 for line in out.splitlines():
                     parts = line.strip().split()
@@ -636,8 +646,9 @@ class AppLauncherService:
             return target_dir
 
         try:
+            from gitbridge.services.workspace_service import WorkspaceService
             print(f"[Launcher] Cloning {app_obj.github_url} into {target_dir}...")
-            subprocess.run(["git", "clone", app_obj.github_url, target_dir], check=True, timeout=60)
+            WorkspaceService._run_git_silent(["git", "clone", app_obj.github_url, target_dir], check=True, timeout=60)
             return target_dir
         except Exception as e:
             print(f"[Launcher] Failed to clone repository: {e}")
@@ -658,6 +669,39 @@ class AppLauncherService:
                             f.write(text)
                 except Exception:
                     pass
+
+    @staticmethod
+    def _ensure_python_server_uses_port_env(py_path: str, allocated_port: int):
+        """Ensure a Flask/Python server script respects os.environ.get('PORT') instead of hardcoding port=5000."""
+        if not py_path or not os.path.exists(py_path):
+            return
+        try:
+            with open(py_path, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+            if "app.run(" not in text:
+                return
+            modified = text
+            if "os.environ.get('PORT'" not in modified and 'os.environ.get("PORT"' not in modified:
+                # Replace hardcoded port=XXXX in app.run(...)
+                if re.search(r"app\.run\s*\([^)]*port\s*=\s*\d+", modified):
+                    modified = re.sub(
+                        r"port\s*=\s*\d+",
+                        f'port=int(os.environ.get("PORT", {allocated_port}))',
+                        modified
+                    )
+                elif re.search(r"app\.run\s*\(\s*\)", modified):
+                    modified = re.sub(
+                        r"app\.run\s*\(\s*\)",
+                        f'app.run(host="127.0.0.1", port=int(os.environ.get("PORT", {allocated_port})))',
+                        modified
+                    )
+                if modified != text:
+                    if "import os" not in modified:
+                        modified = "import os\n" + modified
+                    with open(py_path, "w", encoding="utf-8") as f:
+                        f.write(modified)
+        except Exception:
+            pass
 
     @staticmethod
     def detect_framework_and_command(folder_path: str, allocated_port: int, app_obj) -> tuple[str, str, str]:
@@ -704,6 +748,7 @@ class AppLauncherService:
             ("main.py", folder_path, "main"),
             ("app.py", folder_path, "app"),
             ("server.py", folder_path, "server"),
+            ("dashboard.py", folder_path, "dashboard"),
             (os.path.join("app", "main.py"), folder_path, "app.main"),
             (os.path.join("src", "main.py"), folder_path, "src.main"),
             (os.path.join("app", "app.py"), folder_path, "app.app")
@@ -719,7 +764,8 @@ class AppLauncherService:
                             return f'"{py_bin}" -m streamlit run {rel_file} --server.port {allocated_port}', f"http://localhost:{allocated_port}", base_dir
                         elif "fastapi" in content or "uvicorn" in content:
                             return f'"{py_bin}" -m uvicorn {mod_name}:app --port {allocated_port} --reload', f"http://localhost:{allocated_port}", base_dir
-                        elif "flask" in content or "app.run" in content:
+                        elif "flask" in content.lower() or "app.run" in content:
+                            AppLauncherService._ensure_python_server_uses_port_env(py_path, allocated_port)
                             return f'"{py_bin}" {rel_file}', f"http://localhost:{allocated_port}", base_dir
                 except Exception:
                     pass
@@ -1109,6 +1155,81 @@ class AppLauncherService:
         _save_active_servers_state()
         _notify_tray_menu_refresh()
         return True
+
+    @staticmethod
+    def upgrade_static_server_if_needed(app_obj) -> Optional[Dict[str, Any]]:
+        """If an app is currently running a fallback static `http.server` on port P, and a dedicated
+        framework server (e.g. dashboard.py, app.py, main.py, server.py, package.json) now exists,
+        hot-swap the server on the EXACT same port P so the user's open browser tab immediately renders the app."""
+        if not app_obj or not getattr(app_obj, "slug", None):
+            return None
+        slug = app_obj.slug
+        info = ACTIVE_SERVERS.get(slug)
+        if not info:
+            return None
+        current_cmd = (info.get("command") or "").lower()
+        current_port = info.get("port")
+        folder_path = info.get("folder_path") or AppLauncherService.detect_local_path(app_obj)
+        if not current_port or not folder_path or not os.path.exists(folder_path):
+            return None
+        if "http.server" not in current_cmd:
+            return None
+
+        new_cmd, new_url, new_exec_folder = AppLauncherService.detect_framework_and_command(
+            folder_path, int(current_port), app_obj
+        )
+        if "http.server" in new_cmd.lower():
+            return None
+
+        try:
+            print(f"[Launcher] Upgrading '{slug}' on port {current_port} from static http.server to: {new_cmd}")
+            AppLauncherService.stop_localhost_server(slug)
+            time.sleep(0.25)
+
+            env = os.environ.copy()
+            env["PORT"] = str(current_port)
+            env["FLASK_RUN_PORT"] = str(current_port)
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+            proc = subprocess.Popen(
+                new_cmd,
+                cwd=new_exec_folder,
+                shell=True,
+                env=env,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=creationflags
+            )
+            AppLauncherService.wait_for_port(int(current_port), timeout=4.0)
+            ACTIVE_SERVERS[slug] = {
+                "slug": slug,
+                "name": app_obj.name,
+                "process": proc,
+                "pid": proc.pid,
+                "all_pids": [proc.pid],
+                "port": int(current_port),
+                "all_ports": [int(current_port)],
+                "url": new_url,
+                "command": new_cmd,
+                "folder_path": new_exec_folder,
+                "started_at": time.time(),
+                "status": "healthy",
+                "metrics": {
+                    "memory_mb": 0.0,
+                    "cpu_percent": 0.0,
+                    "uptime_seconds": 0,
+                    "uptime_str": "0s",
+                    "child_pids": [],
+                    "is_port_listening": True,
+                    "all_ports": [int(current_port)]
+                }
+            }
+            _save_active_servers_state()
+            _notify_tray_menu_refresh()
+            return ACTIVE_SERVERS[slug]
+        except Exception as e:
+            print(f"[Launcher] Could not upgrade static server for {slug}: {e}")
+            return None
 
     @staticmethod
     def stop_all_servers() -> int:

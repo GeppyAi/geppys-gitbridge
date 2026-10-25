@@ -29,7 +29,7 @@ def init_db():
     if DATABASE_URL.startswith("sqlite"):
         with engine.connect() as conn:
             from sqlalchemy import text
-            for col in ["feature_breakdown", "local_path", "launch_command", "live_url", "icon_url", "priority_tier", "health_report_md", "last_commit_at", "open_issues_count", "backlog", "chat_history"]:
+            for col in ["category", "last_opened_at", "feature_breakdown", "local_path", "launch_command", "live_url", "icon_url", "priority_tier", "health_report_md", "last_commit_at", "open_issues_count", "backlog", "chat_history"]:
                 try:
                     conn.execute(text(f"ALTER TABLE app_profiles ADD COLUMN {col} TEXT"))
                     conn.commit()
@@ -51,3 +51,14 @@ def init_db():
                     conn.commit()
                 except Exception:
                     pass
+
+    # Auto-categorize all apps in the catalog on startup
+    try:
+        from gitbridge.services.analyzer_service import AppAnalyzerService
+        db = SessionLocal()
+        try:
+            AppAnalyzerService.auto_categorize_all_apps(db, overwrite=False)
+        finally:
+            db.close()
+    except Exception:
+        pass

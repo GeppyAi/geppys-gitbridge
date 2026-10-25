@@ -74,6 +74,73 @@ try:
 
     local_connection.LocalConnectionStrategy._connect_websocket = _fast_connect_websocket
 
+    # Silent Harness Patch: Prevent localharness.exe from opening visible cmd/conhost windows
+    # when GitBridge runs under pythonw.exe (Windows GUI subsystem).
+    async def _silent_spawn_harness_and_connect_ws(
+        self, *, use_interactions_api: bool = False
+    ) -> Tuple[subprocess.Popen, Any, str]:
+        sdk_version = local_connection._get_sdk_version()
+        client_info_proto = local_connection.localharness_pb2.ClientInfo(
+            language="python",
+            version=sdk_version,
+            language_version=local_connection.platform.python_version(),
+            os=local_connection.platform.system().lower(),
+            os_version=local_connection.platform.release(),
+        )
+        env_map = (
+            {str(k): str(v) for k, v in self._env.items()} if self._env else {}
+        )
+        input_config = local_connection.localharness_pb2.InputConfig(
+            storage_directory=self._save_dir or "",
+            client_info=client_info_proto,
+            env=env_map,
+        )
+        if use_interactions_api:
+            input_config.use_interactions_api = True
+
+        merged_env = {**os.environ, **env_map} if self._env is not None else None
+
+        popen_kwargs: Dict[str, Any] = {}
+        if os.name == "nt":
+            popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+            si = subprocess.STARTUPINFO()
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            si.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+            popen_kwargs["startupinfo"] = si
+
+        process = subprocess.Popen(
+            [self._binary_path],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=merged_env,
+            **popen_kwargs,
+        )
+
+        serialized = input_config.SerializeToString()
+        assert process.stdin is not None
+        assert process.stdout is not None
+        assert process.stderr is not None
+        process.stdin.write(local_connection.struct.pack("<I", len(serialized)) + serialized)
+        process.stdin.flush()
+        raw_len = process.stdout.read(4)
+        if not raw_len:
+            stderr_output = process.stderr.read().decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"Failed to read length from stdout. Stderr: {stderr_output}"
+            )
+        length = local_connection.struct.unpack("<I", raw_len)[0]
+        output_config = local_connection.localharness_pb2.OutputConfig()
+        output_config.ParseFromString(process.stdout.read(length))
+        ws, ws_url = await self._connect_websocket(
+            output_config.port, output_config.api_key, process
+        )
+        return process, ws, ws_url
+
+    local_connection.LocalConnectionStrategy._spawn_harness_and_connect_ws = (
+        _silent_spawn_harness_and_connect_ws
+    )
+
 except Exception as _ag_err:
     print(f"[AntigravityService] Notice: google.antigravity SDK import failed: {_ag_err}")
     HAS_ANTIGRAVITY_SDK = False
@@ -95,8 +162,9 @@ os.makedirs(_ISOLATED_APP_DATA_DIR, exist_ok=True)
 
 ANTIGRAVITY_MODELS = [
     "gemini-3-flash-preview",
-    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
     "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
 ]
 
 
@@ -256,8 +324,10 @@ Workspace Root: {self.local_root}
 
 OPERATING RULES:
 1. Apply requested code changes directly to files in `{self.local_root}` using `edit_file` or `create_file`.
-2. FAST PATH: When the prompt already includes numbered lines of the target file, call `edit_file` immediately without calling `view_file` or `search_directory` first!
-3. Only call `view_file` (with `start_line` and `end_line`) or `search_directory` (with `directory_path="{self.local_root}"`) if the target code is not shown in the prompt or spans additional files.
+2. FAST PATH: When the prompt already includes numbered lines of the target file, call `edit_file` (or `create_file` for a new file) immediately without redundant `view_file` calls!
+3. COMPLETE DASHBOARD / UI BUILDS: When asked to build an HTML dashboard, web UI, gallery, or fix a directory listing / non-loading dashboard:
+   - ALWAYS ensure `{self.local_root}\\index.html` exists and contains a COMPLETE, rich, modern, interactive, self-contained HTML5 dashboard (with clean dark-mode CSS, responsive gallery/cards, status indicators, and interactive controls) so the browser immediately loads `index.html` at `/` instead of a raw directory listing!
+   - If the project also has a Python server (`dashboard.py`, `app.py`, `main.py`), ensure it serves `index.html` at `/`, includes all required imports (`import os`, `import json`, etc.), and uses `os.path.dirname(os.path.abspath(__file__))` (NEVER Linux `/home/...` paths).
 4. Preserve all unrelated logic, imports, routes, and event listeners.
 5. After editing, reply with a concise 2-3 sentence summary of what you updated.{identity_rule}"""
             enabled_tools = [
@@ -274,9 +344,10 @@ OPERATING RULES:
 Workspace Root: {self.local_root}
 
 OPERATING RULES:
-1. FAST PATH: The prompt includes the project file list and active file excerpts. If that context is sufficient to answer or brainstorm, reply immediately WITHOUT calling any tools!
+1. FAST PATH: The prompt includes the project file list, runtime server diagnostics, and file excerpts. If that context is sufficient to answer or brainstorm, reply immediately WITHOUT calling any tools!
 2. Only call `view_file` (with `start_line` and `end_line`) or `search_directory` (with `directory_path="{self.local_root}"`) if you specifically need to inspect unseen code to answer accurately.
-3. Whenever proposing actionable steps, features, UI upgrades, or fixes, ALWAYS append a valid JSON block wrapped in ```tasks ... ``` at the very end of your response:
+3. ENTRYPOINT & DASHBOARD AWARENESS: If Runtime Diagnostics show that `index.html` is missing or the app is served by `http.server` showing a directory listing, clearly point this out and set `"target_file": "index.html"` for any dashboard/UI task! Prefer 1 comprehensive, complete build step over multiple fragmented micro-steps.
+4. Whenever proposing actionable steps, features, UI upgrades, or fixes, ALWAYS append a valid JSON block wrapped in ```tasks ... ``` at the very end of your response:
 ```tasks
 [
   {{
@@ -296,6 +367,11 @@ OPERATING RULES:
             ]
             agent_hooks = [hooks.pre_tool_call_decide(self._guard_write_call)]
 
+        t_level = (
+            getattr(ThinkingLevel, "HIGH", ThinkingLevel.LOW)
+            if "pro" in (self.model_name or "").lower()
+            else ThinkingLevel.LOW
+        )
         cfg = LocalAgentConfig(
             workspaces=[self.local_root],
             app_data_dir=_ISOLATED_APP_DATA_DIR,
@@ -303,7 +379,7 @@ OPERATING RULES:
                 name=self.model_name,
                 endpoint=GeminiAPIEndpoint(
                     api_key=self.api_key,
-                    options=GeminiModelOptions(thinking_level=ThinkingLevel.LOW),
+                    options=GeminiModelOptions(thinking_level=t_level),
                 ),
             ),
             system_instructions=CustomSystemInstructions(text=sys_text),
@@ -761,13 +837,41 @@ class AntigravityDaemonPool:
         return act
 
     @classmethod
-    def get_active_model(cls) -> str:
+    def get_active_model(cls, task_prompt: str = "", mode: str = "edit") -> str:
+        try:
+            st = CentralKeyService.get_model_state()
+            if not st.get("is_auto"):
+                locked = st.get("active_model")
+                if locked in ANTIGRAVITY_MODELS:
+                    return locked
+            elif task_prompt:
+                sel = CentralKeyService.select_model_for_need(
+                    prompt=task_prompt,
+                    task_type=mode,
+                )
+                chosen = sel.get("model")
+                if chosen in ANTIGRAVITY_MODELS:
+                    return chosen
+        except Exception:
+            pass
         return ANTIGRAVITY_MODELS[cls._active_model_idx % len(ANTIGRAVITY_MODELS)]
+
+    @classmethod
+    def sync_with_central_model(cls, mode_or_model: str) -> str:
+        if mode_or_model in ANTIGRAVITY_MODELS:
+            cls._active_model_idx = ANTIGRAVITY_MODELS.index(mode_or_model)
+        return cls.get_active_model()
 
     @classmethod
     def rotate_model(cls) -> str:
         cls._active_model_idx = (cls._active_model_idx + 1) % len(ANTIGRAVITY_MODELS)
-        return cls.get_active_model()
+        next_m = ANTIGRAVITY_MODELS[cls._active_model_idx % len(ANTIGRAVITY_MODELS)]
+        try:
+            CentralKeyService._last_used_model = next_m
+            CentralKeyService._last_selection_reason = f"Rotated to {next_m}"
+        except Exception:
+            pass
+        return next_m
 
     @classmethod
     def ensure_running(cls) -> bool:
@@ -845,11 +949,12 @@ class AntigravityDaemonPool:
         mode: str,
         api_key: str,
         max_turns_before_recycle: int = 5,
+        task_prompt: str = "",
     ) -> WarmAgentSession:
         norm_root = os.path.normcase(os.path.abspath(local_root))
         key = (norm_root, mode)
         existing = cls._sessions.get(key)
-        active_model = cls.get_active_model()
+        active_model = cls.get_active_model(task_prompt=task_prompt, mode=mode)
 
         if existing is not None:
             if (
@@ -1300,27 +1405,45 @@ class AntigravityService:
                 except Exception:
                     pass
 
+        from gitbridge.services.extension_service import ExtensionService
+        digest = ExtensionService.get_app_runtime_and_context_digest(
+            app_obj, primary_file_path=clean_hint, max_total_chars=10000
+        )
+
         sot_clause = (
             f"\nSource of Truth (SOT) Design Specifications:\n{sot_grounding}\n"
             if sot_grounding
             else ""
         )
+        runtime_clause = ""
+        if digest.get("project_files"):
+            runtime_clause += f"\nProject Files in {app_name}: {', '.join(digest['project_files'][:40])}\n"
+        if digest.get("runtime_diagnostic"):
+            runtime_clause += f"Runtime & Server Architecture:\n{digest['runtime_diagnostic']}\n"
+
         if clean_hint and hint_preview:
             file_section = (
-                f"\nTarget File Path: `{abs_hint_path}` (relative: `{clean_hint}`)\n"
+                f"{runtime_clause}\n"
+                f"Target File Path: `{abs_hint_path}` (relative: `{clean_hint}`)\n"
                 f"Pre-loaded File Content (1-indexed line numbers — call `edit_file` directly on `{abs_hint_path}` if the target lines are shown below!):\n"
                 f"```\n{hint_preview}\n```\n"
             )
         elif clean_hint:
-            file_section = f"\nSuggested Target File: `{clean_hint}` inside `{local_root}`\n"
+            abs_new_target = os.path.abspath(os.path.join(local_root, clean_hint.replace("/", os.sep)))
+            companion_ctx = f"\nCompanion Project Files Context:\n{digest['multi_file_context']}\n" if digest.get("multi_file_context") else ""
+            file_section = (
+                f"{runtime_clause}\n"
+                f"Target File to Create/Update: `{abs_new_target}` (relative: `{clean_hint}` inside `{local_root}`)\n"
+                f"{companion_ctx}"
+            )
         else:
-            file_section = f"\nWorkspace Root: `{local_root}`\n"
+            file_section = f"{runtime_clause}\nWorkspace Root: `{local_root}`\n"
 
         user_prompt = f"""Edit Task for "{app_name}":{sot_clause}{file_section}
 Instruction:
 {instruction}
 
-Apply the surgical edit(s) now using `edit_file` (or `create_file` if creating a new file) and summarize your change in 2-3 concise sentences."""
+Apply the surgical edit(s) now using `edit_file` (or `create_file` if creating a new file like `{clean_hint or 'index.html'}`) and summarize your change in 2-3 concise sentences."""
 
         AntigravityDaemonPool.begin_live_job(
             mode="edit",
@@ -1338,6 +1461,7 @@ Apply the surgical edit(s) now using `edit_file` (or `create_file` if creating a
                     local_root=local_root,
                     mode="edit",
                     api_key=api_key,
+                    task_prompt=instruction,
                 )
                 async with sess.lock:
                     sess.reset_turn_tracker(seed_contents=seed_pre_contents)
@@ -1599,15 +1723,24 @@ Apply the surgical edit(s) now using `edit_file` (or `create_file` if creating a
             tree = WorkspaceService.get_app_file_tree(app_obj)
             project_files_list = [f.get("path") for f in (tree or []) if f.get("path")]
 
-        # Pre-seed the most relevant file snippet so the agent rarely needs to spend extra tool calls
+        from gitbridge.services.extension_service import ExtensionService
         if best_file is None:
-            from gitbridge.services.extension_service import ExtensionService
             best_file = ExtensionService.resolve_best_target_file(app_obj, message, file_path)
+        digest = ExtensionService.get_app_runtime_and_context_digest(
+            app_obj, primary_file_path=best_file, max_total_chars=12000
+        )
+        if not project_files_list:
+            project_files_list = digest.get("project_files", [])
+
         preloaded_snippet = ""
-        if best_file:
+        if digest.get("runtime_diagnostic"):
+            preloaded_snippet += f"\nRuntime & Server Architecture Diagnostics:\n{digest['runtime_diagnostic']}\n"
+        if digest.get("multi_file_context"):
+            preloaded_snippet += f"\n{digest['multi_file_context']}\n"
+        elif best_file:
             f_res = WorkspaceService.read_app_file(app_obj, best_file)
             if f_res.get("success") and f_res.get("content"):
-                preloaded_snippet = (
+                preloaded_snippet += (
                     f"\nPre-loaded Relevant File (`{best_file}`):\n"
                     f"```\n{f_res['content'][:5500]}\n```\n"
                 )
@@ -1648,6 +1781,7 @@ Apply the surgical edit(s) now using `edit_file` (or `create_file` if creating a
                     local_root=local_root,
                     mode="brainstorm",
                     api_key=api_key,
+                    task_prompt=message,
                 )
                 async with sess.lock:
                     sess.turn_count += 1

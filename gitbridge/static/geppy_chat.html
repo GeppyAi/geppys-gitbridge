@@ -68,7 +68,14 @@
     </div>
 
     <div class="flex items-center gap-1.5 shrink-0">
-      <select id="companion-app-select" onchange="onCompanionAppChange()" class="bg-slate-950 border border-slate-700 text-slate-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-cyan-400 max-w-[155px]" title="Select App Context">
+      <select id="companion-model-select" onchange="onCompanionModelChange(this.value)" class="bg-slate-950 border border-indigo-500/40 text-indigo-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-400 max-w-[135px]" title="Select Geppy AI Model Mode (Auto adapts to task needs)">
+        <option value="auto">🧠 Auto Model</option>
+        <option value="gemini-3-flash-preview">⚡ Gemini 3 Flash</option>
+        <option value="gemini-2.5-pro">🏛️ Gemini 2.5 Pro</option>
+        <option value="gemini-2.5-flash">🚀 Gemini 2.5 Flash</option>
+        <option value="gemini-2.5-flash-lite">💨 Flash-Lite</option>
+      </select>
+      <select id="companion-app-select" onchange="onCompanionAppChange()" class="bg-slate-950 border border-slate-700 text-slate-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-cyan-400 max-w-[140px]" title="Select App Context">
         <option value="">🌌 All Apps / Global</option>
       </select>
       <button type="button" onclick="window.open('http://127.0.0.1:8000', '_blank')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs" title="Open Full GitBridge Dashboard">
@@ -241,10 +248,45 @@
         const sel = document.getElementById('companion-app-select');
         if (!sel || !Array.isArray(apps)) return;
         const current = sel.value;
-        sel.innerHTML = '<option value="">🌌 All Apps / Global</option>' +
-          apps.filter(a => !a.is_hidden).map(a =>
-            `<option value="${escapeHtml(a.slug)}">${escapeHtml(a.name || a.slug)}</option>`
-          ).join('');
+        const visible = apps.filter(a => !a.is_hidden && !String(a.slug || '').startsWith('.'));
+        const catIcons = {
+          "Core Platform & Hubs": "🛸",
+          "AI, Prompts & Planning": "🤖",
+          "System, Diagnostics & Tech Tools": "🛠️",
+          "Finance, Business & Operations": "💼",
+          "Creative, Design & Media": "🎨",
+          "Communication & Productivity": "💬",
+          "Games & Entertainment": "🎮",
+          "Experimental & Sandbox": "🧪"
+        };
+        const grouped = {};
+        Object.keys(catIcons).forEach(c => { grouped[c] = []; });
+        visible.forEach(a => {
+          const c = a.category && grouped[a.category] ? a.category : "AI, Prompts & Planning";
+          grouped[c].push(a);
+        });
+        let html = '<option value="">🌌 All Apps / Global</option>';
+        const liveApps = visible.filter(a => a.is_live);
+        if (liveApps.length > 0) {
+          html += `<optgroup label="🟢 Running Now (${liveApps.length})">` +
+            liveApps.map(a => `<option value="${escapeHtml(a.slug)}">🟢 ${escapeHtml((a.name || a.slug).trim())}</option>`).join('') +
+            `</optgroup>`;
+        }
+        const recentApps = visible.slice(0, 6);
+        if (recentApps.length > 0) {
+          html += `<optgroup label="🕒 Recent Apps (Top ${recentApps.length})">` +
+            recentApps.map(a => `<option value="${escapeHtml(a.slug)}">${a.is_live ? '🟢' : '🕒'} ${escapeHtml((a.name || a.slug).trim())}</option>`).join('') +
+            `</optgroup>`;
+        }
+        Object.keys(catIcons).forEach(cat => {
+          const list = (grouped[cat] || []);
+          if (list.length > 0) {
+            html += `<optgroup label="${catIcons[cat]} ${escapeHtml(cat)} (${list.length})">` +
+              list.map(a => `<option value="${escapeHtml(a.slug)}">${a.is_live ? '🟢 ' : ''}${escapeHtml((a.name || a.slug).trim())}</option>`).join('') +
+              `</optgroup>`;
+          }
+        });
+        sel.innerHTML = html;
         const params = new URLSearchParams(window.location.search);
         const urlApp = params.get('app') || current;
         if (urlApp) {
@@ -257,6 +299,9 @@
     function onCompanionAppChange() {
       const sel = document.getElementById('companion-app-select');
       companionAppSlug = sel ? sel.value : '';
+      if (companionAppSlug) {
+        fetch(`/api/apps/${encodeURIComponent(companionAppSlug)}/touch`, { method: 'POST' }).catch(() => {});
+      }
     }
 
     function selectCompanionAgent(agentId) {
@@ -601,13 +646,16 @@
 
         const spokenPayload = JSON.stringify((meta && meta.spoken_reply) || text || '').replace(/"/g, '&quot;');
         const audioUrlPayload = JSON.stringify((meta && meta.audio_data_url) || null).replace(/"/g, '&quot;');
+        const modelUsed = (meta && meta.model_used) ? meta.model_used : null;
+        const modelReason = (meta && meta.model_reason) ? meta.model_reason : '';
         div.className = 'p-3.5 rounded-2xl bg-slate-900/95 border border-slate-800 text-slate-200 mr-4 prose prose-invert max-w-none text-xs';
         div.innerHTML = `
           <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-800 not-prose">
-            <div class="flex items-center gap-1.5">
+            <div class="flex flex-wrap items-center gap-1.5">
               <span>${icon}</span>
               <span class="font-bold text-amber-300 text-xs">${escapeHtml(name)}</span>
               <span class="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">${escapeHtml(role)}</span>
+              ${modelUsed ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono" title="${escapeHtml(modelReason || 'Active AI Model')}">🧠 ${escapeHtml(modelUsed)}</span>` : ''}
             </div>
             <button type="button" onclick="speakCompanionText(${spokenPayload}, ${audioUrlPayload})" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 text-[10px] border border-amber-500/30">🔊 Speak (AI Voice)</button>
           </div>
@@ -618,6 +666,30 @@
       container.appendChild(div);
       container.scrollTop = container.scrollHeight;
     }
+
+    async function loadCompanionModelState() {
+      try {
+        const res = await fetch('/api/geppy/models');
+        if (!res.ok) return;
+        const state = await res.json();
+        const sel = document.getElementById('companion-model-select');
+        if (sel && state.mode) sel.value = state.mode;
+      } catch (e) {}
+    }
+
+    async function onCompanionModelChange(mode) {
+      try {
+        const res = await fetch('/api/geppy/models/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: mode, reason: 'Selected in Geppy Live Chat Companion' })
+        });
+        const state = await res.json();
+        const sel = document.getElementById('companion-model-select');
+        if (sel && state.mode) sel.value = state.mode;
+      } catch (e) {}
+    }
+    setTimeout(loadCompanionModelState, 400);
 
     async function sendCompanionChat(overrideText = null, fromVoice = false) {
       const input = document.getElementById('comp-chat-input');
@@ -651,6 +723,10 @@
         let data = null;
         try {
           data = JSON.parse(rawText);
+          if (data && data.model_state && data.model_state.mode) {
+            const sel = document.getElementById('companion-model-select');
+            if (sel) sel.value = data.model_state.mode;
+          }
         } catch (parseErr) {
           try {
             const reportRes = await fetch('/api/extension/antigravity/report-error', {

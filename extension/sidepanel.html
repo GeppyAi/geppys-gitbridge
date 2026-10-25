@@ -32,7 +32,10 @@
 
       <!-- Active App Selector + Launch Controls -->
       <div class="app-select-row">
-        <select id="app-select" class="app-dropdown" title="Select or auto-detect App Profile">
+        <button id="btn-toggle-app-directory" class="btn-icon-subtle btn-port-compact" style="color: #a5b4fc; border-color: rgba(129, 140, 248, 0.35);" title="Browse Apps by Category &amp; Search">
+          <i class="fa-solid fa-layer-group"></i>
+        </button>
+        <select id="app-select" class="app-dropdown" title="Select or auto-detect App Profile (Grouped by Category)">
           <option value="">Detecting active app...</option>
         </select>
         <span id="app-live-badge" class="app-badge-live" style="display: none; cursor: pointer;" title="App is running! Click to open Port Watcher controls">Live</span>
@@ -58,6 +61,14 @@
               <i class="fa-solid fa-plus" style="color: #38bdf8;"></i>
               <span>Add New App</span>
             </button>
+            <button id="btn-header-browse-categories" class="menu-item" title="Browse &amp; Organize Apps by Category">
+              <i class="fa-solid fa-layer-group" style="color: #a5b4fc;"></i>
+              <span>App Categories</span>
+            </button>
+            <button id="btn-header-auto-categorize" class="menu-item" title="Automatically categorize all apps in Galactic &amp; Tray Menu">
+              <i class="fa-solid fa-wand-magic-sparkles" style="color: #34d399;"></i>
+              <span>Auto-Categorize All</span>
+            </button>
             <button id="btn-detect-tab" class="menu-item" title="Auto-detect app from current browser tab">
               <i class="fa-solid fa-crosshairs" style="color: #818cf8;"></i>
               <span>Detect Tab</span>
@@ -68,6 +79,48 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Collapsible Categorized App Directory & Organizer Drawer -->
+    <div id="galactic-app-directory-drawer" class="hidden" style="margin: 0 8px 4px 8px; padding: 8px 10px; background: rgba(15, 23, 42, 0.98); border: 1px solid rgba(129, 140, 248, 0.45); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.55);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid rgba(51, 65, 85, 0.6);">
+        <div style="font-size: 11px; font-weight: 700; color: #a5b4fc; display: flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Galactic App Directory</span>
+          <span id="app-dir-total-badge" style="font-size: 9.5px; padding: 1px 6px; border-radius: 999px; background: rgba(99, 102, 241, 0.2); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.35);">0</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <button id="btn-dir-auto-categorize" class="btn-mini-action" style="font-size: 9.5px; padding: 2px 6px; color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.12);" title="Automatically categorize all apps using AI &amp; smart rules">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Categorize
+          </button>
+          <button id="btn-dir-add-app" class="btn-mini-action" style="font-size: 9.5px; padding: 2px 6px; color: #38bdf8; border-color: rgba(56, 189, 248, 0.35);" title="Register a new app (auto-categorized on add)">
+            <i class="fa-solid fa-plus"></i> Add App
+          </button>
+          <button id="btn-close-app-directory" class="btn-mini-action" style="font-size: 9.5px; padding: 2px 5px;" title="Close App Directory">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search + Category Filter Bar -->
+      <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+        <div style="position: relative; flex: 1;">
+          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 7px; top: 6px; font-size: 10px; color: #64748b;"></i>
+          <input type="search" id="app-dir-search-input" placeholder="Search apps by name, category, or tech..." style="width: 100%; box-sizing: border-box; background: #020617; border: 1px solid #334155; border-radius: 6px; padding: 4px 8px 4px 22px; font-size: 10.5px; color: #e2e8f0; outline: none;" />
+        </div>
+        <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 9.5px; color: #94a3b8; cursor: pointer; white-space: nowrap;" title="Show hidden apps">
+          <input type="checkbox" id="chk-app-dir-show-hidden" style="accent-color: #6366f1; width: 10px; height: 10px; margin: 0;" />
+          <span>Hidden</span>
+        </label>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div id="app-dir-category-pills" style="display: flex; gap: 4px; overflow-x: auto; padding-bottom: 5px; margin-bottom: 6px; scrollbar-width: thin;"></div>
+
+      <!-- Categorized App List -->
+      <div id="galactic-app-directory-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; padding-right: 2px;">
+        <div style="font-size: 10.5px; color: #94a3b8; text-align: center; padding: 8px;">Loading categorized apps...</div>
       </div>
     </div>
 
@@ -146,9 +199,15 @@
 
       <!-- Compact Mode Switcher Pills -->
       <div class="mode-switcher">
-        <button id="btn-mode-brainstorm" class="mode-btn active" title="Unified Central Chat, Brainstorming &amp; Live Action Studio">
+        <button id="btn-mode-home" class="mode-btn active" title="Galactic Home — AI Studio Extractor, Co-Designer Hub, Crew, SOTs &amp; Tasks">
+          <i class="fa-solid fa-house"></i>
+          <span>Home</span>
+          <span id="home-ai-studio-dot" style="display: none; width: 6px; height: 6px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 6px #38bdf8;"></span>
+        </button>
+        <button id="btn-mode-brainstorm" class="mode-btn" title="Clean Central Chat &amp; Live Action Studio">
           <i class="fa-solid fa-comments"></i>
           <span>Chat</span>
+          <span id="chat-active-agent-badge" style="display: none; font-size: 8.5px; padding: 0 4px; border-radius: 999px; background: rgba(168, 85, 247, 0.35); color: #f0abfc;"></span>
         </button>
         <button id="btn-mode-designer" class="mode-btn" title="Toggle Live Code Editor, Target File &amp; Suggestions Drawer">
           <i class="fa-solid fa-code"></i>
@@ -161,20 +220,6 @@
       </div>
 
       <div class="utility-subbar-actions">
-        <button type="button" id="btn-header-report-bug" class="btn-watchdog-slim" style="padding: 1px 6px; background: rgba(234, 88, 12, 0.25); border: 1px solid rgba(251, 146, 60, 0.6); color: #ffedd5; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; cursor: pointer;" title="Report Bug in active app (GeppyBug Reporter &amp; Antigravity Auto-Fix)">
-          <img src="icons/geppy_bug_32.png" alt="Report Bug" style="width: 16px; height: 16px; object-fit: contain;" />
-          <span style="font-size: 9.5px; font-weight: 800;">Bug</span>
-        </button>
-        <button type="button" id="btn-header-update-app" class="btn-git-sync" style="background: rgba(6, 182, 212, 0.22); border: 1px solid rgba(56, 189, 248, 0.55); color: #bae6fd;" title="Update App — Sync Key, Pull/Push GitHub, or AI Update">
-          <i class="fa-solid fa-arrows-rotate"></i>
-          <span>Update</span>
-        </button>
-        <button type="button" id="btn-runtime-monitor-badge" class="btn-watchdog-slim" title="Watchdog Live Monitor — Click to open Caught Error &amp; Freeze Log">
-          <span id="runtime-monitor-dot" class="watchdog-dot"></span>
-          <i class="fa-solid fa-shield-halved"></i>
-          <span id="runtime-monitor-label" class="sr-only-text">Watchdog ON</span>
-          <span id="watchdog-log-count-pill" class="watchdog-count-pill" style="display: none;">0</span>
-        </button>
         <label id="lbl-header-live-preview" class="lbl-preview-slim" title="Toggle live preview of your active edit in the paired browser window (ON = show edited code, OFF = show original)">
           <input type="checkbox" id="chk-header-live-preview" checked style="accent-color: #10b981; width: 10px; height: 10px; margin: 0; cursor: pointer;" />
           <span>Preview</span>
@@ -337,8 +382,341 @@
     </div>
   </header>
 
-  <!-- Unified View 1 & 2: Central Chat + Brainstorming + Live Designer Studio -->
-  <main id="view-brainstorm" class="view-container">
+  <!-- View 0: Galactic Home Hub (AI Studio Extractor + Decluttered Mission Control) -->
+  <main id="view-home" class="view-container">
+    <div class="home-scroll-body">
+
+      <!-- Card 1: Prominent Google AI Studio Extractor Hub -->
+      <section id="ai-studio-extractor-card" class="home-card ai-studio-extract-card">
+        <div class="home-card-header">
+          <div style="display: flex; align-items: center; gap: 7px;">
+            <span class="ai-studio-badge-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <div>
+              <div class="home-card-title">Google AI Studio Extractor</div>
+              <div id="ai-studio-detect-subtitle" class="home-card-subtitle">Extract prompts, system instructions &amp; code directly into GitBridge</div>
+            </div>
+          </div>
+          <span id="ai-studio-status-pill" class="ai-studio-status-pill">Standby</span>
+        </div>
+
+        <!-- Detected AI Studio Project Info Preview -->
+        <div id="ai-studio-detected-banner" class="ai-studio-detected-banner hidden">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+            <span id="ai-studio-detected-title" style="font-size: 11px; font-weight: 700; color: #e0f2fe; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Detected AI Studio Tab</span>
+            <span id="ai-studio-detected-url" style="font-size: 9.5px; color: #38bdf8; font-family: monospace; flex-shrink: 0;">aistudio.google.com</span>
+          </div>
+        </div>
+
+        <!-- Extraction Target Options -->
+        <div class="ai-studio-options-grid">
+          <div class="ai-studio-field">
+            <label for="ai-studio-extract-mode">Import Mode</label>
+            <select id="ai-studio-extract-mode" class="home-input-select">
+              <option value="auto">✨ Auto (Update matched app or create new)</option>
+              <option value="new">🆕 Create Brand-New App in GitBridge</option>
+              <option value="existing">🔄 Sync / Update Currently Selected App</option>
+            </select>
+          </div>
+          <div class="ai-studio-field">
+            <label for="ai-studio-custom-name">App Name (Optional override)</label>
+            <input type="text" id="ai-studio-custom-name" class="home-input-text" placeholder="Auto-detect from AI Studio title..." />
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;">
+          <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: #cbd5e1; cursor: pointer;">
+            <input type="checkbox" id="chk-ai-studio-deep-analyze" checked style="accent-color: #38bdf8;" />
+            <span>Run Deep AI Architecture Analysis on import</span>
+          </label>
+          <button type="button" id="btn-scan-ai-studio-tab" class="btn-home-mini" title="Re-scan active browser tab for AI Studio content">
+            <i class="fa-solid fa-magnifying-glass-chart"></i> Scan Tab
+          </button>
+        </div>
+
+        <!-- Big Hero Extract Button -->
+        <button type="button" id="btn-extract-ai-studio" class="btn-extract-ai-studio-hero">
+          <i class="fa-solid fa-bolt"></i>
+          <span id="btn-extract-ai-studio-label">Extract from AI Studio to GitBridge</span>
+        </button>
+
+        <!-- Extraction Status / Feedback Box -->
+        <div id="ai-studio-extract-feedback" class="ai-studio-extract-feedback hidden"></div>
+      </section>
+
+      <!-- Card 2: App Quick Actions & Health (Moved from Header to declutter top bar) -->
+      <section class="home-card">
+        <div class="home-card-header">
+          <div class="home-card-title"><i class="fa-solid fa-sliders" style="color: #38bdf8; margin-right: 5px;"></i> App Operations &amp; Diagnostics</div>
+          <button type="button" id="btn-home-jump-chat" class="btn-home-mini" title="Open clean Chat view">
+            <i class="fa-solid fa-comments"></i> Open Chat →
+          </button>
+        </div>
+        <div class="home-actions-row">
+          <button type="button" id="btn-header-report-bug" class="btn-home-action bug" title="Report a Bug on this App (Captures Screenshot + Console Errors + Sends to Bug Tracker)">
+            <i class="fa-solid fa-bug"></i>
+            <span>Report Bug</span>
+          </button>
+          <button type="button" id="btn-header-update-app" class="btn-home-action update" title="Update App in GitBridge (Sync files, inject Central API Key &amp; run Deep Analysis)">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <span>Update App</span>
+          </button>
+          <button type="button" id="btn-runtime-monitor-badge" class="btn-home-action watchdog" title="Autonomous Console &amp; Network Watchdog: Monitoring live tab errors">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Watchdog</span>
+            <span id="runtime-error-count" class="runtime-err-pill">0</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Card 3: Live Co-Designer & Agent Crew Hub (Moved from Chat bottom to declutter Chat) -->
+      <section class="home-card">
+        <div class="home-card-header">
+          <div class="home-card-title"><i class="fa-solid fa-satellite-dish" style="color: #67e8f9; margin-right: 5px;"></i> Live Co-Designer &amp; AI Agent Crew</div>
+          <span id="home-active-agent-pill" style="font-size: 9.5px; color: #fcd34d; font-weight: 700;">Active: 👨‍🚀 Geppy</span>
+        </div>
+
+        <!-- Live Screen Stream & Voice Preview Dock (shown when streaming screen or voice chat is active) -->
+        <div id="galactic-stream-preview-dock" class="hidden" style="padding: 6px 8px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 27, 75, 0.92)); border: 1px solid rgba(6, 182, 212, 0.4); border-radius: 7px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1;">
+            <div style="position: relative; width: 46px; height: 28px; border-radius: 5px; overflow: hidden; border: 1px solid rgba(6, 182, 212, 0.65); background: #020617; flex-shrink: 0;">
+              <img id="galactic-stream-thumb-img" src="" alt="Live Stream" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+              <span style="position: absolute; top: 2px; left: 2px; width: 6px; height: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 6px #ef4444;"></span>
+            </div>
+            <div id="gitbridge-stream-thumb-wrap" class="hidden" style="position: relative; width: 46px; height: 28px; border-radius: 5px; overflow: hidden; border: 1px solid rgba(245, 158, 11, 0.65); background: #020617; flex-shrink: 0;" title="GitBridge Screen Stream Active">
+              <img id="gitbridge-stream-thumb-img" src="" alt="GitBridge Stream" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+            </div>
+            <div style="min-width: 0; flex: 1;">
+              <div id="galactic-stream-status-title" style="font-size: 10px; font-weight: 800; color: #67e8f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                📺 Live Screen Stream Active — Geppy can see your work
+              </div>
+              <div id="galactic-stream-status-sub" style="font-size: 9.5px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                Streaming active tab every 2.5s • Ready for live co-design
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+            <button type="button" id="btn-galactic-stream-full-window" style="padding: 2px 6px; border-radius: 5px; font-size: 9.5px; font-weight: 700; background: rgba(56, 189, 248, 0.18); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.4); cursor: pointer;" title="Share entire monitor or window (both GitBridge &amp; Galactic)">
+              🖥️ Full Screen
+            </button>
+            <button type="button" id="btn-galactic-stream-stop" style="padding: 2px 6px; border-radius: 5px; font-size: 9.5px; font-weight: 700; background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.45); cursor: pointer;" title="Stop streaming screen">
+              Stop
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Co-Designer Bar: Screen Stream + Voice Chat with Geppy + Crew Consultation + Antigravity Error Check -->
+        <div id="galactic-live-codesign-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 5px; padding: 6px 8px; background: rgba(2, 6, 23, 0.75); border: 1px solid rgba(56, 189, 248, 0.18); border-radius: 7px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+            <button type="button" id="btn-galactic-stream-toggle" style="padding: 3.5px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(6, 182, 212, 0.15); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Stream current screen of Galactic / active tab (and GitBridge) so Geppy can see what we are working on live">
+              <i class="fa-solid fa-tv"></i>
+              <span id="galactic-stream-btn-label">Stream Screen</span>
+            </button>
+            <button type="button" id="btn-home-snip-to-chat" style="padding: 3.5px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(56, 189, 248, 0.18); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.45); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Select a specific area or UI element from the active app tab and attach it to Chat">
+              <i class="fa-solid fa-crop-simple"></i>
+              <span>Snip Selection to Chat</span>
+            </button>
+            <button type="button" id="btn-galactic-voice-toggle" style="padding: 3.5px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Live Voice Chat with Geppy — Talk hands-free while designing!">
+              <i class="fa-solid fa-microphone"></i>
+              <span id="galactic-voice-btn-label">Voice Chat</span>
+            </button>
+            <button type="button" id="btn-galactic-consult-crew-toggle" style="padding: 3.5px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(245, 158, 11, 0.16); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Toggle Crew Consultation: Geppy will consult with @design, @arch, @qa &amp; @strategy on what we are working on">
+              <i class="fa-solid fa-users-gear"></i>
+              <span id="galactic-consult-btn-label">Consult Crew: OFF</span>
+            </button>
+            <button type="button" id="btn-galactic-consult-now" style="padding: 3.5px 7px; border-radius: 6px; font-size: 9.5px; font-weight: 700; background: rgba(168, 85, 247, 0.2); color: #e9d5ff; border: 1px solid rgba(168, 85, 247, 0.45); cursor: pointer;" title="Have Geppy consult the Agent Crew right now on what is on screen">
+              🤝 Ask Crew Now
+            </button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <button type="button" id="btn-galactic-tts-toggle" style="padding: 3px 6px; border-radius: 5px; font-size: 9.5px; background: rgba(30, 41, 59, 0.9); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); cursor: pointer;" title="Toggle Geppy Spoken Voice Replies (TTS)">
+              🔊
+            </button>
+            <button type="button" id="btn-galactic-ag-error-check" style="padding: 3px 7px; border-radius: 5px; font-size: 9.5px; font-weight: 700; background: rgba(139, 92, 246, 0.18); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4); cursor: pointer;" title="Inspect or report an Antigravity error &amp; reply to Antigravity in chat">
+              ⚛️ AG Errors <span id="galactic-ag-err-count-pill" style="display:none; background:#ef4444; color:#fff; border-radius:999px; padding:0 4px; font-size:8.5px; margin-left:2px;">0</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Specialized AI Agent Crew Switcher Bar -->
+        <div id="galactic-agent-crew-bar" style="display:flex; align-items:center; gap:5px; flex-wrap:wrap; padding:6px 8px; background:rgba(15,23,42,0.85); border:1px solid rgba(148,163,184,0.14); border-radius:7px;">
+          <span style="font-size:9px; font-weight:700; color:#c084fc; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap; margin-right:2px;">Select Specialist:</span>
+          <button type="button" class="galactic-agent-pill active" data-agent-id="" style="padding:2.5px 8px; border-radius:999px; font-size:10px; font-weight:600; background:rgba(245,158,11,0.2); color:#fcd34d; border:1px solid rgba(245,158,11,0.45); cursor:pointer; white-space:nowrap;">👨‍🚀 Geppy</button>
+          <button type="button" class="galactic-agent-pill" data-agent-id="design-architect" style="padding:2.5px 8px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Design &amp; UI/UX Architect (@design)">🎨 @design</button>
+          <button type="button" class="galactic-agent-pill" data-agent-id="system-architect" style="padding:2.5px 8px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="System &amp; Code Architect (@arch)">🏗️ @arch</button>
+          <button type="button" class="galactic-agent-pill" data-agent-id="social-media" style="padding:2.5px 8px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Social Media &amp; Growth Director (@social)">📣 @social</button>
+          <button type="button" class="galactic-agent-pill" data-agent-id="qa-reliability" style="padding:2.5px 8px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="QA &amp; Reliability Engineer (@qa)">🛡️ @qa</button>
+          <button type="button" class="galactic-agent-pill" data-agent-id="product-strategy" style="padding:2.5px 8px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Product Strategy &amp; Monetization Lead (@strategy)">🚀 @strategy</button>
+          <button type="button" class="galactic-agent-pill" data-agent-id="docs-manual" style="padding:2.5px 8px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Docs &amp; Developer Advocate (@docs)">📖 @docs</button>
+          <button type="button" class="galactic-agent-pill" data-agent-id="crew-council" style="padding:2.5px 8px; border-radius:999px; font-size:10px; background:rgba(134,25,143,0.35); color:#f0abfc; border:1px solid rgba(217,70,239,0.45); cursor:pointer; white-space:nowrap;" title="Multi-Agent Crew Council (@crew)">⚡ @crew</button>
+        </div>
+      </section>
+
+      <!-- Card 4: SOT Contextiles (@) & Quick Ideation Prompts -->
+      <section id="home-context-card" class="home-card">
+        <div id="chat-context-drawer" class="chat-context-drawer home-embedded-context">
+          <div class="chat-context-drawer-header" style="padding: 0 0 6px 0; border-bottom: 1px solid rgba(51, 65, 85, 0.5); margin-bottom: 6px;">
+            <span style="font-size: 11px; font-weight: 700; color: #e2e8f0; display: flex; align-items: center; gap: 5px;">
+              <i class="fa-solid fa-sparkles" style="color: #38bdf8;"></i>
+              <span>SOT Contextiles (<code>@</code>) &amp; Quick Ideation Prompts</span>
+            </span>
+            <button type="button" id="btn-close-context-drawer" class="btn-icon-subtle hidden" title="Close drawer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <!-- SOT Contextiles Quick-Bar -->
+          <div class="sot-quickbar">
+            <button type="button" id="btn-open-sot-fleet" class="sot-label-btn" title="Click to view all Sources of Truth">
+              <i class="fa-solid fa-layer-group text-cyan"></i>
+              <span>SOT Fleet</span>
+              <span id="sot-quickbar-count" class="sot-count-badge">0</span>
+              <i class="fa-solid fa-chevron-right" style="font-size: 8px; opacity: 0.6; margin-left: 1px;"></i>
+            </button>
+            <div id="sot-contextile-chips" class="sot-chips-container">
+              <span style="color: #64748b; font-size: 11px;">Loading contextiles...</span>
+            </div>
+          </div>
+
+          <!-- Quick Ideation Chips (Clicking runs in Chat) -->
+          <div class="brainstorm-pills" style="margin-top: 6px;">
+            <button class="pill-btn" data-prompt="Propose a modern visual makeover with glassmorphism, glowing accents, and galactic aesthetic.">
+              ✨ Visual Makeover
+            </button>
+            <button class="pill-btn" data-prompt="Brainstorm 5 innovative, high-impact features we could build next for this app.">
+              🚀 5 Feature Ideas
+            </button>
+            <button class="pill-btn" data-prompt="Audit this app's UX flow and suggest micro-interactions and usability polish.">
+              🎯 UX Flow Audit
+            </button>
+            <button class="pill-btn" data-prompt="Recommend an upgraded color palette and dark/light mode tokens.">
+              🎨 Modern Theme
+            </button>
+            <button class="pill-btn image-pill" data-prompt="/image Generate a brand-new official app icon with bold orange border and transparent background for this app.">
+              🎨 Generate App Icon
+            </button>
+            <button class="pill-btn git-pill" data-prompt="Audit all modified files and recent changes in our session. Propose a clean Git commit message and confirm if we are ready to push to GitHub.">
+              🐙 Git Changes &amp; Commit
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 5: Ideas & Tasks Backlog (Moved from Chat bottom so Chat has 100% height) -->
+      <section class="home-card home-backlog-card">
+        <div id="backlog-drawer" class="backlog-drawer home-backlog-embedded">
+          <div id="backlog-resize-handle" class="backlog-resize-handle hidden" title="Drag up or down to resize Ideas &amp; Tasks">
+            <div class="backlog-resize-grip"></div>
+          </div>
+          <div id="backlog-header" class="backlog-header" title="Click to expand or collapse Ideas &amp; Tasks">
+            <div class="backlog-summary-left">
+              <i class="fa-solid fa-list-check" style="color: #818cf8; font-size: 11px;"></i>
+              <span class="backlog-summary-title">Ideas &amp; Tasks</span>
+              <span class="backlog-summary-sep">|</span>
+              <span id="backlog-count" class="backlog-count-badge" title="Active pending tasks">0 active</span>
+              <span class="backlog-summary-sep">|</span>
+              <span id="backlog-summary-done" class="backlog-done-summary-badge" title="Completed tasks in Done Pile">0 Done</span>
+              <span id="backlog-save-status" style="font-size: 9px; color: #34d399; margin-left: 4px; opacity: 0.85;">✓ Saved</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <button id="btn-save-backlog" class="btn-icon-subtle" title="Save Ideas &amp; Tasks list now" style="color: #34d399;">
+                <i class="fa-solid fa-floppy-disk"></i>
+              </button>
+              <button id="btn-add-custom-task" class="btn-icon-subtle" title="Add custom idea/task">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+              <button id="btn-toggle-backlog" class="btn-icon-subtle" title="Expand or collapse Ideas &amp; Tasks">
+                <i class="fa-solid fa-chevron-down"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Folder Navigation Tabs: Active vs Done Pile -->
+          <div class="backlog-folder-tabs">
+            <button type="button" id="tab-backlog-active" class="btn-backlog-tab active" title="View active tasks to implement">
+              <i class="fa-solid fa-bolt text-amber-400"></i>
+              <span>Active Tasks</span>
+              <span id="badge-active-tasks-count" class="backlog-tab-pill">0</span>
+            </button>
+            <button type="button" id="tab-backlog-done" class="btn-backlog-tab done-tab" title="View completed tasks filed in Done Pile">
+              <i class="fa-solid fa-folder-closed text-emerald-400"></i>
+              <span>Done Pile</span>
+              <span id="badge-done-tasks-count" class="backlog-tab-pill done-pill">0</span>
+            </button>
+          </div>
+
+          <!-- Batch & Group Runner Toolbar -->
+          <div id="backlog-batch-bar" class="backlog-batch-bar">
+            <div class="batch-select-group">
+              <label class="batch-select-all-label">
+                <input type="checkbox" id="chk-backlog-select-all" />
+                <span>Select All</span>
+              </label>
+              <span id="batch-selected-count" class="batch-count-pill">0 selected</span>
+              <label class="batch-select-all-label" title="Check to open the Implementation Options modal before running a task; uncheck to implement immediately in Central Chat" style="margin-left: 6px; cursor: pointer;">
+                <input type="checkbox" id="chk-always-confirm-target" />
+                <span style="color: #cbd5e1; font-size: 10px;">⚙️ Options</span>
+              </label>
+            </div>
+            <div class="batch-btn-group">
+              <button id="btn-batch-mark-done" class="btn-batch-done" disabled title="File selected tasks directly to Done Pile">
+                <i class="fa-solid fa-folder-arrow-down"></i>
+                <span>File to Done</span>
+              </button>
+              <button id="btn-run-batch-tasks" class="btn-run-batch" disabled title="Run selected tasks in sequence automatically">
+                <i class="fa-solid fa-bolt"></i>
+                <span>Run Batch</span>
+              </button>
+              <button id="btn-run-next-batch" class="btn-run-all" title="Run next 3 pending tasks in batch">
+                <i class="fa-solid fa-forward-step"></i>
+                <span>Run Next 3</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Batch Execution Live Progress Banner -->
+          <div id="batch-progress-banner" class="batch-progress-banner hidden">
+            <div class="progress-info">
+              <span id="batch-progress-status" class="progress-status"><i class="fa-solid fa-spinner animate-spin"></i> Applying batch...</span>
+              <span id="batch-progress-percent" class="progress-percent">0%</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div id="batch-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Active Tasks List -->
+          <div id="backlog-list" class="backlog-list">
+            <div style="color: #64748b; font-size: 11px; text-align: center; padding: 12px 0;">
+              No brainstormed tasks yet. Chat with AI or click a prompt pill!
+            </div>
+          </div>
+
+          <!-- Collapsible Done Folder / Done Pile Dock -->
+          <div id="backlog-done-dock" class="done-folder-dock">
+            <div id="done-folder-toggle" class="done-folder-header" title="Click to expand or collapse Done Pile">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <i id="done-folder-icon" class="fa-solid fa-folder-closed text-emerald-400"></i>
+                <span style="font-weight: 700; color: #34d399;">Done Pile</span>
+                <span id="done-folder-count-badge" class="done-badge-tag">0 completed</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <button type="button" id="btn-clear-done-pile" class="btn-clear-done-pile" title="Clear all completed tasks from Done Pile">
+                  <i class="fa-solid fa-trash-can"></i> Clear Done
+                </button>
+                <i id="done-folder-chevron" class="fa-solid fa-chevron-down" style="color: #64748b; font-size: 10px;"></i>
+              </div>
+            </div>
+            <div id="backlog-done-list" class="done-folder-body hidden">
+              <!-- Completed tasks rendered here -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Unified View 1 & 2: Decluttered Central Chat + Live Designer Studio -->
+  <main id="view-brainstorm" class="view-container hidden">
     <!-- Collapsible Inline Live Code & Designer Drawer (houses Contextual File Toolbar & Suggestions when open!) -->
     <section id="view-designer" class="designer-inline-drawer hidden">
       <!-- Contextual File Toolbar (inside </> Code Drawer so Studio & Chat stays clean) -->
@@ -430,7 +808,7 @@
       </div>
     </section>
 
-    <!-- Central Chat History (Flexbox Priority: claims 75%+ of viewport height!) -->
+    <!-- Central Chat History (Full Uncluttered Height!) -->
     <div id="chat-history" class="chat-history">
       <div class="chat-bubble ai">
         <div class="captain-badge">
@@ -441,242 +819,40 @@
           </div>
         </div>
         <p>Hey there! Welcome to <strong>Geppy's Galactic</strong>.</p>
-        <p>Chat with me to brainstorm features, click <strong>Implement Now</strong> on any task, or click <strong>⚡ Edit</strong> below to modify your code live — I'll keep you updated right here in our central chat as I work and tell you everything that changed when it's done!</p>
+        <p>Chat with me to brainstorm features, click <strong>⚡ Edit</strong> below to modify your code live, or switch to the <strong>Home</strong> tab anytime for AI Studio extraction, your Ideas &amp; Tasks backlog, and Live Co-Designer controls!</p>
       </div>
     </div>
 
-    <!-- Auto-Collapsing "Ideas & Tasks" Bottom Drawer (36px summary bar by default, with drag-resize handle) -->
-    <div id="backlog-drawer" class="backlog-drawer collapsed">
-      <div id="backlog-resize-handle" class="backlog-resize-handle" title="Drag up or down to resize Ideas &amp; Tasks">
-        <div class="backlog-resize-grip"></div>
-      </div>
-      <div id="backlog-header" class="backlog-header" title="Click to expand or collapse Ideas &amp; Tasks (or drag top handle to resize)">
-        <div class="backlog-summary-left">
-          <i class="fa-solid fa-list-check" style="color: #818cf8; font-size: 11px;"></i>
-          <span class="backlog-summary-title">Ideas &amp; Tasks</span>
-          <span class="backlog-summary-sep">|</span>
-          <span id="backlog-count" class="backlog-count-badge" title="Active pending tasks">0 active</span>
-          <span class="backlog-summary-sep">|</span>
-          <span id="backlog-summary-done" class="backlog-done-summary-badge" title="Completed tasks in Done Pile">0 Done</span>
-          <span id="backlog-save-status" style="font-size: 9px; color: #34d399; margin-left: 4px; opacity: 0.85;">✓ Saved</span>
+    <!-- Attached Visual Reference & Selection Tray (Anchored right above Chat Input Bar) -->
+    <div id="chat-visual-ref-tray" class="chat-visual-ref-tray hidden">
+      <div class="chat-visual-ref-header">
+        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+          <i class="fa-solid fa-crop-simple" style="color: #38bdf8; font-size: 11px;"></i>
+          <span style="font-size: 10.5px; font-weight: 700; color: #e0f2fe;">Attached Visual Reference</span>
+          <span id="chat-visual-ref-count" class="chat-visual-ref-count-pill">1</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 4px;">
-          <button id="btn-save-backlog" class="btn-icon-subtle" title="Save Ideas &amp; Tasks list now" style="color: #34d399;">
-            <i class="fa-solid fa-floppy-disk"></i>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <button type="button" id="btn-visual-ref-add-more" class="btn-visual-ref-mini" title="Select another area or UI element from the app">
+            <i class="fa-solid fa-plus"></i> Add Selection
           </button>
-          <button id="btn-add-custom-task" class="btn-icon-subtle" title="Add custom idea/task">
-            <i class="fa-solid fa-plus"></i>
-          </button>
-          <button id="btn-toggle-backlog" class="btn-icon-subtle" title="Expand or collapse Ideas &amp; Tasks">
-            <i class="fa-solid fa-chevron-down"></i>
+          <button type="button" id="btn-visual-ref-clear-all" class="btn-visual-ref-mini danger" title="Clear all attached visual references">
+            <i class="fa-solid fa-trash-can"></i> Clear
           </button>
         </div>
       </div>
-
-      <!-- Folder Navigation Tabs: Active vs Done Pile (Revealed when expanded) -->
-      <div class="backlog-folder-tabs">
-        <button type="button" id="tab-backlog-active" class="btn-backlog-tab active" title="View active tasks to implement">
-          <i class="fa-solid fa-bolt text-amber-400"></i>
-          <span>Active Tasks</span>
-          <span id="badge-active-tasks-count" class="backlog-tab-pill">0</span>
-        </button>
-        <button type="button" id="tab-backlog-done" class="btn-backlog-tab done-tab" title="View completed tasks filed in Done Pile">
-          <i class="fa-solid fa-folder-closed text-emerald-400"></i>
-          <span>Done Pile</span>
-          <span id="badge-done-tasks-count" class="backlog-tab-pill done-pill">0</span>
-        </button>
-      </div>
-
-      <!-- Batch & Group Runner Toolbar (Revealed when expanded) -->
-      <div id="backlog-batch-bar" class="backlog-batch-bar">
-        <div class="batch-select-group">
-          <label class="batch-select-all-label">
-            <input type="checkbox" id="chk-backlog-select-all" />
-            <span>Select All</span>
-          </label>
-          <span id="batch-selected-count" class="batch-count-pill">0 selected</span>
-          <label class="batch-select-all-label" title="Check to open the Implementation Options modal before running a task; uncheck to implement immediately in Central Chat" style="margin-left: 6px; cursor: pointer;">
-            <input type="checkbox" id="chk-always-confirm-target" />
-            <span style="color: #cbd5e1; font-size: 10px;">⚙️ Options</span>
-          </label>
-        </div>
-        <div class="batch-btn-group">
-          <button id="btn-batch-mark-done" class="btn-batch-done" disabled title="File selected tasks directly to Done Pile">
-            <i class="fa-solid fa-folder-arrow-down"></i>
-            <span>File to Done</span>
-          </button>
-          <button id="btn-run-batch-tasks" class="btn-run-batch" disabled title="Run selected tasks in sequence automatically">
-            <i class="fa-solid fa-bolt"></i>
-            <span>Run Batch</span>
-          </button>
-          <button id="btn-run-next-batch" class="btn-run-all" title="Run next 3 pending tasks in batch">
-            <i class="fa-solid fa-forward-step"></i>
-            <span>Run Next 3</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Batch Execution Live Progress Banner -->
-      <div id="batch-progress-banner" class="batch-progress-banner hidden">
-        <div class="progress-info">
-          <span id="batch-progress-status" class="progress-status"><i class="fa-solid fa-spinner animate-spin"></i> Applying batch...</span>
-          <span id="batch-progress-percent" class="progress-percent">0%</span>
-        </div>
-        <div class="progress-bar-bg">
-          <div id="batch-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
-        </div>
-      </div>
-
-      <!-- Active Tasks List -->
-      <div id="backlog-list" class="backlog-list">
-        <div style="color: #64748b; font-size: 11px; text-align: center; padding: 12px 0;">
-          No brainstormed tasks yet. Chat with AI or click a prompt pill!
-        </div>
-      </div>
-
-      <!-- Collapsible Done Folder / Done Pile Dock -->
-      <div id="backlog-done-dock" class="done-folder-dock">
-        <div id="done-folder-toggle" class="done-folder-header" title="Click to expand or collapse Done Pile">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <i id="done-folder-icon" class="fa-solid fa-folder-closed text-emerald-400"></i>
-            <span style="font-weight: 700; color: #34d399;">Done Pile</span>
-            <span id="done-folder-count-badge" class="done-badge-tag">0 completed</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <button type="button" id="btn-clear-done-pile" class="btn-clear-done-pile" title="Clear all completed tasks from Done Pile">
-              <i class="fa-solid fa-trash-can"></i> Clear Done
-            </button>
-            <i id="done-folder-chevron" class="fa-solid fa-chevron-down" style="color: #64748b; font-size: 10px;"></i>
-          </div>
-        </div>
-        <div id="backlog-done-list" class="done-folder-body hidden">
-          <!-- Completed tasks rendered here -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Collapsible Context (SOT Fleet) & Quick Prompts Popover Drawer (Anchored just above Chat Input!) -->
-    <div id="chat-context-drawer" class="chat-context-drawer hidden">
-      <div class="chat-context-drawer-header">
-        <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8; display: flex; align-items: center; gap: 5px;">
-          <i class="fa-solid fa-sparkles" style="color: #38bdf8;"></i>
-          <span>SOT Contextiles (<code>@</code>) &amp; Quick Prompts</span>
-        </span>
-        <button type="button" id="btn-close-context-drawer" class="btn-icon-subtle" title="Close drawer">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-      <!-- SOT Contextiles Quick-Bar -->
-      <div class="sot-quickbar">
-        <button type="button" id="btn-open-sot-fleet" class="sot-label-btn" title="Click to view all Sources of Truth">
-          <i class="fa-solid fa-layer-group text-cyan"></i>
-          <span>SOT Fleet</span>
-          <span id="sot-quickbar-count" class="sot-count-badge">0</span>
-          <i class="fa-solid fa-chevron-right" style="font-size: 8px; opacity: 0.6; margin-left: 1px;"></i>
-        </button>
-        <div id="sot-contextile-chips" class="sot-chips-container">
-          <span style="color: #64748b; font-size: 11px;">Loading contextiles...</span>
-        </div>
-      </div>
-
-      <!-- Quick Ideation Chips -->
-      <div class="brainstorm-pills">
-        <button class="pill-btn" data-prompt="Propose a modern visual makeover with glassmorphism, glowing accents, and galactic aesthetic.">
-          ✨ Visual Makeover
-        </button>
-        <button class="pill-btn" data-prompt="Brainstorm 5 innovative, high-impact features we could build next for this app.">
-          🚀 5 Feature Ideas
-        </button>
-        <button class="pill-btn" data-prompt="Audit this app's UX flow and suggest micro-interactions and usability polish.">
-          🎯 UX Flow Audit
-        </button>
-        <button class="pill-btn" data-prompt="Recommend an upgraded color palette and dark/light mode tokens.">
-          🎨 Modern Theme
-        </button>
-        <button class="pill-btn image-pill" data-prompt="/image Generate a brand-new official app icon with bold orange border and transparent background for this app.">
-          🎨 Generate App Icon
-        </button>
-        <button class="pill-btn git-pill" data-prompt="Audit all modified files and recent changes in our session. Propose a clean Git commit message and confirm if we are ready to push to GitHub.">
-          🐙 Git Changes &amp; Commit
-        </button>
-      </div>
-    </div>
-
-    <!-- Live Screen Stream & Voice Preview Dock (shown when streaming screen or voice chat is active) -->
-    <div id="galactic-stream-preview-dock" class="hidden" style="padding: 6px 8px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 27, 75, 0.92)); border-top: 1px solid rgba(6, 182, 212, 0.4); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-      <div style="display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1;">
-        <div style="position: relative; width: 46px; height: 28px; border-radius: 5px; overflow: hidden; border: 1px solid rgba(6, 182, 212, 0.65); background: #020617; flex-shrink: 0;">
-          <img id="galactic-stream-thumb-img" src="" alt="Live Stream" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
-          <span style="position: absolute; top: 2px; left: 2px; width: 6px; height: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 6px #ef4444;"></span>
-        </div>
-        <div id="gitbridge-stream-thumb-wrap" class="hidden" style="position: relative; width: 46px; height: 28px; border-radius: 5px; overflow: hidden; border: 1px solid rgba(245, 158, 11, 0.65); background: #020617; flex-shrink: 0;" title="GitBridge Screen Stream Active">
-          <img id="gitbridge-stream-thumb-img" src="" alt="GitBridge Stream" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
-        </div>
-        <div style="min-width: 0; flex: 1;">
-          <div id="galactic-stream-status-title" style="font-size: 10px; font-weight: 800; color: #67e8f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            📺 Live Screen Stream Active — Geppy can see your work
-          </div>
-          <div id="galactic-stream-status-sub" style="font-size: 9.5px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            Streaming active tab every 2.5s • Ready for live co-design
-          </div>
-        </div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
-        <button type="button" id="btn-galactic-stream-full-window" style="padding: 2px 6px; border-radius: 5px; font-size: 9.5px; font-weight: 700; background: rgba(56, 189, 248, 0.18); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.4); cursor: pointer;" title="Share entire monitor or window (both GitBridge &amp; Galactic)">
-          🖥️ Full Screen
-        </button>
-        <button type="button" id="btn-galactic-stream-stop" style="padding: 2px 6px; border-radius: 5px; font-size: 9.5px; font-weight: 700; background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.45); cursor: pointer;" title="Stop streaming screen">
-          Stop
-        </button>
-      </div>
-    </div>
-
-    <!-- Live Co-Designer Bar: Screen Stream + Voice Chat with Geppy + Crew Consultation + Antigravity Error Check -->
-    <div id="galactic-live-codesign-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 4px 8px; background: rgba(2, 6, 23, 0.92); border-top: 1px solid rgba(56, 189, 248, 0.18); flex-wrap: wrap;">
-      <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-        <button type="button" id="btn-galactic-stream-toggle" style="padding: 2.5px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(6, 182, 212, 0.15); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Stream current screen of Galactic / active tab (and GitBridge) so Geppy can see what we are working on live">
-          <i class="fa-solid fa-tv"></i>
-          <span id="galactic-stream-btn-label">Stream Screen</span>
-        </button>
-        <button type="button" id="btn-galactic-voice-toggle" style="padding: 2.5px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Live Voice Chat with Geppy — Talk hands-free while designing!">
-          <i class="fa-solid fa-microphone"></i>
-          <span id="galactic-voice-btn-label">Voice Chat</span>
-        </button>
-        <button type="button" id="btn-galactic-consult-crew-toggle" style="padding: 2.5px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(245, 158, 11, 0.16); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Toggle Crew Consultation: Geppy will consult with @design, @arch, @qa &amp; @strategy on what we are working on">
-          <i class="fa-solid fa-users-gear"></i>
-          <span id="galactic-consult-btn-label">Consult Crew: OFF</span>
-        </button>
-        <button type="button" id="btn-galactic-consult-now" style="padding: 2.5px 6px; border-radius: 6px; font-size: 9.5px; font-weight: 700; background: rgba(168, 85, 247, 0.2); color: #e9d5ff; border: 1px solid rgba(168, 85, 247, 0.45); cursor: pointer;" title="Have Geppy consult the Agent Crew right now on what is on screen">
-          🤝 Ask Crew Now
-        </button>
-      </div>
-      <div style="display: flex; align-items: center; gap: 4px;">
-        <button type="button" id="btn-galactic-tts-toggle" style="padding: 2px 5px; border-radius: 5px; font-size: 9.5px; background: rgba(30, 41, 59, 0.9); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); cursor: pointer;" title="Toggle Geppy Spoken Voice Replies (TTS)">
-          🔊
-        </button>
-        <button type="button" id="btn-galactic-ag-error-check" style="padding: 2px 6px; border-radius: 5px; font-size: 9.5px; font-weight: 700; background: rgba(139, 92, 246, 0.18); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4); cursor: pointer;" title="Inspect or report an Antigravity error &amp; reply to Antigravity in chat">
-          ⚛️ AG Errors <span id="galactic-ag-err-count-pill" style="display:none; background:#ef4444; color:#fff; border-radius:999px; padding:0 4px; font-size:8.5px; margin-left:2px;">0</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Specialized AI Agent Crew Switcher Bar -->
-    <div id="galactic-agent-crew-bar" style="display:flex; align-items:center; gap:4px; overflow-x:auto; padding:5px 8px; background:rgba(15,23,42,0.92); border-top:1px solid rgba(148,163,184,0.14); scrollbar-width:none;">
-      <span style="font-size:9px; font-weight:700; color:#c084fc; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap; margin-right:2px;">Crew:</span>
-      <button type="button" class="galactic-agent-pill active" data-agent-id="" style="padding:2px 7px; border-radius:999px; font-size:10px; font-weight:600; background:rgba(245,158,11,0.2); color:#fcd34d; border:1px solid rgba(245,158,11,0.45); cursor:pointer; white-space:nowrap;">👨‍🚀 Geppy</button>
-      <button type="button" class="galactic-agent-pill" data-agent-id="design-architect" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Design &amp; UI/UX Architect (@design)">🎨 @design</button>
-      <button type="button" class="galactic-agent-pill" data-agent-id="system-architect" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="System &amp; Code Architect (@arch)">🏗️ @arch</button>
-      <button type="button" class="galactic-agent-pill" data-agent-id="social-media" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Social Media &amp; Growth Director (@social)">📣 @social</button>
-      <button type="button" class="galactic-agent-pill" data-agent-id="qa-reliability" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="QA &amp; Reliability Engineer (@qa)">🛡️ @qa</button>
-      <button type="button" class="galactic-agent-pill" data-agent-id="product-strategy" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Product Strategy &amp; Monetization Lead (@strategy)">🚀 @strategy</button>
-      <button type="button" class="galactic-agent-pill" data-agent-id="docs-manual" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(30,41,59,0.9); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25); cursor:pointer; white-space:nowrap;" title="Docs &amp; Developer Advocate (@docs)">📖 @docs</button>
-      <button type="button" class="galactic-agent-pill" data-agent-id="crew-council" style="padding:2px 7px; border-radius:999px; font-size:10px; background:rgba(134,25,143,0.35); color:#f0abfc; border:1px solid rgba(217,70,239,0.45); cursor:pointer; white-space:nowrap;" title="Multi-Agent Crew Council (@crew)">⚡ @crew</button>
+      <div id="chat-visual-ref-list" class="chat-visual-ref-list"></div>
     </div>
 
     <!-- Unified Central Chat & Direct Action Input Bar -->
     <div class="input-bar">
-      <button type="button" id="btn-toggle-context-drawer" class="btn-chat-context-toggle" title="Toggle SOT Fleet (@) &amp; Quick Prompts Drawer">
+      <button type="button" id="btn-toggle-context-drawer" class="btn-chat-context-toggle" title="Open SOT Contextiles (@), Agent Crew &amp; Quick Prompts on Home">
         <span>@</span>
+      </button>
+      <button type="button" id="btn-chat-snip-region" class="btn-chat-tool snip" title="Select Area or UI Element on App (Drag a selection box or click any element to reference in Chat)">
+        <i class="fa-solid fa-crop-simple"></i>
+      </button>
+      <button type="button" id="btn-chat-snap-screen" class="btn-chat-tool snap" title="Grab Full App Screenshot and attach to Chat">
+        <i class="fa-solid fa-camera"></i>
       </button>
       <button type="button" id="btn-chat-mode-image" class="btn-chat-mode" title="Toggle Image Generation Mode (or type /image ...)">
         <i class="fa-solid fa-wand-magic-sparkles"></i>
@@ -1361,8 +1537,26 @@
       </div>
       <div class="modal-body" style="gap: 12px;">
         <div>
-          <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Application Name</label>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <label style="font-size: 11px; font-weight: 600; color: #cbd5e1;">Application Name</label>
+            <span id="reg-app-auto-cat-badge" style="font-size: 9.5px; padding: 1px 6px; border-radius: 999px; background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.35);">✨ Auto-Categorize</span>
+          </div>
           <input type="text" id="reg-app-name" class="input-box" placeholder="e.g. Diamond Dream 70s" style="width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Category <span style="font-weight: 400; color: #94a3b8; font-size: 10px;">(Auto-assigned on add or select manually)</span></label>
+          <select id="reg-app-category" class="input-box" style="width: 100%; box-sizing: border-box; cursor: pointer;">
+            <option value="">✨ Auto-Detect Category (AI + Smart Rules)</option>
+            <option value="Core Platform & Hubs">🛸 Core Platform &amp; Hubs</option>
+            <option value="AI, Prompts & Planning">🤖 AI, Prompts &amp; Planning</option>
+            <option value="System, Diagnostics & Tech Tools">🛠️ System, Diagnostics &amp; Tech Tools</option>
+            <option value="Finance, Business & Operations">💼 Finance, Business &amp; Operations</option>
+            <option value="Creative, Design & Media">🎨 Creative, Design &amp; Media</option>
+            <option value="Communication & Productivity">💬 Communication &amp; Productivity</option>
+            <option value="Games & Entertainment">🎮 Games &amp; Entertainment</option>
+            <option value="Experimental & Sandbox">🧪 Experimental &amp; Sandbox</option>
+          </select>
         </div>
 
         <div>
@@ -1609,6 +1803,50 @@
         <button type="button" id="btn-submit-ext-bug" class="btn-primary-commit" style="background: linear-gradient(135deg, #ea580c, #d97706); display: inline-flex; align-items: center; gap: 6px;">
           <img src="icons/geppy_bug_32.png" alt="" style="width: 16px; height: 16px; object-fit: contain;" />
           <span>Submit Bug Report</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Visual Reference Preview & Quick Markup Canvas -->
+  <div id="modal-visual-ref-preview" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 480px; border: 1.5px solid rgba(56, 189, 248, 0.65);">
+      <div class="modal-header" style="background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(8, 47, 73, 0.7));">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 7px;">
+          <i class="fa-solid fa-crop-simple" style="color: #38bdf8;"></i>
+          <span id="visual-ref-modal-title">Visual Reference &amp; Markup</span>
+        </div>
+        <button type="button" id="btn-close-visual-ref-modal" class="btn-icon-subtle" title="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="font-size: 10px; color: #94a3b8; font-weight: 700;">Draw Markup:</span>
+            <button type="button" class="btn-visual-markup-tool active" data-tool="pen" title="Freehand Pen"><i class="fa-solid fa-pen"></i> Pen</button>
+            <button type="button" class="btn-visual-markup-tool" data-tool="box" title="Highlight Box"><i class="fa-regular fa-square"></i> Box</button>
+            <button type="button" class="btn-visual-markup-tool" data-tool="arrow" title="Pointing Arrow"><i class="fa-solid fa-arrow-trend-up"></i> Arrow</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <button type="button" id="btn-visual-markup-reset" class="btn-visual-ref-mini" title="Reset markup drawings">
+              <i class="fa-solid fa-rotate-left"></i> Reset
+            </button>
+          </div>
+        </div>
+        <div style="position: relative; background: #020617; border: 1px solid #334155; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; max-height: 310px;">
+          <canvas id="visual-ref-markup-canvas" style="max-width: 100%; max-height: 300px; cursor: crosshair; display: block;"></canvas>
+        </div>
+        <div id="visual-ref-dom-meta-box" style="font-size: 10.5px; color: #cbd5e1; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 6px 8px; font-family: monospace; word-break: break-all;"></div>
+        <div>
+          <label style="font-size: 10.5px; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 3px;">Specific Note for this Selection (Optional):</label>
+          <input type="text" id="visual-ref-note-input" class="input-box" style="width: 100%; box-sizing: border-box; font-size: 11.5px;" placeholder="e.g. Make this card border glow cyan and center the title..." />
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button type="button" id="btn-cancel-visual-ref-modal" class="btn-cancel">Close</button>
+        <button type="button" id="btn-save-visual-ref-modal" class="btn-primary-commit" style="background: linear-gradient(135deg, #0284c7, #06b6d4);">
+          <i class="fa-solid fa-check"></i> Save Markup &amp; Note
         </button>
       </div>
     </div>

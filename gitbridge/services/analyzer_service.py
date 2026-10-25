@@ -7,8 +7,349 @@ from gitbridge.db.models import DocManualModel
 
 
 class AppAnalyzerService:
+    CANONICAL_CATEGORIES: List[str] = [
+        "Core Platform & Hubs",
+        "AI, Prompts & Planning",
+        "System, Diagnostics & Tech Tools",
+        "Finance, Business & Operations",
+        "Creative, Design & Media",
+        "Communication & Productivity",
+        "Games & Entertainment",
+        "Experimental & Sandbox",
+    ]
+
+    CATEGORY_ICONS: Dict[str, str] = {
+        "Core Platform & Hubs": "🛸",
+        "AI, Prompts & Planning": "🤖",
+        "System, Diagnostics & Tech Tools": "🛠️",
+        "Finance, Business & Operations": "💼",
+        "Creative, Design & Media": "🎨",
+        "Communication & Productivity": "💬",
+        "Games & Entertainment": "🎮",
+        "Experimental & Sandbox": "🧪",
+    }
+
     def __init__(self):
         self.gh_service = GitHubService()
+
+    @classmethod
+    def get_category_with_icon(cls, category: Optional[str]) -> str:
+        cat = cls.normalize_category(category) or "AI, Prompts & Planning"
+        icon = cls.CATEGORY_ICONS.get(cat, "📦")
+        return f"{icon} {cat}"
+
+    @classmethod
+    def normalize_category(cls, raw_cat: Optional[str]) -> Optional[str]:
+        """Normalize a raw or AI-returned category string to one of CANONICAL_CATEGORIES."""
+        if not raw_cat:
+            return None
+        clean = str(raw_cat).strip()
+        # Strip leading emojis if present
+        for icon in cls.CATEGORY_ICONS.values():
+            if clean.startswith(icon):
+                clean = clean[len(icon):].strip()
+        clean_lower = clean.lower()
+        for canon in cls.CANONICAL_CATEGORIES:
+            if clean_lower == canon.lower():
+                return canon
+        # Partial match fallback
+        if any(k in clean_lower for k in ("core", "platform", "hub", "bridge", "control")):
+            return "Core Platform & Hubs"
+        if any(k in clean_lower for k in ("ai", "prompt", "plan", "agent", "sot", "context")):
+            return "AI, Prompts & Planning"
+        if any(k in clean_lower for k in ("system", "diag", "tech", "tool", "hardware", "network", "tether")):
+            return "System, Diagnostics & Tech Tools"
+        if any(k in clean_lower for k in ("financ", "business", "money", "cash", "trade", "quot", "procure", "ops", "operation")):
+            return "Finance, Business & Operations"
+        if any(k in clean_lower for k in ("creativ", "design", "media", "asset", "vector", "canvas", "photo", "image", "video")):
+            return "Creative, Design & Media"
+        if any(k in clean_lower for k in ("comm", "productiv", "chat", "voice", "email", "aac", "translat", "grammar")):
+            return "Communication & Productivity"
+        if any(k in clean_lower for k in ("game", "arcade", "entertain", "golf", "mugen")):
+            return "Games & Entertainment"
+        if any(k in clean_lower for k in ("experimen", "sandbox", "test", "archive", "temp")):
+            return "Experimental & Sandbox"
+        return None
+
+    @classmethod
+    def infer_app_category(
+        cls,
+        name: str = "",
+        slug: str = "",
+        description: str = "",
+        tech_stack: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        use_ai_fallback: bool = False,
+    ) -> str:
+        """
+        Automatically infer the best canonical category for an app based on its name, slug,
+        description, tech stack, and tags (with optional Gemini fallback for ambiguous apps).
+        """
+        slug_l = (slug or "").lower().strip()
+        name_l = (name or "").lower().strip()
+        desc_l = (description or "").lower().strip()
+        tags_l = " ".join(str(t).lower() for t in (tags or []))
+        tech_l = " ".join(str(t).lower() for t in (tech_stack or []))
+        combined_id = f"{slug_l} {name_l}"
+        combined_all = f"{slug_l} {name_l} {desc_l} {tags_l} {tech_l}"
+
+        # 0. Check if tags already specify a canonical category
+        for t in (tags or []):
+            norm = cls.normalize_category(t)
+            if norm:
+                return norm
+
+        # 1. Experimental, Temp, or Auto-Generated Build Repos
+        if (
+            slug_l.startswith(".")
+            or slug_l.startswith("test-")
+            or slug_l.startswith("studio-self-repair")
+            or slug_l.startswith("vibe-geppy-")
+            or slug_l.startswith("vibe-manual-")
+            or slug_l in ("fastapi", "test-galactic-app")
+            or "weightless studio for build" in desc_l
+        ):
+            return "Experimental & Sandbox"
+
+        # 2. Core Platform & Hubs (Control plane, Launchpad, Galactic Extension, Bridges, Live Companion Streams)
+        if any(
+            kw in combined_id
+            for kw in (
+                "gitbridge",
+                "launchpad",
+                "galactic",
+                "galaxtic",
+                "antigravity-hub",
+                "antigravity hub",
+                "gemini-bridge",
+                "gemini bridge",
+                "screen-stream",
+                "screen stream",
+                "voice-chat",
+                "voice chat",
+            )
+        ):
+            return "Core Platform & Hubs"
+
+        # 3. System, Diagnostics & Tech Tools (Check name/slug and specific hardware/diagnostic terms)
+        if any(
+            kw in combined_all
+            for kw in (
+                "diagnostic",
+                "diagnostick",
+                "cortechs",
+                "toolbox",
+                "pulsenet",
+                "tether",
+                "shortcuts",
+                "hardware-aware",
+                "bitlocker",
+                "system health",
+                "battery metrics",
+                "network monitor",
+                "freeware utilities",
+            )
+        ):
+            return "System, Diagnostics & Tech Tools"
+
+        # 4. Communication & Productivity
+        if any(
+            kw in combined_all
+            for kw in (
+                "pollycomms",
+                "translingual",
+                "portable-aac",
+                "portable aac",
+                "touch-to-speech",
+                "communicator",
+                "email-exorsist",
+                "email exorcist",
+                "exorcised",
+                "unsubscribe",
+                "grammer",
+                "grammar",
+                "messenger",
+            )
+        ):
+            return "Communication & Productivity"
+
+        # 5. Finance, Business & Operations
+        if any(
+            kw in combined_all
+            for kw in (
+                "cashcalender",
+                "cashcalendar",
+                "cash flow",
+                "cashflow",
+                "money",
+                "tradeday",
+                "trade day",
+                "trading",
+                "finance",
+                "budget",
+                "debt",
+                "cpao",
+                "cleaning service",
+                "quoting",
+                "print-quoting",
+                "divine",
+                "devine",
+                "procurement",
+                "payroll",
+                "vendor-payment",
+                "houzz",
+                "invoice",
+                "accounting",
+                "crm",
+                "erp",
+            )
+        ):
+            return "Finance, Business & Operations"
+
+        # 6. Creative, Design & Media
+        if any(
+            kw in combined_all
+            for kw in (
+                "asset-lab",
+                "asset lab",
+                "blanks-canvas",
+                "blanks canvas",
+                "vectorator",
+                "vector",
+                "photoshop",
+                "prompt-to-cut",
+                "prompt to cut",
+                "powertool",
+                "svg",
+                "canvas",
+                "image generator",
+                "video editor",
+                "illustration",
+                "konva",
+            )
+        ):
+            return "Creative, Design & Media"
+
+        # 7. Games & Entertainment
+        if any(
+            kw in combined_all
+            for kw in (
+                "arcade",
+                "mini-golf",
+                "mini golf",
+                "mugen",
+                "changling",
+                "video game",
+                "retro game",
+                "emulator",
+                "puzzle",
+                "trivia",
+            )
+        ) or any(kw in combined_id for kw in ("game", "arcade", "golf", "mugen")):
+            return "Games & Entertainment"
+
+        # 8. AI, Prompts & Planning
+        if any(
+            kw in combined_all
+            for kw in (
+                "prompt-gen",
+                "prompt gen",
+                "sparkler",
+                "vibe-planner",
+                "vibe planner",
+                "plansmith",
+                "contextile",
+                "sot",
+                "source of truth",
+                "geppyai",
+                "prompt builder",
+                "vibe coding",
+                "planning studio",
+                "ai assistant",
+                "gemini",
+                "llm",
+            )
+        ):
+            return "AI, Prompts & Planning"
+
+        # Optional AI fallback when requested for brand-new ambiguous apps
+        if use_ai_fallback:
+            try:
+                from gitbridge.services.central_key_service import CentralKeyService
+                cats_str = ", ".join(f'"{c}"' for c in cls.CANONICAL_CATEGORIES)
+                ai_prompt = (
+                    f"Classify this application into EXACTLY ONE of these categories: [{cats_str}].\n"
+                    f"App Name: {name}\nSlug: {slug}\nDescription: {description}\nTech Stack: {tech_l}\n"
+                    f"Respond with ONLY the exact category name."
+                )
+                res = CentralKeyService.call_gemini(
+                    [{"role": "user", "parts": [{"text": ai_prompt}]}],
+                    "Output only the exact category string.",
+                    timeout=8,
+                )
+                norm_ai = cls.normalize_category(res)
+                if norm_ai:
+                    return norm_ai
+            except Exception:
+                pass
+
+        return "AI, Prompts & Planning"
+
+    @classmethod
+    def auto_categorize_all_apps(cls, db, overwrite: bool = False) -> Dict[str, Any]:
+        """
+        Inspect all apps in the database and assign an inferred canonical category.
+        Also auto-hides dot-prefixed system temp folders (e.g. .launchpad-icons, .tmp.*).
+        """
+        from gitbridge.db.models import AppProfileModel
+
+        apps = db.query(AppProfileModel).all()
+        updated_count = 0
+        category_counts: Dict[str, int] = {c: 0 for c in cls.CANONICAL_CATEGORIES}
+
+        for app_obj in apps:
+            # Auto-hide dot-prefixed non-app directories if discovered accidentally
+            if (app_obj.slug or "").startswith(".") and not app_obj.is_hidden:
+                app_obj.is_hidden = True
+
+            current_cat = cls.normalize_category(getattr(app_obj, "category", None))
+            if overwrite or not current_cat:
+                inferred = cls.infer_app_category(
+                    name=app_obj.name or "",
+                    slug=app_obj.slug or "",
+                    description=app_obj.description or "",
+                    tech_stack=app_obj.tech_stack or [],
+                    tags=app_obj.tags or [],
+                )
+                if getattr(app_obj, "category", None) != inferred:
+                    app_obj.category = inferred
+                    updated_count += 1
+                current_cat = inferred
+            else:
+                if getattr(app_obj, "category", None) != current_cat:
+                    app_obj.category = current_cat
+                    updated_count += 1
+
+            if not getattr(app_obj, "is_hidden", False):
+                category_counts[current_cat] = category_counts.get(current_cat, 0) + 1
+
+        if updated_count > 0:
+            db.commit()
+
+        return {
+            "updated_count": updated_count,
+            "total_apps": len(apps),
+            "category_counts": category_counts,
+            "categories": [
+                {
+                    "name": c,
+                    "icon": cls.CATEGORY_ICONS.get(c, "📦"),
+                    "label": f"{cls.CATEGORY_ICONS.get(c, '📦')} {c}",
+                    "count": category_counts.get(c, 0),
+                }
+                for c in cls.CANONICAL_CATEGORIES
+            ],
+        }
 
     def determine_priority_tier(self, name: str, status: str, tech_stack: List[str], tags: List[str], open_issues_count: int) -> str:
         """Determine priority tier based on status, tech stack complexity, and commercial relevance."""
@@ -248,16 +589,18 @@ README Excerpt: {readme[:500] if readme else 'None'}
 
         # Call Gemini API via CentralKeyService if available to produce deep accurate analysis
         from gitbridge.services.central_key_service import CentralKeyService
+        categories_list_str = ", ".join(f'"{c}"' for c in self.CANONICAL_CATEGORIES)
         prompt = f"""You are an expert AI Software Architect and Lead Technical Writer for Geppy's App Universe.
 Perform a deep technical analysis of the file tree, code entrypoints, and configuration files provided below.
 
 Generate a structured JSON response with these exact keys:
-1. "github_description": A crisp, high-impact 1-2 sentence description suitable for a GitHub repository 'About' section and search (max 220 characters). Focus on the core user problem solved and primary tech stack.
-2. "github_tagline": A memorable 5-8 word tagline or subtitle.
-3. "description": A clear, highly detailed, 2-4 sentence explanation of the app's exact purpose, capabilities, user workflow, and technical role based on the code files.
-4. "system_instructions": A comprehensive system prompt defining the AI persona, purpose, and operational instructions for Captain Geppy co-pilot.
-5. "architectural_summary": A detailed Markdown architectural breakdown detailing the file structure, main code entrypoints, framework features, and data/API models.
-6. "help_manual_markdown": A comprehensive, beginner-friendly Markdown User Guide & Help File containing:
+1. "category": Choose the SINGLE best category from this exact list: [{categories_list_str}].
+2. "github_description": A crisp, high-impact 1-2 sentence description suitable for a GitHub repository 'About' section and search (max 220 characters). Focus on the core user problem solved and primary tech stack.
+3. "github_tagline": A memorable 5-8 word tagline or subtitle.
+4. "description": A clear, highly detailed, 2-4 sentence explanation of the app's exact purpose, capabilities, user workflow, and technical role based on the code files.
+5. "system_instructions": A comprehensive system prompt defining the AI persona, purpose, and operational instructions for Captain Geppy co-pilot.
+6. "architectural_summary": A detailed Markdown architectural breakdown detailing the file structure, main code entrypoints, framework features, and data/API models.
+7. "help_manual_markdown": A comprehensive, beginner-friendly Markdown User Guide & Help File containing:
    # {app_obj.name} - Quickstart & User Guide
    > [Short Tagline]
    ## 🎯 Overview & What This App Does
@@ -277,6 +620,7 @@ GitHub README: {github_readme[:1000] if github_readme else 'None'}
 """
         generated_help_manual = None
         github_desc = None
+        ai_category = None
         raw_res = CentralKeyService.call_gemini(
             [{"role": "user", "parts": [{"text": prompt}]}],
             "You are an expert AI Software Architect. Output strictly valid JSON matching the requested keys.",
@@ -292,6 +636,9 @@ GitHub README: {github_readme[:1000] if github_readme else 'None'}
                 elif "```" in clean_json:
                     clean_json = clean_json.split("```")[1].split("```")[0].strip()
                 resp_json = json.loads(clean_json)
+
+                if resp_json.get("category"):
+                    ai_category = self.normalize_category(resp_json.get("category"))
 
                 github_desc = resp_json.get("github_description")
                 if github_desc:
@@ -320,6 +667,17 @@ GitHub README: {github_readme[:1000] if github_readme else 'None'}
             if not app_obj.system_instructions:
                 app_obj.system_instructions = synth["system_instructions"]
 
+        # Automatically infer and persist canonical category
+        inferred_cat = self.infer_app_category(
+            name=app_obj.name or "",
+            slug=app_obj.slug or "",
+            description=app_obj.description or "",
+            tech_stack=app_obj.tech_stack or [],
+            tags=app_obj.tags or [],
+        )
+        # Prefer specific rule match if AI returned generic default, otherwise use AI category or inferred category
+        app_obj.category = ai_category if (ai_category and inferred_cat == "AI, Prompts & Planning") else inferred_cat
+
         # Ensure Help Manual is always created and saved (AI-generated or high-quality synthesized fallback)
         if not generated_help_manual:
             generated_help_manual = self._generate_fallback_help_manual(app_obj, deep_info)
@@ -338,6 +696,7 @@ GitHub README: {github_readme[:1000] if github_readme else 'None'}
         return {
             "slug": app_obj.slug,
             "name": app_obj.name,
+            "category": app_obj.category,
             "description": app_obj.description,
             "github_description": github_desc or app_obj.description,
             "system_instructions": app_obj.system_instructions,

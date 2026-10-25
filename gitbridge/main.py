@@ -287,11 +287,28 @@ def serialize_app_profile(app_obj: AppProfileModel, db: Session) -> dict:
         if not fpath or not os.path.exists(fpath):
             icon_url = None
 
+    from gitbridge.services.analyzer_service import AppAnalyzerService
+    cat = AppAnalyzerService.normalize_category(getattr(app_obj, "category", None))
+    if not cat:
+        cat = AppAnalyzerService.infer_app_category(
+            name=app_obj.name or "",
+            slug=app_obj.slug or "",
+            description=app_obj.description or "",
+            tech_stack=app_obj.tech_stack or [],
+            tags=app_obj.tags or [],
+        )
+        try:
+            app_obj.category = cat
+            db.commit()
+        except Exception:
+            pass
+
     return {
         "id": app_obj.id,
         "slug": app_obj.slug,
         "name": app_obj.name,
         "description": app_obj.description,
+        "category": cat,
         "status": app_obj.status,
         "github_url": app_obj.github_url,
         "github_repo_name": app_obj.github_repo_name,
@@ -311,6 +328,7 @@ def serialize_app_profile(app_obj: AppProfileModel, db: Session) -> dict:
         "priority_tier": app_obj.priority_tier,
         "health_report_md": app_obj.health_report_md,
         "last_commit_at": app_obj.last_commit_at,
+        "last_opened_at": getattr(app_obj, "last_opened_at", None),
         "open_issues_count": app_obj.open_issues_count or 0,
         "tags": app_obj.tags,
         "backlog": getattr(app_obj, "backlog", []) or [],
@@ -321,6 +339,23 @@ def serialize_app_profile(app_obj: AppProfileModel, db: Session) -> dict:
         "assets": app_obj.assets,
         "manuals": app_obj.manuals
     }
+
+def _recent_sort_key(app_dict: dict):
+    """Sort key that pulls live and recently opened/updated apps to the top."""
+    dt = app_dict.get("last_opened_at") or app_dict.get("updated_at") or app_dict.get("created_at")
+    ts = 0.0
+    if dt:
+        try:
+            if hasattr(dt, "timestamp"):
+                ts = float(dt.timestamp())
+            else:
+                from datetime import datetime as _dt
+                ts = _dt.fromisoformat(str(dt).replace("Z", "+00:00")).timestamp()
+        except Exception:
+            ts = 0.0
+    has_opened = 1 if app_dict.get("last_opened_at") else 0
+    is_live = 1 if app_dict.get("is_live") else 0
+    return (-is_live, -has_opened, -ts, (app_dict.get("name") or "").lower())
 
 @app.get("/api/apps", response_model=List[AppProfileResponse])
 def list_apps(
@@ -337,7 +372,27 @@ def list_apps(
     elif not include_hidden:
         query = query.filter((AppProfileModel.is_hidden == False) | (AppProfileModel.is_hidden == None))
     apps = query.all()
-    return [serialize_app_profile(a, db) for a in apps]
+    serialized = [serialize_app_profile(a, db) for a in apps]
+    serialized.sort(key=_recent_sort_key)
+    return serialized
+
+@app.post("/api/apps/{slug}/touch")
+def touch_app_recent_endpoint(slug: str, db: Session = Depends(get_db)):
+    """Mark an app as recently opened/used and pull it to the top of Recent lists in Galactic, Tray Menu, and GitBridge."""
+    from datetime import datetime
+    app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
+    if not app_obj:
+        raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
+    now = datetime.utcnow()
+    app_obj.last_opened_at = now
+    app_obj.updated_at = now
+    db.commit()
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
+    return {"slug": slug, "last_opened_at": now.isoformat(), "success": True}
 
 @app.post("/api/apps/{slug}/hide")
 def hide_app_endpoint(slug: str, db: Session = Depends(get_db)):
@@ -371,6 +426,24 @@ def toggle_hide_app_endpoint(slug: str, db: Session = Depends(get_db)):
         "message": f"App '{app_obj.name}' is now {status_str} in catalog and system tray."
     }
 
+@app.get("/api/apps/categories")
+def get_app_categories_endpoint(db: Session = Depends(get_db)):
+    """Return canonical app categories with icons and current app counts."""
+    from gitbridge.services.analyzer_service import AppAnalyzerService
+    return AppAnalyzerService.auto_categorize_all_apps(db, overwrite=False)
+
+@app.post("/api/apps/auto-categorize")
+def auto_categorize_apps_endpoint(overwrite: bool = Query(True), db: Session = Depends(get_db)):
+    """Automatically categorize all registered apps and refresh the system tray menu."""
+    from gitbridge.services.analyzer_service import AppAnalyzerService
+    res = AppAnalyzerService.auto_categorize_all_apps(db, overwrite=overwrite)
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
+    return res
+
 @app.get("/api/apps/{slug}", response_model=AppProfileResponse)
 def get_app(slug: str, db: Session = Depends(get_db)):
     app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
@@ -384,10 +457,21 @@ def create_app(app_in: AppProfileCreate, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail=f"App with slug '{app_in.slug}' already exists")
 
+    from gitbridge.services.analyzer_service import AppAnalyzerService
+    explicit_cat = AppAnalyzerService.normalize_category(getattr(app_in, "category", None))
+    inferred_cat = explicit_cat if (explicit_cat and getattr(app_in, "category", None) != "AI, Prompts & Planning") else AppAnalyzerService.infer_app_category(
+        name=app_in.name,
+        slug=app_in.slug,
+        description=app_in.description or "",
+        tech_stack=app_in.tech_stack or [],
+        tags=app_in.tags or [],
+    )
+
     app_obj = AppProfileModel(
         slug=app_in.slug,
         name=app_in.name,
         description=app_in.description,
+        category=inferred_cat,
         status=app_in.status,
         github_url=app_in.github_url,
         github_repo_name=app_in.github_repo_name,
@@ -401,6 +485,11 @@ def create_app(app_in: AppProfileCreate, db: Session = Depends(get_db)):
     db.add(app_obj)
     db.commit()
     db.refresh(app_obj)
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
     return serialize_app_profile(app_obj, db)
 
 @app.patch("/api/apps/{slug}", response_model=AppProfileResponse)
@@ -409,17 +498,25 @@ def update_app(slug: str, app_in: AppProfileUpdate, db: Session = Depends(get_db
     if not app_obj:
         raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
 
+    from gitbridge.services.analyzer_service import AppAnalyzerService
     update_data = app_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if field == "tech_stack":
             app_obj.tech_stack = value
         elif field == "tags":
             app_obj.tags = value
+        elif field == "category":
+            app_obj.category = AppAnalyzerService.normalize_category(value) or value
         else:
             setattr(app_obj, field, value)
 
     db.commit()
     db.refresh(app_obj)
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
     return serialize_app_profile(app_obj, db)
 
 @app.post("/api/apps/{slug}/analyze")
@@ -456,14 +553,16 @@ def launch_app_endpoint(slug: str, db: Session = Depends(get_db)):
     if not app_obj:
         raise HTTPException(status_code=404, detail=f"App with slug '{slug}' not found")
 
+    from datetime import datetime
     from gitbridge.services.launcher_service import AppLauncherService
     result = AppLauncherService.launch_localhost(app_obj)
     result["tray_status"] = tray_status
 
-    # Save detected live_url to database profile if launched
+    # Always mark app as recently opened and save detected live_url to database profile if launched
+    app_obj.last_opened_at = datetime.utcnow()
     if result.get("launched") and result.get("target"):
         app_obj.live_url = result["target"]
-        db.commit()
+    db.commit()
 
     try:
         from gitbridge.tray_app import refresh_tray_menu
@@ -663,6 +762,7 @@ def chat_api_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
     include_audio = bool(payload.get("include_audio", False) or voice_mode)
     consult_crew = bool(payload.get("consult_crew", False))
     consult_agents = payload.get("consult_agents")
+    model_override = payload.get("model") or payload.get("model_mode")
 
     from gitbridge.services.chat_service import ChatService
     return ChatService.process_chat(
@@ -677,8 +777,28 @@ def chat_api_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
         include_audio=include_audio,
         consult_crew=consult_crew,
         consult_agents=consult_agents,
+        model_override=model_override,
         db=db
     )
+
+
+@app.get("/api/geppy/models")
+def get_geppy_models_endpoint():
+    """Return Geppy's available AI models, current routing mode ('auto' or pinned model), and last selection reason."""
+    from gitbridge.services.central_key_service import CentralKeyService
+    return CentralKeyService.get_model_state()
+
+
+@app.post("/api/geppy/models/select")
+def select_geppy_model_endpoint(payload: dict = {}):
+    """Switch Geppy's AI model mode ('auto', 'gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite')."""
+    mode = (payload.get("mode") or payload.get("model") or "auto").strip()
+    reason = (payload.get("reason") or "Selected by user").strip()
+    from gitbridge.services.central_key_service import CentralKeyService
+    from gitbridge.services.antigravity_service import AntigravityDaemonPool
+    state = CentralKeyService.set_model_mode(mode, reason=reason)
+    AntigravityDaemonPool.sync_with_central_model()
+    return state
 
 
 @app.post("/api/geppy/tts")
@@ -726,6 +846,13 @@ def extension_detect_app_endpoint(url: str = Query(...), db: Session = Depends(g
             "suggested_name": suggested_name
         }
     app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == match["slug"]).first()
+    if app_obj:
+        try:
+            from datetime import datetime
+            app_obj.last_opened_at = datetime.utcnow()
+            db.commit()
+        except Exception:
+            pass
     return {
         "matched": True,
         "match_type": match["match_type"],
@@ -798,13 +925,25 @@ def extension_register_app_endpoint(payload: dict = {}, db: Session = Depends(ge
                 except Exception as e:
                     print(f"[RegisterApp] Error creating .env in {resolved_path}: {e}")
 
+    explicit_category = AppAnalyzerService.normalize_category(payload.get("category"))
+    initial_desc = (payload.get("description") or "").strip() or (f"Application active at {live_url}" if live_url else "")
+    initial_category = explicit_category or AppAnalyzerService.infer_app_category(
+        name=name,
+        slug=slug,
+        description=initial_desc,
+        use_ai_fallback=not run_deep_analysis,
+    )
+
+    from datetime import datetime
     app_obj = AppProfileModel(
         slug=slug,
         name=name,
-        description=f"Application active at {live_url}" if live_url else "",
+        description=initial_desc,
+        category=initial_category,
         status=AppStatus.IN_DEVELOPMENT,
         live_url=live_url or None,
-        local_path=resolved_path
+        local_path=resolved_path,
+        last_opened_at=datetime.utcnow()
     )
     db.add(app_obj)
     db.commit()
@@ -815,14 +954,25 @@ def extension_register_app_endpoint(payload: dict = {}, db: Session = Depends(ge
         try:
             analyzer = AppAnalyzerService()
             analysis_res = analyzer.deep_analyze_and_generate_docs(app_obj, db)
+            if explicit_category:
+                app_obj.category = explicit_category
+                db.commit()
+                db.refresh(app_obj)
         except Exception as e:
             print(f"[RegisterApp] Deep analysis notice for {slug}: {e}")
+
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
 
     return {
         "success": True,
         "message": f"Successfully registered '{app_obj.name}' in Geppy's Galactic!",
         "app": serialize_app_profile(app_obj, db),
-        "analysis": analysis_res
+        "analysis": analysis_res,
+        "help_file_created": bool(analysis_res and analysis_res.get("help_manual"))
     }
 
 @app.post("/api/apps/{slug}/deep-analyze")
@@ -834,6 +984,268 @@ def deep_analyze_app_endpoint(slug: str, db: Session = Depends(get_db)):
     from gitbridge.services.analyzer_service import AppAnalyzerService
     analyzer = AppAnalyzerService()
     return analyzer.deep_analyze_and_generate_docs(app_obj, db)
+
+@app.post("/api/extension/extract-ai-studio")
+def extension_extract_ai_studio_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    """
+    Extract an app/prompt/project directly from a Google AI Studio browser tab!
+    Saves extracted code files, system instructions, prompt turns, and metadata into
+    the workspace (creating a new app or syncing into an existing app), injects the
+    Central Gemini Key, and optionally runs Deep AI Analysis.
+    """
+    from gitbridge.services.central_key_service import CentralKeyService
+    from gitbridge.services.analyzer_service import AppAnalyzerService
+    from gitbridge.services.workspace_service import WorkspaceService
+    from datetime import datetime
+
+    url = (payload.get("url") or payload.get("ai_studio_link") or "").strip()
+    raw_title = (payload.get("title") or payload.get("name") or "").strip()
+    # Clean common AI Studio title suffixes
+    clean_title = re.sub(r"\s*[\|\-–—]\s*(Google\s*)?AI\s*Studio.*$", "", raw_title, flags=re.IGNORECASE).strip()
+    name = (payload.get("custom_name") or clean_title or "AI Studio Extracted App").strip()
+
+    target_slug = (payload.get("target_slug") or "").strip()
+    mode = (payload.get("mode") or ("update" if target_slug else "create_or_update")).strip()
+    system_instructions = (payload.get("system_instructions") or "").strip()
+    description = (payload.get("description") or "").strip()
+    model_name = (payload.get("model") or "gemini-2.5-flash").strip()
+    prompts = payload.get("prompts") or []
+    code_blocks = payload.get("code_blocks") or []
+    files_map = payload.get("files") or {}
+    page_text = (payload.get("page_text") or "").strip()
+    run_deep_analysis = bool(payload.get("run_deep_analysis", False))
+
+    app_obj = None
+    if target_slug:
+        app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == target_slug).first()
+
+    if not app_obj and url:
+        # Check if an app already has this AI Studio URL
+        app_obj = db.query(AppProfileModel).filter(AppProfileModel.ai_studio_link == url).first()
+
+    base_slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or f"aistudio-{int(time.time())}"
+    if not app_obj and mode != "create_new":
+        app_obj = db.query(AppProfileModel).filter(AppProfileModel.slug == base_slug).first()
+
+    is_new_app = False
+    if not app_obj:
+        is_new_app = True
+        slug = base_slug
+        counter = 2
+        while db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+
+        primary_dir = WorkspaceService.get_workspace_dirs()[0]
+        folder_name = re.sub(r'[<>:"/\\|?*]', "-", name).strip() or slug
+        resolved_path = os.path.join(primary_dir, folder_name)
+        os.makedirs(resolved_path, exist_ok=True)
+
+        auto_desc = description or (
+            f"Extracted from Google AI Studio ({model_name}). "
+            + (system_instructions[:160] + "..." if len(system_instructions) > 160 else (system_instructions or f"AI Studio project: {name}"))
+        )
+        inferred_cat = AppAnalyzerService.infer_app_category(
+            name=name,
+            slug=slug,
+            description=auto_desc,
+            tech_stack=["Gemini API", "AI Studio", model_name],
+            tags=["AI Studio", model_name],
+            use_ai_fallback=False,
+        )
+
+        app_obj = AppProfileModel(
+            slug=slug,
+            name=name,
+            description=auto_desc,
+            category=inferred_cat,
+            status=AppStatus.IN_DEVELOPMENT,
+            ai_studio_link=url or None,
+            local_path=resolved_path,
+            system_instructions=system_instructions or None,
+            tech_stack=["Gemini API", "AI Studio", model_name],
+            tags=["AI Studio", model_name],
+            last_opened_at=datetime.utcnow(),
+        )
+        db.add(app_obj)
+        db.commit()
+        db.refresh(app_obj)
+    else:
+        if url:
+            app_obj.ai_studio_link = url
+        if system_instructions:
+            app_obj.system_instructions = system_instructions
+        if description:
+            app_obj.description = description
+        app_obj.last_opened_at = datetime.utcnow()
+        app_obj.updated_at = datetime.utcnow()
+        if not app_obj.local_path or not os.path.exists(app_obj.local_path):
+            primary_dir = WorkspaceService.get_workspace_dirs()[0]
+            folder_name = re.sub(r'[<>:"/\\|?*]', "-", app_obj.name or app_obj.slug).strip()
+            app_obj.local_path = os.path.join(primary_dir, folder_name)
+            os.makedirs(app_obj.local_path, exist_ok=True)
+        db.commit()
+        db.refresh(app_obj)
+
+    resolved_path = app_obj.local_path
+    saved_files = []
+
+    if resolved_path and os.path.exists(resolved_path):
+        # 1. Inject Central Gemini Key if .env missing
+        key = CentralKeyService.get_api_key()
+        if key:
+            env_file = os.path.join(resolved_path, ".env")
+            if not os.path.exists(env_file):
+                try:
+                    with open(env_file, "w", encoding="utf-8") as f:
+                        f.write(
+                            f"GEMINI_API_KEY={key}\n"
+                            f"GOOGLE_API_KEY={key}\n"
+                            f"VITE_GEMINI_API_KEY={key}\n"
+                            f"NEXT_PUBLIC_GEMINI_API_KEY={key}\n"
+                            f"REACT_APP_GEMINI_API_KEY={key}\n"
+                        )
+                except Exception:
+                    pass
+
+        # 2. Save structured AI Studio export JSON
+        export_meta = {
+            "name": app_obj.name,
+            "slug": app_obj.slug,
+            "ai_studio_link": url,
+            "model": model_name,
+            "extracted_at": datetime.utcnow().isoformat(),
+            "systemInstruction": system_instructions,
+            "prompts": prompts,
+            "code_blocks_count": len(code_blocks),
+        }
+        try:
+            meta_path = os.path.join(resolved_path, "ai_studio_extract.json")
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(export_meta, f, indent=2, ensure_ascii=False)
+            saved_files.append("ai_studio_extract.json")
+        except Exception:
+            pass
+
+        # 3. Save SYSTEM_PROMPT.md if system instructions or prompts exist
+        if system_instructions or prompts or page_text:
+            try:
+                md_lines = [
+                    f"# {app_obj.name} — AI Studio Extraction",
+                    f"- **Source URL**: {url or 'Google AI Studio'}",
+                    f"- **Model**: `{model_name}`",
+                    f"- **Extracted**: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}",
+                    "",
+                ]
+                if system_instructions:
+                    md_lines.extend(["## System Instructions", "", system_instructions, ""])
+                if prompts:
+                    md_lines.extend(["## Extracted Prompt / Conversation Turns", ""])
+                    for idx, p_item in enumerate(prompts[:30], 1):
+                        if isinstance(p_item, dict):
+                            role = p_item.get("role") or "Turn"
+                            txt = p_item.get("text") or ""
+                            md_lines.extend([f"### {idx}. {role}", "", txt, ""])
+                        elif isinstance(p_item, str) and p_item.strip():
+                            md_lines.extend([f"### Turn {idx}", "", p_item.strip(), ""])
+                elif page_text:
+                    md_lines.extend(["## Captured Page Content", "", page_text[:8000], ""])
+
+                prompt_md_path = os.path.join(resolved_path, "AI_STUDIO_PROMPT.md")
+                with open(prompt_md_path, "w", encoding="utf-8") as f:
+                    f.write("\n".join(md_lines))
+                saved_files.append("AI_STUDIO_PROMPT.md")
+            except Exception:
+                pass
+
+        # 4. Save explicit named files if provided in files_map
+        if isinstance(files_map, dict):
+            for rel_path, content in files_map.items():
+                if not rel_path or not isinstance(content, str) or not content.strip():
+                    continue
+                clean_rel = rel_path.replace("\\", "/").lstrip("/")
+                if ".." in clean_rel:
+                    continue
+                full_target = os.path.join(resolved_path, clean_rel)
+                try:
+                    os.makedirs(os.path.dirname(full_target), exist_ok=True)
+                    with open(full_target, "w", encoding="utf-8") as f:
+                        f.write(content)
+                    if clean_rel not in saved_files:
+                        saved_files.append(clean_rel)
+                except Exception:
+                    pass
+
+        # 5. Save extracted code blocks into appropriate files if no explicit files_map or in addition
+        if isinstance(code_blocks, list) and len(code_blocks) > 0:
+            has_index_html = os.path.exists(os.path.join(resolved_path, "index.html"))
+            for idx, blk in enumerate(code_blocks[:15]):
+                if isinstance(blk, dict):
+                    code_str = (blk.get("code") or "").strip()
+                    lang = (blk.get("lang") or "").lower().strip()
+                    hint_file = (blk.get("filename") or "").strip()
+                else:
+                    code_str = str(blk or "").strip()
+                    lang = ""
+                    hint_file = ""
+
+                if not code_str or len(code_str) < 15:
+                    continue
+
+                target_fname = None
+                if hint_file and not ".." in hint_file:
+                    target_fname = hint_file.replace("\\", "/").lstrip("/")
+                elif "<!doctype html" in code_str.lower() or "<html" in code_str.lower() or lang in ("html", "htm"):
+                    target_fname = "index.html" if (not has_index_html or idx == 0) else f"extracted_{idx + 1}.html"
+                    has_index_html = True
+                elif lang in ("tsx", "jsx"):
+                    target_fname = "src/App.tsx" if lang == "tsx" and idx == 0 else f"extracted_{idx + 1}.{lang}"
+                elif lang in ("ts", "typescript"):
+                    target_fname = f"extracted_{idx + 1}.ts"
+                elif lang in ("js", "javascript"):
+                    target_fname = "app.js" if idx == 0 and not os.path.exists(os.path.join(resolved_path, "app.js")) else f"extracted_{idx + 1}.js"
+                elif lang in ("py", "python"):
+                    target_fname = "main.py" if idx == 0 and not os.path.exists(os.path.join(resolved_path, "main.py")) else f"extracted_{idx + 1}.py"
+                elif lang in ("css", "scss"):
+                    target_fname = "styles.css" if idx == 0 and not os.path.exists(os.path.join(resolved_path, "styles.css")) else f"extracted_{idx + 1}.css"
+                elif lang == "json":
+                    target_fname = f"extracted_{idx + 1}.json"
+
+                if target_fname:
+                    full_p = os.path.join(resolved_path, target_fname)
+                    try:
+                        os.makedirs(os.path.dirname(full_p), exist_ok=True)
+                        with open(full_p, "w", encoding="utf-8") as f:
+                            f.write(code_str)
+                        if target_fname not in saved_files:
+                            saved_files.append(target_fname)
+                    except Exception:
+                        pass
+
+    analysis_res = None
+    if run_deep_analysis and app_obj:
+        try:
+            analyzer = AppAnalyzerService()
+            analysis_res = analyzer.deep_analyze_and_generate_docs(app_obj, db)
+        except Exception as e:
+            print(f"[ExtractAIStudio] Deep analysis notice: {e}")
+
+    try:
+        from gitbridge.tray_app import refresh_tray_menu
+        refresh_tray_menu()
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "is_new_app": is_new_app,
+        "message": (
+            f"Extracted '{app_obj.name}' from AI Studio into GitBridge ({len(saved_files)} file{'s' if len(saved_files) != 1 else ''} saved)!"
+        ),
+        "saved_files": saved_files,
+        "app": serialize_app_profile(app_obj, db),
+        "analysis": analysis_res,
+    }
 
 @app.post("/api/extension/brainstorm")
 def extension_brainstorm_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
@@ -847,6 +1259,7 @@ def extension_brainstorm_endpoint(payload: dict = {}, db: Session = Depends(get_
     is_image = payload.get("is_image", False)
     agent_id = payload.get("agent_id")
     screen_frame_b64 = payload.get("screen_frame_b64")
+    visual_references = payload.get("visual_references") or []
     voice_mode = bool(payload.get("voice_mode", False))
     consult_crew = bool(payload.get("consult_crew", False))
     consult_agents = payload.get("consult_agents")
@@ -860,6 +1273,7 @@ def extension_brainstorm_endpoint(payload: dict = {}, db: Session = Depends(get_
         is_image=is_image,
         agent_id=agent_id,
         screen_frame_b64=screen_frame_b64,
+        visual_references=visual_references,
         voice_mode=voice_mode,
         consult_crew=consult_crew,
         consult_agents=consult_agents,
@@ -901,6 +1315,8 @@ def extension_apply_design_endpoint(payload: dict = {}, db: Session = Depends(ge
         or ""
     ).strip()
     save_to_disk = bool(payload.get("save_to_disk", True))
+    visual_references = payload.get("visual_references") or []
+    screen_frame_b64 = payload.get("screen_frame_b64")
 
     if not instruction:
         raise HTTPException(status_code=400, detail="Instruction is required")
@@ -912,7 +1328,9 @@ def extension_apply_design_endpoint(payload: dict = {}, db: Session = Depends(ge
         current_code=current_code,
         instruction=instruction,
         db=db,
-        save_to_disk=save_to_disk
+        save_to_disk=save_to_disk,
+        visual_references=visual_references,
+        screen_frame_b64=screen_frame_b64,
     )
     return result
 
@@ -2045,24 +2463,63 @@ def push_app_github_endpoint(slug: str, payload: dict = {}, db: Session = Depend
     )
     return result
 
-@app.post("/api/workspace/push-all-github")
-def push_all_workspace_endpoint(db: Session = Depends(get_db)):
+@app.post("/api/workspace/updater/start")
+def start_workspace_github_updater_endpoint(payload: dict = {}):
+    """Start the contained background GitHub Fleet Updater (zero cmd windows, live progress & cancelable)."""
     from gitbridge.services.workspace_service import WorkspaceService
+    only_changed = bool(payload.get("only_changed", True))
+    slugs = payload.get("slugs")
+    commit_message = payload.get("commit_message")
+    return WorkspaceService.start_github_updater(
+        only_changed=only_changed,
+        slugs=slugs if isinstance(slugs, list) else None,
+        commit_message=commit_message
+    )
+
+
+@app.get("/api/workspace/updater/status")
+def get_workspace_github_updater_status_endpoint():
+    """Return live progress, counts, current app, and logs for the contained GitHub Fleet Updater."""
+    from gitbridge.services.workspace_service import WorkspaceService
+    return WorkspaceService.get_github_updater_status()
+
+
+@app.post("/api/workspace/updater/cancel")
+def cancel_workspace_github_updater_endpoint():
+    """Cancel an active GitHub Fleet Updater run."""
+    from gitbridge.services.workspace_service import WorkspaceService
+    return WorkspaceService.cancel_github_updater()
+
+
+@app.post("/api/workspace/push-all-github")
+def push_all_workspace_endpoint(payload: dict = {}, db: Session = Depends(get_db)):
+    from gitbridge.services.workspace_service import WorkspaceService
+    if payload.get("background", True):
+        state = WorkspaceService.start_github_updater(
+            only_changed=bool(payload.get("only_changed", True)),
+            slugs=payload.get("slugs"),
+            commit_message=payload.get("commit_message")
+        )
+        return {"started": True, "updater": state, "pushed": state.get("pushed", 0), "failed": state.get("failed", 0)}
+
     apps = db.query(AppProfileModel).all()
     pushed = 0
+    skipped = 0
     failed = 0
     results = []
 
     for app_obj in apps:
         if app_obj.local_path and os.path.exists(app_obj.local_path):
-            res = WorkspaceService.push_app_to_github(app_obj, db=db)
-            if res.get("success"):
+            res = WorkspaceService.push_app_to_github(app_obj, db=db, skip_if_clean=True)
+            if res.get("skipped"):
+                skipped += 1
+            elif res.get("pushed_to_github"):
                 pushed += 1
             else:
                 failed += 1
             results.append({"slug": app_obj.slug, "res": res})
 
-    return {"pushed": pushed, "failed": failed, "details": results}
+    return {"pushed": pushed, "skipped": skipped, "failed": failed, "details": results}
 
 @app.get("/api/assets")
 def list_all_media_assets(db: Session = Depends(get_db)):
@@ -2259,11 +2716,21 @@ def sync_github_api(username: Optional[str] = None, repo: Optional[str] = None, 
         slug = parsed["slug"]
         existing = db.query(AppProfileModel).filter(AppProfileModel.slug == slug).first()
 
+        from gitbridge.services.analyzer_service import AppAnalyzerService
+        inferred_cat = AppAnalyzerService.infer_app_category(
+            name=parsed["name"],
+            slug=slug,
+            description=parsed.get("description") or "",
+            tech_stack=parsed.get("tech_stack") or [],
+            tags=parsed.get("tags") or [],
+        )
+
         if not existing:
             app_obj = AppProfileModel(
                 slug=slug,
                 name=parsed["name"],
                 description=parsed["description"],
+                category=inferred_cat,
                 status=AppStatus(parsed["status"]),
                 github_url=parsed["github_url"],
                 github_repo_name=parsed["github_repo_name"],
@@ -2281,6 +2748,8 @@ def sync_github_api(username: Optional[str] = None, repo: Optional[str] = None, 
             if parsed["description"]:
                 existing.description = parsed["description"]
             existing.tech_stack = list(dict.fromkeys(existing.tech_stack + parsed["tech_stack"]))
+            if not getattr(existing, "category", None) or not AppAnalyzerService.normalize_category(existing.category):
+                existing.category = inferred_cat
             db.commit()
             db.refresh(existing)
             app_obj = existing

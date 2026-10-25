@@ -1,6 +1,34 @@
 {
   "reports": [
     {
+      "id": "bug_1792361216_4b12",
+      "app_slug": "geppys-launchpad",
+      "app_name": "Geppy's Launchpad",
+      "title": "Runtime Error: [6:06:40 PM] (window.onerror) Uncaught TypeError: Cannot read pro",
+      "description": "Runtime Error: [6:06:40 PM] (window.onerror) Uncaught TypeError: Cannot read pro",
+      "severity": "high",
+      "url": "http://localhost:5173/",
+      "target_file": "src/App.jsx",
+      "console_errors": [
+        "[6:06:40 PM] (window.onerror) Uncaught TypeError: Cannot read properties of undefined (reading 'openFolder') @ http://localhost:5173/@fs/D:/Geppy_Apps/Geppy's%20Launchpad/src/App.jsx:643",
+        "[6:06:37 PM] (unhandledrejection) Cannot read properties of undefined (reading 'selectFolder')"
+      ],
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": "1241x821",
+      "status": "open",
+      "created_at": "2026-10-18T22:06:56.586864",
+      "updated_at": "2026-10-18T22:06:56.586864",
+      "antigravity_error_id": "ag-err-1792361216586-1",
+      "diagnosis_summary": "Click **\ud83d\udd27 Apply Permanent Watchdog Fix** below to have Antigravity inspect `src/App.jsx` and patch the root cause, or click **\ud83d\udee1\ufe0f Run Aegis Watchdog Audit** for a full defensive check.",
+      "suggested_fix_prompt": "Fix the following high bug in `src/App.jsx`: Runtime Error: [6:06:40 PM] (window.onerror) Uncaught TypeError: Cannot read pro. Details: Runtime Error: [6:06:40 PM] (window.onerror) Uncaught TypeError: Cannot read pro Console errors: [6:06:40 PM] (window.onerror) Uncaught TypeError: Cannot read properties of undefined (reading 'openFolder') @ http://localhost:5173/@fs/D:/Geppy_Apps/Geppy's%20Launchpad/src/App.jsx:643; [6:06:37 PM] (unhandledrejection) Cannot read properties of undefined (reading 'selectFolder')",
+      "github_issue_url": null,
+      "auto_fix_result": {
+        "applied": false,
+        "file_path": "src/App.jsx",
+        "explanation": "Gemini API unavailable; could not generate code transformation."
+      }
+    },
+    {
       "id": "bug_1792358676_82d0",
       "app_slug": "geppys-gitbridge",
       "app_name": "Geppy's GitBridge",

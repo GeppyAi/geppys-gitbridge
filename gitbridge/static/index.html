@@ -412,6 +412,18 @@
               <i class="fa-solid fa-bolt text-cyan-400"></i>
               <span id="badge-key-text">Key: Checking...</span>
             </span>
+            <select id="category-filter" onchange="filterCatalog()" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-indigo-500">
+              <option value="all">All Categories (Recent at Top)</option>
+              <option value="recent">🕒 Recent Apps Only</option>
+              <option value="Core Platform & Hubs">🛸 Core Platform &amp; Hubs</option>
+              <option value="AI, Prompts & Planning">🤖 AI, Prompts &amp; Planning</option>
+              <option value="System, Diagnostics & Tech Tools">🛠️ System, Diagnostics &amp; Tech Tools</option>
+              <option value="Finance, Business & Operations">💼 Finance, Business &amp; Operations</option>
+              <option value="Creative, Design & Media">🎨 Creative, Design &amp; Media</option>
+              <option value="Communication & Productivity">💬 Communication &amp; Productivity</option>
+              <option value="Games & Entertainment">🎮 Games &amp; Entertainment</option>
+              <option value="Experimental & Sandbox">🧪 Experimental &amp; Sandbox</option>
+            </select>
             <select id="status-filter" onchange="filterCatalog()" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-indigo-500">
               <option value="all">All Statuses</option>
               <option value="in_development">In Development</option>
@@ -420,6 +432,10 @@
               <option value="archived">Archived</option>
               <option value="hidden">Hidden Apps Only</option>
             </select>
+            <label class="flex items-center space-x-2 text-xs text-slate-400 cursor-pointer bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 hover:border-slate-700 transition select-none" title="Group catalog cards into collapsible Category sections">
+              <input type="checkbox" id="group-by-category-toggle" checked onchange="filterCatalog()" class="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0">
+              <span>Group by Category</span>
+            </label>
             <label class="flex items-center space-x-2 text-xs text-slate-400 cursor-pointer bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 hover:border-slate-700 transition select-none" title="Show apps that have been hidden from main catalog & system tray">
               <input type="checkbox" id="show-hidden-toggle" onchange="filterCatalog()" class="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0">
               <span>Show Hidden</span>
@@ -467,12 +483,15 @@
               <div class="flex items-center justify-between">
                 <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                   <i class="fa-solid fa-cloud-arrow-up text-indigo-400"></i>
-                  <span>Push Local Apps to GitHub</span>
+                  <span>GitHub Fleet Updater (Silent Background Sync)</span>
                 </h3>
-                <span id="sync-local-apps-badge" class="px-2 py-0.5 rounded-full text-[11px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">0 Local Apps</span>
+                <div class="flex items-center gap-1.5">
+                  <span id="gh-updater-state-pill" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Silent Mode</span>
+                  <span id="sync-local-apps-badge" class="px-2 py-0.5 rounded-full text-[11px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">0 Local Apps</span>
+                </div>
               </div>
               <p class="text-xs text-slate-400 leading-relaxed">
-                Automatically initializes Git, commits latest changes, creates remote GitHub repositories if needed, and pushes your local apps in <code class="text-amber-300" id="sync-workspace-label">d:\Geppy_Apps</code> to GitHub.
+                Updates your local apps in <code class="text-amber-300" id="sync-workspace-label">d:\Geppy_Apps</code> to GitHub inside a self-contained background worker—with <strong>zero</strong> popup console windows and automatic fast-skip for unchanged repos.
               </p>
 
               <!-- Single App Quick Push Selector -->
@@ -486,12 +505,57 @@
                   </button>
                 </div>
               </div>
+
+              <!-- Fast-Skip Option -->
+              <label class="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 cursor-pointer text-xs text-slate-300">
+                <input type="checkbox" id="gh-updater-only-changed" checked class="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500">
+                <span>Fast-skip apps with no local changes (recommended, avoids unnecessary Git operations)</span>
+              </label>
+
+              <!-- Contained Fleet Updater Live Monitor -->
+              <div id="gh-updater-panel" class="hidden bg-slate-950/95 rounded-xl border border-indigo-500/40 p-3.5 space-y-3 shadow-inner">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <i id="gh-updater-spinner" class="fa-solid fa-circle-notch animate-spin text-indigo-400 text-xs"></i>
+                    <span id="gh-updater-current-label" class="text-xs font-semibold text-white truncate">Initializing updater...</span>
+                  </div>
+                  <span id="gh-updater-progress-text" class="text-[11px] font-mono text-indigo-300 shrink-0">0 / 0</span>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                  <div id="gh-updater-progress-bar" class="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-400 transition-all duration-300" style="width: 0%"></div>
+                </div>
+
+                <!-- Counters -->
+                <div class="grid grid-cols-3 gap-2 text-center">
+                  <div class="bg-emerald-950/40 border border-emerald-500/30 rounded-lg py-1.5 px-2">
+                    <div id="gh-updater-pushed-count" class="text-sm font-bold text-emerald-300 font-mono">0</div>
+                    <div class="text-[10px] uppercase tracking-wider text-emerald-400/80">Pushed</div>
+                  </div>
+                  <div class="bg-slate-900/80 border border-slate-700/70 rounded-lg py-1.5 px-2">
+                    <div id="gh-updater-skipped-count" class="text-sm font-bold text-slate-300 font-mono">0</div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400">Skipped (Clean)</div>
+                  </div>
+                  <div class="bg-rose-950/40 border border-rose-500/30 rounded-lg py-1.5 px-2">
+                    <div id="gh-updater-failed-count" class="text-sm font-bold text-rose-300 font-mono">0</div>
+                    <div class="text-[10px] uppercase tracking-wider text-rose-400/80">Failed</div>
+                  </div>
+                </div>
+
+                <!-- Contained Log Console -->
+                <div id="gh-updater-logs" class="bg-black/70 border border-slate-800/90 rounded-lg p-2.5 max-h-40 overflow-y-auto font-mono text-[11px] text-slate-300 space-y-1"></div>
+              </div>
             </div>
 
-            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-3">
-              <button type="button" onclick="pushAllLocalToGitHub()" class="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/25 transition flex items-center justify-center gap-2">
+            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+              <button type="button" id="btn-gh-updater-start" onclick="pushAllLocalToGitHub()" class="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/25 transition flex items-center justify-center gap-2">
                 <i class="fa-solid fa-cloud-arrow-up"></i>
-                <span>Push All Local Apps to GitHub</span>
+                <span>Run Contained GitHub Updater</span>
+              </button>
+              <button type="button" id="btn-gh-updater-stop" onclick="cancelGitHubFleetUpdater()" class="hidden px-3.5 py-2.5 bg-rose-600/90 hover:bg-rose-500 text-white text-xs font-bold rounded-xl border border-rose-400/40 transition flex items-center justify-center gap-1.5 shrink-0">
+                <i class="fa-solid fa-stop"></i>
+                <span>Stop Updater</span>
               </button>
             </div>
           </div>
@@ -1354,11 +1418,22 @@
               <div class="flex items-center space-x-2">
                 <h2 class="text-xl font-bold text-white">Captain Geppy</h2>
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Galactic Commander</span>
+                <span id="geppy-active-model-badge" class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30" title="Geppy automatically adapts his AI model based on your task needs">🧠 Auto (Adaptive)</span>
               </div>
-              <p class="text-xs text-slate-400">Navigating the Galaxy of Apps that AI makes possible • Powered by Gemini & SOT Engine</p>
+              <p class="text-xs text-slate-400">Navigating the Galaxy of Apps that AI makes possible • Powered by Adaptive Gemini Router & SOT Engine</p>
             </div>
           </div>
-          <div class="flex items-center space-x-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex items-center bg-slate-900/90 border border-indigo-500/40 rounded-lg px-2 py-1 space-x-1.5" title="Select Geppy's AI Model Mode (Auto dynamically picks Flash-Lite, Gemini 3 Flash, or Gemini 2.5 Pro based on task needs)">
+              <i class="fa-solid fa-microchip text-indigo-400 text-xs"></i>
+              <select id="geppy-model-select" onchange="changeGeppyModelMode(this.value)" class="bg-transparent text-indigo-200 text-xs font-semibold focus:outline-none cursor-pointer">
+                <option value="auto" class="bg-slate-900 text-indigo-200">🧠 Auto (Adapts to Needs)</option>
+                <option value="gemini-3-flash-preview" class="bg-slate-900 text-cyan-200">⚡ Gemini 3 Flash (Fast + Vision)</option>
+                <option value="gemini-2.5-pro" class="bg-slate-900 text-amber-200">🏛️ Gemini 2.5 Pro (Deep Reasoning)</option>
+                <option value="gemini-2.5-flash" class="bg-slate-900 text-emerald-200">🚀 Gemini 2.5 Flash (Balanced)</option>
+                <option value="gemini-2.5-flash-lite" class="bg-slate-900 text-slate-200">💨 Gemini 2.5 Flash-Lite (Instant)</option>
+              </select>
+            </div>
             <button type="button" onclick="toggleGitBridgeScreenStream()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold rounded-lg border border-cyan-500/40 transition flex items-center space-x-1.5">
               <i class="fa-solid fa-tv text-cyan-400"></i>
               <span>Stream Screen</span>
@@ -4861,7 +4936,7 @@
         return;
       }
 
-      container.innerHTML = apps.map(app => `
+      const renderSingleCard = (app) => `
         <div class="glass rounded-2xl overflow-hidden hover:border-indigo-500/50 transition duration-300 cursor-pointer flex flex-col justify-between group shadow-xl" onclick="openAppDashboard('${escapeJsParam(app.slug)}')">
           <div>
             <!-- Hero Icon Banner Header Area -->
@@ -4893,6 +4968,7 @@
               </div>
 
               <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                ${getCategoryBadgeHtml(app)}
                 ${getSyncBadgeHtml(app)}
                 ${app.is_live && app.live_url ? `<a href="${app.live_url}" target="_blank" onclick="event.stopPropagation()" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 animate-pulse hover:bg-emerald-500/30 transition" title="App is LIVE! Click to open in browser"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>LIVE: ${escapeHtml(app.live_url)}</span></a>` : ''}
               </div>
@@ -4965,7 +5041,61 @@
             </div>
           </div>
         </div>
-      `).join('');
+      `;
+
+      const groupByCat = document.getElementById('group-by-category-toggle')?.checked ?? true;
+      const categoryVal = document.getElementById('category-filter')?.value || 'all';
+      if (!groupByCat || categoryVal === 'recent') {
+        const sortedFlat = sortCatalogAppsRecentTop(apps);
+        container.innerHTML = sortedFlat.map(renderSingleCard).join('');
+        return;
+      }
+
+      const grouped = {};
+      CATALOG_CATEGORY_ORDER.forEach(c => { grouped[c] = []; });
+      apps.forEach(a => {
+        const c = a.category && grouped[a.category] ? a.category : 'AI, Prompts & Planning';
+        grouped[c].push(a);
+      });
+
+      let htmlBlocks = [];
+
+      // Surface pinned "🕒 Recently Used" section right at the top when viewing All Categories without search
+      if (categoryVal === 'all' && !searchVal) {
+        const recentTop = sortCatalogAppsRecentTop(apps).slice(0, 6);
+        if (recentTop.length > 0) {
+          htmlBlocks.push(`
+            <div class="col-span-full flex items-center justify-between bg-gradient-to-r from-cyan-950/70 via-slate-900/90 to-indigo-950/60 border border-cyan-500/40 rounded-xl px-4 py-2.5 mt-1 shadow-lg">
+              <div class="flex items-center gap-2.5">
+                <span class="text-lg">🕒</span>
+                <h3 class="text-sm font-bold text-cyan-200 tracking-wide">Recently Used &amp; Active Apps</h3>
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-500/20 text-cyan-200 border border-cyan-500/40">Top ${recentTop.length} Pulled to Top</span>
+              </div>
+              <span class="text-[11px] text-slate-400 hidden sm:inline">Most recently launched or opened apps across GitBridge, Galactic &amp; Tray</span>
+            </div>
+          `);
+          htmlBlocks.push(recentTop.map(renderSingleCard).join(''));
+        }
+      }
+
+      CATALOG_CATEGORY_ORDER.forEach(cat => {
+        const catApps = sortCatalogAppsRecentTop(grouped[cat] || []);
+        if (catApps.length === 0) return;
+        const icon = CATALOG_CATEGORY_ICONS[cat] || '📦';
+        const liveInCat = catApps.filter(a => a.is_live).length;
+        htmlBlocks.push(`
+          <div class="col-span-full flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 mt-2">
+            <div class="flex items-center gap-2.5">
+              <span class="text-lg">${icon}</span>
+              <h3 class="text-sm font-bold text-white tracking-wide">${escapeHtml(cat)}</h3>
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">${catApps.length} ${catApps.length === 1 ? 'App' : 'Apps'}</span>
+              ${liveInCat > 0 ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">${liveInCat} 🟢 Live</span>` : ''}
+            </div>
+          </div>
+        `);
+        htmlBlocks.push(catApps.map(renderSingleCard).join(''));
+      });
+      container.innerHTML = htmlBlocks.join('');
     }
 
     function escapeHtml(str) {
@@ -5010,17 +5140,145 @@
       }
     }
 
-    async function pushAllLocalToGitHub() {
-      if (!confirm("Are you sure you want to push all local apps with changes to GitHub?")) return;
-      try {
-        const res = await fetch('/api/workspace/push-all-github', { method: 'POST' });
-        const data = await res.json();
-        alert(`Bulk GitHub Sync Complete!\nSuccessfully pushed: ${data.pushed} apps\nFailed: ${data.failed} apps`);
-        fetchCatalog();
-      } catch (e) {
-        alert('Bulk push to GitHub failed: ' + e);
+    let _ghUpdaterPollTimer = null;
+
+    function renderGitHubFleetUpdaterState(state) {
+      if (!state) return;
+      const panel = document.getElementById('gh-updater-panel');
+      const pill = document.getElementById('gh-updater-state-pill');
+      const spinner = document.getElementById('gh-updater-spinner');
+      const currentLabel = document.getElementById('gh-updater-current-label');
+      const progressText = document.getElementById('gh-updater-progress-text');
+      const progressBar = document.getElementById('gh-updater-progress-bar');
+      const pushedEl = document.getElementById('gh-updater-pushed-count');
+      const skippedEl = document.getElementById('gh-updater-skipped-count');
+      const failedEl = document.getElementById('gh-updater-failed-count');
+      const logsEl = document.getElementById('gh-updater-logs');
+      const startBtn = document.getElementById('btn-gh-updater-start');
+      const stopBtn = document.getElementById('btn-gh-updater-stop');
+
+      const total = state.total || 0;
+      const processed = state.processed || 0;
+      const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+
+      if (panel && (state.running || processed > 0 || (state.logs && state.logs.length > 0))) {
+        panel.classList.remove('hidden');
+      }
+
+      if (pushedEl) pushedEl.textContent = String(state.pushed || 0);
+      if (skippedEl) skippedEl.textContent = String(state.skipped || 0);
+      if (failedEl) failedEl.textContent = String(state.failed || 0);
+      if (progressText) progressText.textContent = `${processed} / ${total}`;
+      if (progressBar) progressBar.style.width = `${pct}%`;
+
+      if (state.running) {
+        if (pill) {
+          pill.textContent = 'Updating...';
+          pill.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 animate-pulse';
+        }
+        if (spinner) spinner.className = 'fa-solid fa-circle-notch animate-spin text-indigo-400 text-xs';
+        if (currentLabel) {
+          currentLabel.textContent = state.current_app
+            ? `Syncing: ${state.current_app}`
+            : 'Scanning local repositories...';
+        }
+        if (startBtn) {
+          startBtn.disabled = true;
+          startBtn.classList.add('opacity-60', 'cursor-not-allowed');
+          startBtn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>Updater Running in Background (${pct}%)...</span>`;
+        }
+        if (stopBtn) stopBtn.classList.remove('hidden');
+      } else {
+        if (pill) {
+          pill.textContent = state.cancel_requested ? 'Stopped' : (processed > 0 ? 'Complete' : 'Silent Mode');
+          pill.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+        }
+        if (spinner) {
+          spinner.className = state.cancel_requested
+            ? 'fa-solid fa-circle-stop text-amber-400 text-xs'
+            : 'fa-solid fa-circle-check text-emerald-400 text-xs';
+        }
+        if (currentLabel) {
+          currentLabel.textContent = state.cancel_requested
+            ? `Updater stopped (${state.pushed || 0} pushed, ${state.skipped || 0} skipped)`
+            : `Finished (${state.pushed || 0} pushed, ${state.skipped || 0} clean/skipped, ${state.failed || 0} failed)`;
+        }
+        if (startBtn) {
+          startBtn.disabled = false;
+          startBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+          startBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Run Contained GitHub Updater</span>`;
+        }
+        if (stopBtn) stopBtn.classList.add('hidden');
+      }
+
+      if (logsEl && Array.isArray(state.logs)) {
+        logsEl.innerHTML = state.logs.slice(-60).map(item => {
+          const lvl = item.level || 'info';
+          const color = lvl === 'error' ? 'text-rose-400' : (lvl === 'warn' ? 'text-amber-300' : (lvl === 'success' ? 'text-emerald-300' : 'text-slate-300'));
+          return `<div class="${color} leading-snug"><span class="text-slate-500">[${escapeHtml(item.time || '')}]</span> ${escapeHtml(item.message || '')}</div>`;
+        }).join('');
+        logsEl.scrollTop = logsEl.scrollHeight;
       }
     }
+
+    async function pollGitHubFleetUpdater() {
+      try {
+        const res = await fetch('/api/workspace/updater/status');
+        if (!res.ok) return;
+        const state = await res.json();
+        renderGitHubFleetUpdaterState(state);
+        if (state.running) {
+          if (!_ghUpdaterPollTimer) {
+            _ghUpdaterPollTimer = setInterval(pollGitHubFleetUpdater, 1200);
+          }
+        } else if (_ghUpdaterPollTimer) {
+          clearInterval(_ghUpdaterPollTimer);
+          _ghUpdaterPollTimer = null;
+          fetchCatalog();
+        }
+      } catch (e) {
+        console.warn('Updater status poll error:', e);
+      }
+    }
+
+    async function pushAllLocalToGitHub() {
+      const onlyChangedEl = document.getElementById('gh-updater-only-changed');
+      const onlyChanged = onlyChangedEl ? !!onlyChangedEl.checked : true;
+      const panel = document.getElementById('gh-updater-panel');
+      if (panel) panel.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/workspace/updater/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            only_changed: onlyChanged,
+            commit_message: 'Sync local changes via GitBridge Fleet Updater'
+          })
+        });
+        const data = await res.json();
+        if (data.status) {
+          renderGitHubFleetUpdaterState(data.status);
+        }
+        if (_ghUpdaterPollTimer) clearInterval(_ghUpdaterPollTimer);
+        _ghUpdaterPollTimer = setInterval(pollGitHubFleetUpdater, 1000);
+        setTimeout(pollGitHubFleetUpdater, 250);
+      } catch (e) {
+        alert('Failed to start Contained GitHub Updater: ' + e);
+      }
+    }
+
+    async function cancelGitHubFleetUpdater() {
+      try {
+        const res = await fetch('/api/workspace/updater/cancel', { method: 'POST' });
+        const data = await res.json();
+        if (data.status) renderGitHubFleetUpdaterState(data.status);
+      } catch (e) {
+        console.warn('Cancel updater failed:', e);
+      }
+    }
+
+    setTimeout(pollGitHubFleetUpdater, 800);
 
     async function triggerPushModal() {
       if (!currentAppSlug) return;
@@ -5065,6 +5323,7 @@
 
     async function launchAppDirect(slug) {
       if (!slug) return;
+      recordRecentAppWeb(slug);
       // Open tab synchronously during user click gesture so browser popup blocker never blocks slow dev server boots
       const launchWin = window.open('about:blank', '_blank');
       if (launchWin && launchWin.document) {
@@ -5155,17 +5414,104 @@
       }
     }
 
+    const CATALOG_CATEGORY_ORDER = [
+      'Core Platform & Hubs',
+      'AI, Prompts & Planning',
+      'System, Diagnostics & Tech Tools',
+      'Finance, Business & Operations',
+      'Creative, Design & Media',
+      'Communication & Productivity',
+      'Games & Entertainment',
+      'Experimental & Sandbox'
+    ];
+
+    const CATALOG_CATEGORY_ICONS = {
+      'Core Platform & Hubs': '🛸',
+      'AI, Prompts & Planning': '🤖',
+      'System, Diagnostics & Tech Tools': '🛠️',
+      'Finance, Business & Operations': '💼',
+      'Creative, Design & Media': '🎨',
+      'Communication & Productivity': '💬',
+      'Games & Entertainment': '🎮',
+      'Experimental & Sandbox': '🧪'
+    };
+
+    function getWebRecentSlugs() {
+      try {
+        const raw = localStorage.getItem('geppy_recent_app_slugs');
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function recordRecentAppWeb(slug) {
+      if (!slug || String(slug).startsWith('.')) return;
+      const nowIso = new Date().toISOString();
+      try {
+        const list = getWebRecentSlugs().filter(s => s !== slug);
+        list.unshift(slug);
+        localStorage.setItem('geppy_recent_app_slugs', JSON.stringify(list.slice(0, 15)));
+      } catch (e) {}
+      const target = (globalApps || []).find(a => a.slug === slug);
+      if (target) {
+        target.last_opened_at = nowIso;
+        target.updated_at = nowIso;
+      }
+      fetch(`/api/apps/${encodeURIComponent(slug)}/touch`, { method: 'POST' }).catch(() => {});
+    }
+
+    function sortCatalogAppsRecentTop(list) {
+      const recentSlugs = getWebRecentSlugs();
+      return [...(list || [])].sort((a, b) => {
+        if (Boolean(a.is_live) !== Boolean(b.is_live)) return a.is_live ? -1 : 1;
+        const idxA = recentSlugs.indexOf(a.slug);
+        const idxB = recentSlugs.indexOf(b.slug);
+        if (idxA !== -1 || idxB !== -1) {
+          if (idxA === -1) return 1;
+          if (idxB === -1) return -1;
+          if (idxA !== idxB) return idxA - idxB;
+        }
+        const openA = a.last_opened_at ? Date.parse(a.last_opened_at) || 0 : 0;
+        const openB = b.last_opened_at ? Date.parse(b.last_opened_at) || 0 : 0;
+        if (openA !== openB) return openB - openA;
+        const upA = a.updated_at ? Date.parse(a.updated_at) || 0 : 0;
+        const upB = b.updated_at ? Date.parse(b.updated_at) || 0 : 0;
+        if (upA !== upB) return upB - upA;
+        return (a.name || '').trim().localeCompare((b.name || '').trim());
+      });
+    }
+
+    function getCategoryBadgeHtml(app) {
+      const cat = app.category || 'AI, Prompts & Planning';
+      const icon = CATALOG_CATEGORY_ICONS[cat] || '📦';
+      return `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/15 text-indigo-200 border border-indigo-500/30 flex items-center gap-1" title="Category: ${escapeHtml(cat)}"><span>${icon}</span><span>${escapeHtml(cat)}</span></span>`;
+    }
+
     function filterCatalog() {
       const search = document.getElementById('catalog-search').value.toLowerCase().trim();
       const status = document.getElementById('status-filter').value;
+      const category = document.getElementById('category-filter')?.value || 'all';
       const showHidden = document.getElementById('show-hidden-toggle')?.checked || false;
+      const topRecentSlugs = new Set(sortCatalogAppsRecentTop(globalApps.filter(a => !a.is_hidden && !String(a.slug || '').startsWith('.'))).slice(0, 8).map(a => a.slug));
 
       const filtered = globalApps.filter(app => {
+        // Skip dot-prefixed temp directories unless showHidden is checked
+        if (String(app.slug || '').startsWith('.') && !showHidden) return false;
+
         // Hidden filter logic
         if (status === 'hidden') {
           if (!app.is_hidden) return false;
         } else {
           if (app.is_hidden && !showHidden) return false;
+        }
+
+        // Category or Recent filter
+        if (category === 'recent') {
+          if (!topRecentSlugs.has(app.slug)) return false;
+        } else if (category !== 'all' && (app.category || 'AI, Prompts & Planning') !== category) {
+          return false;
         }
 
         // Status filter
@@ -5177,6 +5523,7 @@
         const matchesSearch = !search || 
                               app.name.toLowerCase().includes(search) || 
                               app.slug.toLowerCase().includes(search) || 
+                              (app.category && app.category.toLowerCase().includes(search)) ||
                               (app.description && app.description.toLowerCase().includes(search)) ||
                               (app.tech_stack && app.tech_stack.some(t => t.toLowerCase().includes(search))) ||
                               (app.tags && app.tags.some(t => t.toLowerCase().includes(search)));
@@ -7157,6 +7504,46 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
       }
     }
 
+    async function loadGeppyModelState() {
+      try {
+        const res = await fetch('/api/geppy/models');
+        if (!res.ok) return;
+        const state = await res.json();
+        updateGeppyModelUI(state);
+      } catch (e) {}
+    }
+
+    function updateGeppyModelUI(state) {
+      if (!state) return;
+      const sel = document.getElementById('geppy-model-select');
+      if (sel && state.mode) sel.value = state.mode;
+      const badge = document.getElementById('geppy-active-model-badge');
+      if (badge) {
+        const used = state.last_used_model || state.active_model || 'gemini-3-flash-preview';
+        const modeTxt = state.mode === 'auto' ? `Auto → ${used}` : used;
+        badge.textContent = `🧠 ${modeTxt}`;
+        badge.title = state.last_selection_reason || 'Geppy Adaptive AI Model Router';
+      }
+    }
+
+    async function changeGeppyModelMode(mode) {
+      try {
+        const res = await fetch('/api/geppy/models/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: mode, reason: 'Selected in Captain Geppy UI' })
+        });
+        const state = await res.json();
+        updateGeppyModelUI(state);
+        if (typeof showToast === 'function') {
+          showToast(`Geppy AI Model set to ${state.mode_label || mode} (${state.active_model || mode})`);
+        }
+      } catch (e) {
+        console.error('Failed to switch Geppy model:', e);
+      }
+    }
+    setTimeout(loadGeppyModelState, 600);
+
     async function submitGlobalChat(overridePrompt = null, fromVoice = false) {
       const input = document.getElementById('global-chat-input');
       const prompt = (overridePrompt !== null ? overridePrompt : (input ? input.value : '')).trim();
@@ -7193,6 +7580,9 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
           app_slug: currentAppSlug || 'geppys-gitbridge',
           prompt: prompt
         });
+        if (data && data.model_state) {
+          updateGeppyModelUI(data.model_state);
+        }
         const replyText = data.text || data.reply || 'Captain Geppy standing by!';
         appendChatMessage('global-chat-messages', 'ai', replyText, data.image_data, data);
         globalChatHistory.push({ sender: 'ai', text: replyText, image_data: data.image_data });
@@ -7232,6 +7622,8 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
         const aiRole = agentMeta ? (agentMeta.role || agentMeta.handle || 'Specialist Agent') : (isGitBridgeContext ? 'Galactic Commander' : 'AI App Co-Pilot');
         const aiIcon = agentMeta ? (agentMeta.icon || '🤖') : (isGitBridgeContext ? '👨‍🚀' : '✨');
         const audioDataUrl = (extraMeta && extraMeta.audio_data_url) ? extraMeta.audio_data_url : null;
+        const modelUsed = (extraMeta && extraMeta.model_used) ? extraMeta.model_used : null;
+        const modelReason = (extraMeta && extraMeta.model_reason) ? extraMeta.model_reason : '';
         let badgesHtml = '';
         if (extraMeta && (extraMeta.watchdog_healed || extraMeta.watchdog_caught)) {
           badgesHtml += `<div class="mb-2 not-prose"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-500/40">🛡️ Aegis Watchdog Self-Healed Response</span></div>`;
@@ -7246,10 +7638,11 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
         const speakAudioArg = audioDataUrl ? JSON.stringify(audioDataUrl).replace(/"/g, '&quot;') : 'null';
         msgDiv.innerHTML = `
           <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-800/80 not-prose">
-            <div class="flex items-center space-x-2">
+            <div class="flex flex-wrap items-center gap-1.5">
               <span class="text-base">${aiIcon}</span>
               <span class="font-bold text-xs text-amber-300">${escapeHtml(aiName)}</span>
               <span class="text-[9px] px-1.5 py-0.2 bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 rounded font-mono">${escapeHtml(aiRole)}</span>
+              ${modelUsed ? `<span class="text-[9px] px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded font-mono" title="${escapeHtml(modelReason || 'Active AI Model')}">🧠 ${escapeHtml(modelUsed)}</span>` : ''}
               ${audioDataUrl ? `<span class="text-[9px] px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded font-mono" title="Gemini Native AI Voice Ready">🎙️ AI Voice</span>` : ''}
             </div>
             <button type="button" onclick="window.speakGitBridgeReply && window.speakGitBridgeReply(${speakTextArg}, ${speakAudioArg})" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 flex items-center space-x-1" title="Play Captain Geppy AI Voice">
@@ -11341,19 +11734,29 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
     function setConceptPurposeQuick(val) {
       const el = document.getElementById('lab-concept-purpose');
       if (el) el.value = val;
-      const promptEl = document.getElementById('lab-custom-prompt');
-      if (promptEl) {
-        promptEl.value = val;
-      }
       const sel = document.getElementById('lab-concept-purpose-select');
       if (sel) {
+        let matched = false;
         for (let i = 0; i < sel.options.length; i++) {
-          if (sel.options[i].value === val || sel.options[i].value.startsWith(val)) {
+          if (sel.options[i].value === val || (val && sel.options[i].value.startsWith(val.split(' (')[0]))) {
             sel.selectedIndex = i;
+            matched = true;
             break;
           }
         }
+        if (!matched && val) {
+          let customOpt = sel.querySelector('option[data-custom-role="true"]');
+          if (!customOpt) {
+            customOpt = document.createElement('option');
+            customOpt.setAttribute('data-custom-role', 'true');
+            sel.appendChild(customOpt);
+          }
+          customOpt.value = val;
+          customOpt.textContent = `✨ ${val}`;
+          customOpt.selected = true;
+        }
       }
+      updateCompiledLabPrompt();
     }
 
     function setConceptStyleQuick(val) {
@@ -11362,28 +11765,239 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
       const sel = document.getElementById('lab-concept-style-select');
       if (sel) {
         for (let i = 0; i < sel.options.length; i++) {
-          if (sel.options[i].value === val || sel.options[i].value.startsWith(val)) {
+          if (sel.options[i].value === val || (val && sel.options[i].value.startsWith(val.split(' (')[0]))) {
             sel.selectedIndex = i;
             break;
           }
         }
       }
+      updateCompiledLabPrompt();
     }
 
     function onConceptPurposeDropdown(val) {
-      if (!val) return;
       const el = document.getElementById('lab-concept-purpose');
-      if (el) el.value = val;
-      const promptEl = document.getElementById('lab-custom-prompt');
-      if (promptEl && !promptEl.value.trim()) {
-        promptEl.value = val;
-      }
+      if (el) el.value = val || '';
+      updateCompiledLabPrompt();
     }
 
     function onConceptStyleDropdown(val) {
-      if (!val) return;
       const el = document.getElementById('lab-concept-style');
-      if (el) el.value = val;
+      if (el && val) el.value = val;
+      updateCompiledLabPrompt();
+    }
+
+    function appendLabCustomDetail(snippet) {
+      if (!snippet) return;
+      const el = document.getElementById('lab-custom-prompt');
+      if (!el) return;
+      const cur = el.value.trim();
+      if (!cur) {
+        el.value = snippet;
+      } else if (!cur.toLowerCase().includes(snippet.toLowerCase())) {
+        const sep = cur.endsWith('.') || cur.endsWith(',') || cur.endsWith(';') ? ' ' : ', ';
+        el.value = `${cur}${sep}${snippet}`;
+      }
+      updateCompiledLabPrompt();
+      el.focus();
+    }
+
+    function buildAssembledLabPromptText(includeAdditionalDetails = true) {
+      const purposeSelVal = document.getElementById('lab-concept-purpose-select')?.value.trim() || '';
+      const purposeHiddenVal = document.getElementById('lab-concept-purpose')?.value.trim() || '';
+      const presetPurpose = purposeSelVal || purposeHiddenVal;
+
+      const styleInputVal = document.getElementById('lab-concept-style')?.value.trim() || '';
+      const styleSelVal = document.getElementById('lab-concept-style-select')?.value.trim() || '';
+      const styleDirective = styleInputVal || styleSelVal;
+
+      const rawCustomPrompt = document.getElementById('lab-custom-prompt')?.value.trim() || '';
+      const negativePrompt = document.getElementById('lab-negative-prompt')?.value.trim() || '';
+      const targetFormat = document.getElementById('lab-target-format')?.value || 'app_icon';
+      const aspectRatio = document.getElementById('lab-aspect-ratio')?.value || '1:1';
+      const cutoutBg = document.getElementById('lab-cutout-bg') ? document.getElementById('lab-cutout-bg').checked : true;
+      const preserveSourcePic = document.getElementById('lab-preserve-source-pic') ? document.getElementById('lab-preserve-source-pic').checked : false;
+      let appSlug = document.getElementById('lab-app-slug')?.value || '';
+      const brandVal = document.getElementById('lab-concept-brand-select')?.value || '';
+
+      if (!appSlug && brandVal && brandVal.startsWith('app:')) {
+        appSlug = brandVal.replace('app:', '');
+      }
+
+      const formatLabelMap = {
+        app_icon: 'App Icon / Emblem Badge',
+        avatar: 'Character / Mascot Portrait',
+        trading_card: 'Vintage Collectible Trading Card',
+        banner_hero: 'Widescreen Launch Hero Banner',
+        ui_component: 'UI Widget / Component Card',
+        social_story: 'Vertical Story Poster'
+      };
+
+      const interactionLabelMap = {
+        holding: 'character holding this prop/item',
+        wearing: 'character wearing this gear/outfit',
+        sitting_on: 'sitting or riding on this',
+        logo_printed: 'brand logo printed on surface',
+        mascot_printed: 'mascot engraved/printed on blank surface',
+        emblem: 'integrated into 3D emblem',
+        themed_after: 'apply Contextile template / physical blank sizing rules',
+        none: 'primary anchor'
+      };
+
+      const sections = [];
+
+      // 1. Role, Target App & Scope
+      const roleBits = [];
+      if (presetPurpose) {
+        roleBits.push(`Asset Role: ${presetPurpose}`);
+      } else if (formatLabelMap[targetFormat]) {
+        roleBits.push(`Asset Type: ${formatLabelMap[targetFormat]} (${aspectRatio})`);
+      }
+      if (appSlug && Array.isArray(globalApps)) {
+        const appObj = globalApps.find(a => a.slug === appSlug);
+        roleBits.push(`Target App: ${appObj ? appObj.name : appSlug}`);
+      }
+      if (labGridMode === 'variations_grid') {
+        roleBits.push(`Scope: ${labGridRows}x${labGridCols} Variation Sheet (${labGridRows * labGridCols} distinct takes/poses, auto-sliced)`);
+      } else if (labGridMode === 'multi_concept_grid') {
+        const conceptNames = (labMultiConcepts || []).map((c, idx) => `#${idx + 1} ${c.label || 'Concept'}${c.prompt ? ` (${c.prompt})` : ''}`).join('; ');
+        roleBits.push(`Scope: ${labGridRows}x${labGridCols} Multi-Concept Sheet [${conceptNames}]`);
+      } else {
+        roleBits.push(`Format: ${formatLabelMap[targetFormat] || targetFormat} (${aspectRatio})`);
+      }
+      if (roleBits.length > 0) {
+        sections.push(roleBits.join(' | '));
+      }
+
+      // 2. Aesthetic Style & Vibe
+      if (styleDirective) {
+        sections.push(`Visual Style & Vibe: ${styleDirective}`);
+      }
+
+      // 3. Attached SOT Items, Physical Blanks & Contextile Templates
+      const effectiveIngs = [...labSelectedIngredients];
+      if (brandVal && !brandVal.startsWith('app:') && !effectiveIngs.some(i => i.name === brandVal)) {
+        const brandCtx = (globalContextiles || []).find(c => c.name === brandVal);
+        if (brandCtx) {
+          effectiveIngs.unshift({
+            name: brandCtx.name,
+            title: brandCtx.title,
+            archetype: brandCtx.archetype,
+            sot_role: 'mascot',
+            interaction: 'none',
+            action: '',
+            variables: brandCtx.variables || [],
+            option_toggles: brandCtx.option_toggles || []
+          });
+        }
+      }
+
+      if (effectiveIngs.length > 0) {
+        const ingLines = [];
+        effectiveIngs.forEach(ing => {
+          const handleStr = `@${ing.name}${ing.title ? ` (${ing.title})` : ''}`;
+          const interDesc = interactionLabelMap[ing.interaction || 'none'] || ing.interaction || '';
+          let line = `${handleStr}${interDesc ? ` [${interDesc}]` : ''}`;
+          if (ing.action && ing.action.trim()) {
+            line += ` — Action/Pose: "${ing.action.trim()}"`;
+          }
+          const bs = (ing.blank_spec && typeof ing.blank_spec === 'object') ? ing.blank_spec : (ing.modifiers && ing.modifiers.blank_spec);
+          if (bs && bs.width_value) {
+            line += ` [Blank Spec: ${bs.width_value}x${bs.height_value} ${bs.unit || 'in'} ${bs.shape || 'rectangle'}, ${bs.fabrication_mode || 'Laser'}, ${bs.color_mode || '1bit_bw'}${bs.requires_edge_bridges ? ', Stencil Edge Bridges Required' : ''}]`;
+          }
+          const enabledToggles = (ing.option_toggles || []).filter(t => t && t.enabled).map(t => t.prompt_addition || t.label).filter(Boolean);
+          if (enabledToggles.length > 0) {
+            line += ` | Specifics: ${enabledToggles.join('; ')}`;
+          }
+          const varPairs = (ing.variables || [])
+            .map(v => {
+              const val = (v.value !== undefined && v.value !== '') ? v.value : (v.default_value || '');
+              return (v.key && val) ? `${v.label || v.key}: ${val}` : null;
+            })
+            .filter(Boolean);
+          if (varPairs.length > 0) {
+            line += ` | Options: ${varPairs.join(', ')}`;
+          }
+          ingLines.push(line);
+        });
+        sections.push(`SOT & Contextiles: ${ingLines.join(' + ')}`);
+      }
+
+      // 4. Uploaded Extra Reference Pictures
+      if (labExtraImages && labExtraImages.length > 0) {
+        const extraLines = labExtraImages.map((item, idx) => {
+          const obj = typeof item === 'string' ? { name: `Ref Pic ${idx + 1}`, role: 'item', interaction: 'holding', action: '' } : item;
+          const inter = interactionLabelMap[obj.interaction || 'holding'] || obj.interaction || 'holding';
+          return `${obj.name || `Ref Pic ${idx + 1}`} (${obj.role || 'item'}, ${inter}${obj.action ? `: "${obj.action}"` : ''})`;
+        });
+        sections.push(`Uploaded Ref Pictures: ${extraLines.join(', ')}`);
+      }
+
+      // 5. Cutout, Picture Lock & Fidelity Options
+      const outputFlags = [];
+      if (cutoutBg) outputFlags.push('Isolated on clean transparent background (Auto-Cutout PNG)');
+      if (preserveSourcePic) outputFlags.push('Lock & preserve exact source picture pixels');
+      if (labFidelityMode === 'strict') outputFlags.push('Strict SOT Likeness');
+      else if (labFidelityMode === 'creative') outputFlags.push('Creative Reinterpretation');
+      if (outputFlags.length > 0) {
+        sections.push(`Output Rules: ${outputFlags.join(' | ')}`);
+      }
+
+      // 6. Additional Details (Step 3 Textarea)
+      if (includeAdditionalDetails && rawCustomPrompt) {
+        sections.push(`Additional Details: ${rawCustomPrompt}`);
+      }
+
+      // 7. Negative Constraints
+      if (negativePrompt) {
+        sections.push(`Avoid: ${negativePrompt}`);
+      }
+
+      return sections.join('\n• ');
+    }
+
+    function updateCompiledLabPrompt() {
+      const previewEl = document.getElementById('lab-built-prompt-preview');
+      const badgeEl = document.getElementById('lab-built-prompt-badge');
+      if (!previewEl) return;
+
+      const builtText = buildAssembledLabPromptText(true);
+      if (!builtText || !builtText.trim()) {
+        previewEl.innerText = 'Select a role, style vibe, or SOT Contextile in Steps 1 & 2 above to watch your prompt assemble live...';
+      } else {
+        previewEl.innerText = '• ' + builtText;
+      }
+
+      if (badgeEl) {
+        let activeCount = 0;
+        if ((document.getElementById('lab-concept-purpose-select')?.value || document.getElementById('lab-concept-purpose')?.value || '').trim()) activeCount++;
+        if ((document.getElementById('lab-concept-style')?.value || document.getElementById('lab-concept-style-select')?.value || '').trim()) activeCount++;
+        activeCount += (labSelectedIngredients || []).length;
+        activeCount += (labExtraImages || []).length;
+        if ((document.getElementById('lab-custom-prompt')?.value || '').trim()) activeCount++;
+        badgeEl.innerText = activeCount > 0 ? `${activeCount} Option${activeCount === 1 ? '' : 's'} Active` : 'Live Prompt Builder';
+      }
+    }
+
+    function copyBuiltLabPrompt() {
+      const builtText = buildAssembledLabPromptText(true);
+      if (!builtText) return;
+      navigator.clipboard.writeText(builtText.replace(/\n• /g, '. '));
+      const btn = document.getElementById('btn-copy-built-lab-prompt');
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400 text-[9px]"></i><span>Copied!</span>';
+        setTimeout(() => { btn.innerHTML = orig; }, 1800);
+      }
+    }
+
+    function loadBuiltPromptIntoCustomDetails() {
+      const builtWithoutCustom = buildAssembledLabPromptText(false).replace(/\n• /g, '. ');
+      const promptEl = document.getElementById('lab-custom-prompt');
+      if (!promptEl) return;
+      const cur = promptEl.value.trim();
+      promptEl.value = cur ? `${builtWithoutCustom}. ${cur}` : builtWithoutCustom;
+      updateCompiledLabPrompt();
+      promptEl.focus();
     }
 
     function setConceptBrandQuick(val) {
@@ -11391,6 +12005,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
       if (!sel) return;
       if (!val) {
         sel.value = '';
+        updateCompiledLabPrompt();
         return;
       }
       for (let i = 0; i < sel.options.length; i++) {
@@ -11399,6 +12014,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
           break;
         }
       }
+      updateCompiledLabPrompt();
     }
 
     function populateConceptBrandDropdown() {
@@ -11450,6 +12066,9 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
       if (presetPurposeVal && customPromptVal && customPromptVal.includes(presetPurposeVal)) {
         purpose = customPromptVal;
       }
+      if (!purpose && labSelectedIngredients.length > 0) {
+        purpose = labSelectedIngredients.map(i => `${i.title || i.name} (@${i.name})`).join(' + ');
+      }
 
       let style = (styleInput && styleInput.value.trim()) ? styleInput.value.trim() : (styleSelect ? styleSelect.value.trim() : '');
       let brandVal = brandSelect ? brandSelect.value : '';
@@ -11462,8 +12081,8 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
       if (!purpose) {
         purpose = prompt('What is this asset for? (e.g. "3D Hexagonal App Icon", "Geppy\'s Cash transaction badge", "Golden Trophy")', 'App Launcher Squircle Icon');
         if (!purpose) return;
-        if (promptInput) promptInput.value = purpose;
         if (purposeInput) purposeInput.value = purpose;
+        updateCompiledLabPrompt();
       }
 
       let appSlug = document.getElementById('lab-app-slug')?.value || currentAppSlug || (globalApps && globalApps.length > 0 ? globalApps[0].slug : null);
@@ -11635,6 +12254,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
       }
 
       renderLabIngredients();
+      updateCompiledLabPrompt();
       promptEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
@@ -11702,6 +12322,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
       populateLabAppDropdown();
       populateConceptBrandDropdown();
       renderLabIngredients();
+      updateCompiledLabPrompt();
       fetchLabHistory();
     }
 
@@ -11925,6 +12546,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
             return;
           }
           v.value = val;
+          updateCompiledLabPrompt();
         }
       }
     }
@@ -12006,18 +12628,23 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
 
     function setLabGridMode(mode) {
       labGridMode = mode || 'single';
+      const btnMap = {
+        single: document.getElementById('btn-grid-mode-single') || document.getElementById('lab-grid-btn-single'),
+        variations_grid: document.getElementById('btn-grid-mode-variations') || document.getElementById('lab-grid-btn-variations_grid'),
+        multi_concept_grid: document.getElementById('btn-grid-mode-concepts') || document.getElementById('lab-grid-btn-multi_concept_grid')
+      };
       ['single', 'variations_grid', 'multi_concept_grid'].forEach(m => {
-        const btn = document.getElementById(`lab-grid-btn-${m}`);
+        const btn = btnMap[m];
         if (!btn) return;
         if (m === labGridMode) {
-          btn.className = 'lab-grid-mode-btn active py-2 px-2 rounded-xl text-[11px] font-bold border border-indigo-500 bg-indigo-600/30 text-white shadow-sm transition';
+          btn.className = 'p-2.5 rounded-xl border border-amber-500 bg-amber-500/20 text-white text-left transition flex items-center space-x-2.5 shadow-sm';
         } else {
-          btn.className = 'lab-grid-mode-btn py-2 px-2 rounded-xl text-[11px] font-medium border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition';
+          btn.className = 'p-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700 hover:text-white text-left transition flex items-center space-x-2.5';
         }
       });
 
       const sizeSelect = document.getElementById('lab-grid-size-select');
-      const conceptsBox = document.getElementById('lab-multi-concepts-box');
+      const conceptsBox = document.getElementById('lab-multi-concept-box') || document.getElementById('lab-multi-concepts-box');
       if (labGridMode === 'single') {
         labGridRows = 1;
         labGridCols = 1;
@@ -12038,6 +12665,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
           if (conceptsBox) conceptsBox.classList.add('hidden');
         }
       }
+      updateCompiledLabPrompt();
     }
 
     function onLabGridSizeChanged(val) {
@@ -12048,6 +12676,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
         ensureLabMultiConceptsCount(labGridRows * labGridCols);
         renderLabMultiConceptList();
       }
+      updateCompiledLabPrompt();
     }
 
     function ensureLabMultiConceptsCount(count) {
@@ -12072,7 +12701,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
     }
 
     function renderLabMultiConceptList() {
-      const container = document.getElementById('lab-multi-concepts-list');
+      const container = document.getElementById('lab-multi-concept-list') || document.getElementById('lab-multi-concepts-list');
       if (!container) return;
       container.innerHTML = '';
       labMultiConcepts.forEach((c, idx) => {
@@ -12102,6 +12731,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
     function updateLabMultiConcept(idx, field, val) {
       if (labMultiConcepts[idx]) {
         labMultiConcepts[idx][field] = val;
+        updateCompiledLabPrompt();
       }
     }
 
@@ -12458,6 +13088,14 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
 
     function loadLabRecipePreset(presetKey) {
       labSelectedIngredients = [];
+      const setPurposeAndStyle = (purpose, style, detail) => {
+        const pEl = document.getElementById('lab-concept-purpose');
+        if (pEl) pEl.value = purpose || '';
+        const sEl = document.getElementById('lab-concept-style');
+        if (sEl) sEl.value = style || '';
+        const dEl = document.getElementById('lab-custom-prompt');
+        if (dEl) dEl.value = detail || '';
+      };
       if (presetKey === 'blank_laser') {
         const blank = (globalContextiles || []).find(c => c.name === 'slate-coaster-blank' || c.archetype === 'blank_substrate');
         const laserCtx = (globalContextiles || []).find(c => c.name === 'laser-engrave-bw-burn');
@@ -12465,7 +13103,11 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
         if (blank) addContextileToLabMixer(blank.name, 'style');
         if (laserCtx) addContextileToLabMixer(laserCtx.name, 'style');
         if (capt) addContextileToLabMixer(capt.name, 'subject');
-        document.getElementById('lab-custom-prompt').value = 'Engrave @captain-geppy onto the @slate-coaster-blank Contextile of Truth using the @laser-engrave-bw-burn 1-bit high-contrast Black & White laser burn rule inside the 4x4 inch circular safe zone.';
+        setPurposeAndStyle(
+          'Laser Engraving Burn Ready (1-bit High-Contrast B&W on Physical Blank)',
+          '1-bit pure black and white high-contrast woodcut/laser burn mask, crisp linework, zero midtone haze',
+          'Engrave @captain-geppy onto the @slate-coaster-blank Contextile of Truth using the @laser-engrave-bw-burn rule inside the 4x4 inch circular safe zone.'
+        );
         document.getElementById('lab-target-format').value = 'app_icon';
         document.getElementById('lab-aspect-ratio').value = '1:1';
       } else if (presetKey === 'blank_stencil') {
@@ -12475,7 +13117,11 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
         if (blank) addContextileToLabMixer(blank.name, 'style');
         if (stencilCtx) addContextileToLabMixer(stencilCtx.name, 'style');
         if (capt) addContextileToLabMixer(capt.name, 'subject');
-        document.getElementById('lab-custom-prompt').value = 'Cut a physical stencil of @captain-geppy calibrated to the @wood-plaque-blank Contextile of Truth using @stencil-edge-connections so every interior island is connected with structural bridges to the outer stencil frame.';
+        setPurposeAndStyle(
+          'Cuttable Stencil with Edge Bridges (Zero Floating Islands)',
+          'Single-layer cuttable stencil silhouette with structural retention tabs connecting every inner island to the outer frame',
+          'Cut a physical stencil of @captain-geppy calibrated to the @wood-plaque-blank Contextile of Truth using @stencil-edge-connections.'
+        );
         document.getElementById('lab-target-format').value = 'ui_component';
         document.getElementById('lab-aspect-ratio').value = '4:3';
       } else if (presetKey === 'horror_manor') {
@@ -12483,7 +13129,11 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
         const capt = (globalContextiles || []).find(c => c.name === 'captain-geppy' || c.archetype === 'character');
         if (horrorTpl) addContextileToLabMixer(horrorTpl.name, 'style');
         if (capt) addContextileToLabMixer(capt.name, 'subject');
-        document.getElementById('lab-custom-prompt').value = 'Place @captain-geppy inside the @blackwood-horror-movie Contextile (anchored to the @blackwood-manor Place SOT), exploring the storm-lit gothic estate with dramatic chiaroscuro shadows.';
+        setPurposeAndStyle(
+          'Cinematic Scene / Story Frame',
+          'Storm-lit gothic estate with dramatic chiaroscuro shadows and volumetric fog',
+          'Place @captain-geppy inside the @blackwood-horror-movie Contextile (anchored to the @blackwood-manor Place SOT).'
+        );
         document.getElementById('lab-target-format').value = 'banner_hero';
         document.getElementById('lab-aspect-ratio').value = '16:9';
       } else if (presetKey === 'baseball_card') {
@@ -12491,7 +13141,11 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
         const cardStyle = (globalContextiles || []).find(c => c.name === '70s-baseball-card');
         if (capt) addContextileToLabMixer(capt.name, 'subject');
         if (cardStyle) addContextileToLabMixer(cardStyle.name, 'style');
-        document.getElementById('lab-custom-prompt').value = 'Apply the @70s-baseball-card Contextile template to @captain-geppy on aged cardboard stock with arched team banner and Kodachrome 35mm film grain.';
+        setPurposeAndStyle(
+          'Collectible Trading Card',
+          'Vintage 1970s printed cardboard stock, halftone dot screen, warm Kodachrome grain, worn paper edges',
+          'Apply the @70s-baseball-card Contextile template to @captain-geppy with arched team banner.'
+        );
         document.getElementById('lab-target-format').value = 'trading_card';
         document.getElementById('lab-aspect-ratio').value = '2.5:3.5';
       } else if (presetKey === 'character_icon') {
@@ -12499,7 +13153,11 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
         const iconSet = (globalContextiles || []).find(c => c.archetype === 'icon_set' || c.name.includes('icon'));
         if (capt) addContextileToLabMixer(capt.name, 'subject');
         if (iconSet) addContextileToLabMixer(iconSet.name, 'style');
-        document.getElementById('lab-custom-prompt').value = 'Captain Geppy in heroic commander pose centered inside a gleaming 3D iOS-style frosted glass squircle icon with cyan rim light.';
+        setPurposeAndStyle(
+          'Main Desktop / iOS App Launcher Icon',
+          '3D frosted glass squircle, translucent acrylic layers, cyan and violet rim lighting, crisp studio specular highlights',
+          'Heroic commander pose centered inside the squircle badge.'
+        );
         document.getElementById('lab-target-format').value = 'app_icon';
         document.getElementById('lab-aspect-ratio').value = '1:1';
       } else if (presetKey === 'ui_hero') {
@@ -12507,20 +13165,27 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
         const capt = (globalContextiles || []).find(c => c.archetype === 'character');
         if (cardUi) addContextileToLabMixer(cardUi.name, 'style');
         if (capt) addContextileToLabMixer(capt.name, 'subject');
-        document.getElementById('lab-custom-prompt').value = 'Ultra-wide flagship marketing hero banner showing glassmorphic telemetry cards floating over an orbital planet horizon.';
+        setPurposeAndStyle(
+          'Website Hero Banner (16:9)',
+          '3D frosted glass squircle, translucent acrylic layers, cyan and violet rim lighting, crisp studio specular highlights',
+          'Ultra-wide flagship marketing hero banner showing glassmorphic telemetry cards floating over an orbital planet horizon.'
+        );
         document.getElementById('lab-target-format').value = 'banner_hero';
         document.getElementById('lab-aspect-ratio').value = '16:9';
       }
+      updateCompiledLabPrompt();
     }
 
     function onLabFormatChanged(fmt) {
       const aspectSelect = document.getElementById('lab-aspect-ratio');
-      if (!aspectSelect) return;
-      if (fmt === 'trading_card') aspectSelect.value = '2.5:3.5';
-      else if (fmt === 'app_icon' || fmt === 'avatar') aspectSelect.value = '1:1';
-      else if (fmt === 'banner_hero') aspectSelect.value = '16:9';
-      else if (fmt === 'social_story') aspectSelect.value = '9:16';
-      else if (fmt === 'ui_component') aspectSelect.value = '4:3';
+      if (aspectSelect) {
+        if (fmt === 'trading_card') aspectSelect.value = '2.5:3.5';
+        else if (fmt === 'app_icon' || fmt === 'avatar') aspectSelect.value = '1:1';
+        else if (fmt === 'banner_hero') aspectSelect.value = '16:9';
+        else if (fmt === 'social_story') aspectSelect.value = '9:16';
+        else if (fmt === 'ui_component') aspectSelect.value = '4:3';
+      }
+      updateCompiledLabPrompt();
     }
 
     function setLabFidelity(mode) {
@@ -12532,6 +13197,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
       if (activeBtn) {
         activeBtn.className = 'lab-fid-btn active py-1.5 px-2 rounded-xl text-[10.5px] font-medium border border-fuchsia-500 bg-fuchsia-600/30 text-white shadow-sm transition';
       }
+      updateCompiledLabPrompt();
     }
 
     async function handleLabExtraImageUpload(input) {
@@ -12710,6 +13376,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
     }
 
     function renderCombinedSOTStrip() {
+      updateCompiledLabPrompt();
       const strip = document.getElementById('lab-combined-sot-strip');
       const countBadge = document.getElementById('lab-combined-sot-count') || document.getElementById('lab-sot-sheet-count');
       if (!strip) return;
@@ -12768,10 +13435,6 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
     }
 
     async function synthesizeAndGenerateLabAsset() {
-      const rawCustomPrompt = document.getElementById('lab-custom-prompt')?.value.trim() || '';
-      const presetPurpose = document.getElementById('lab-concept-purpose-select')?.value.trim() || document.getElementById('lab-concept-purpose')?.value.trim() || '';
-      const styleDirective = document.getElementById('lab-concept-style')?.value.trim() || document.getElementById('lab-concept-style-select')?.value.trim() || '';
-      const negativePrompt = document.getElementById('lab-negative-prompt')?.value.trim() || '';
       const targetFormat = document.getElementById('lab-target-format')?.value || 'app_icon';
       const aspectRatio = document.getElementById('lab-aspect-ratio')?.value || '1:1';
       const cutoutBg = document.getElementById('lab-cutout-bg') ? document.getElementById('lab-cutout-bg').checked : true;
@@ -12780,21 +13443,8 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
       const brandVal = document.getElementById('lab-concept-brand-select')?.value || '';
       const statusPill = document.getElementById('lab-status-pill');
 
-      // Combine Step 1 purpose, prompt, and Step 2 style directive into one complete directive
-      const promptParts = [];
-      if (presetPurpose && (!rawCustomPrompt || !rawCustomPrompt.toLowerCase().includes(presetPurpose.toLowerCase()))) {
-        promptParts.push(`Asset Role/Purpose: ${presetPurpose}`);
-      }
-      if (rawCustomPrompt) {
-        promptParts.push(rawCustomPrompt);
-      }
-      if (styleDirective) {
-        promptParts.push(`Visual Style & Materials: ${styleDirective}`);
-      }
-      if (negativePrompt) {
-        promptParts.push(`Avoid: ${negativePrompt}`);
-      }
-      const customPrompt = promptParts.join('. ');
+      // Build the full prompt from Step 1 options, Step 2 SOT/Contextile rules, and Step 3 Additional Details
+      const customPrompt = buildAssembledLabPromptText(true);
 
       // Ensure any Quick Primary SOT Character selection in Advanced Tuning is included in ingredients
       let effectiveIngredients = [...labSelectedIngredients];
@@ -13323,6 +13973,7 @@ Whenever we decide on a code change, UI improvement, bug fix, or new feature for
       if (bpCard) bpCard.classList.add('hidden');
       const statusPill = document.getElementById('lab-status-pill');
       if (statusPill) statusPill.innerText = 'Ready';
+      updateCompiledLabPrompt();
     }
 
     // --- Output Studio & Finishing Designer Engine ---

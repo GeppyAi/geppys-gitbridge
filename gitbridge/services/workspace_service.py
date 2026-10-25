@@ -1,5 +1,7 @@
 import os
 import json
+import time
+import threading
 import subprocess
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
@@ -10,9 +12,115 @@ from gitbridge.schemas.app_profile import AppStatus
 
 load_dotenv()
 
+_WIN_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
+
+
+def _silent_subprocess_kwargs(env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """Build subprocess kwargs that prevent any cmd.exe / git.exe console window from popping up on Windows."""
+    merged_env = dict(os.environ)
+    if env:
+        merged_env.update(env)
+    merged_env["GIT_TERMINAL_PROMPT"] = "0"
+    merged_env["GCM_INTERACTIVE"] = "never"
+    merged_env["GIT_ASKPASS"] = "echo"
+    merged_env["SSH_ASKPASS"] = "echo"
+
+    kwargs: Dict[str, Any] = {"env": merged_env}
+    if os.name == "nt":
+        kwargs["creationflags"] = _WIN_NO_WINDOW
+        try:
+            si = subprocess.STARTUPINFO()
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            si.wShowWindow = 0  # SW_HIDE
+            kwargs["startupinfo"] = si
+        except Exception:
+            pass
+    return kwargs
+
+
 class WorkspaceService:
     _FOLDER_CACHE: Dict[str, str] = {}
     _FOLDER_CACHE_TIME: float = 0.0
+    _UPDATER_LOCK = threading.Lock()
+    _UPDATER_CANCEL_EVENT = threading.Event()
+    _UPDATER_STATE: Dict[str, Any] = {
+        "running": False,
+        "status": "idle",
+        "only_changed": True,
+        "total": 0,
+        "processed": 0,
+        "pushed": 0,
+        "skipped": 0,
+        "failed": 0,
+        "current_app": None,
+        "started_at": None,
+        "finished_at": None,
+        "items": [],
+        "logs": []
+    }
+
+    @staticmethod
+    def _run_git_silent(
+        args: List[str],
+        cwd: Optional[str] = None,
+        timeout: int = 30,
+        check: bool = False,
+        env: Optional[Dict[str, str]] = None
+    ) -> subprocess.CompletedProcess:
+        """Execute a git command completely silently in the background with CREATE_NO_WINDOW."""
+        kwargs = _silent_subprocess_kwargs(env)
+        return subprocess.run(
+            args,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            check=check,
+            **kwargs
+        )
+
+    @staticmethod
+    def _ensure_safe_gitignore(local_path: str) -> None:
+        """Ensure a .gitignore exists in local_path so git add never hangs on node_modules or .venv."""
+        if not local_path or not os.path.exists(local_path):
+            return
+        gitignore_path = os.path.join(local_path, ".gitignore")
+        essential_ignores = [
+            "node_modules/",
+            ".venv/",
+            "venv/",
+            "__pycache__/",
+            "*.pyc",
+            ".env",
+            ".DS_Store",
+            ".tmp.driveupload/",
+            ".geppy_baselines/",
+            ".geppy_latest/"
+        ]
+        try:
+            if not os.path.exists(gitignore_path):
+                with open(gitignore_path, "w", encoding="utf-8") as f:
+                    f.write("\n".join(essential_ignores) + "\n")
+            else:
+                with open(gitignore_path, "r", encoding="utf-8", errors="ignore") as f:
+                    existing = f.read()
+                missing = [pat for pat in ("node_modules/", ".venv/", "venv/", "__pycache__/") if pat.rstrip("/") not in existing]
+                if missing:
+                    with open(gitignore_path, "a", encoding="utf-8") as f:
+                        f.write("\n" + "\n".join(missing) + "\n")
+        except Exception:
+            pass
+
+        # Also clean up any stale .git/index.lock left behind by a previously killed git process
+        lock_file = os.path.join(local_path, ".git", "index.lock")
+        if os.path.exists(lock_file):
+            try:
+                if time.time() - os.path.getmtime(lock_file) > 15:
+                    os.remove(lock_file)
+            except Exception:
+                pass
 
     @staticmethod
     def get_workspace_dirs() -> List[str]:
@@ -231,8 +339,8 @@ class WorkspaceService:
 
             for entry in entries:
                 folder_path = os.path.join(workspace_dir, entry)
-                # Skip non-directories, virtual environments, node_modules, and git folder
-                if not os.path.isdir(folder_path) or entry in [".venv", "venv", "node_modules", ".git", "__pycache__"]:
+                # Skip non-directories, dot-prefixed hidden/temp folders, virtual environments, node_modules, and git folder
+                if not os.path.isdir(folder_path) or entry.startswith(".") or entry in [".venv", "venv", "node_modules", ".git", "__pycache__"]:
                     continue
 
                 slug = entry.lower().replace("'", "").replace("’", "").replace(" ", "-").replace("_", "-").replace("--", "-").strip("-")
@@ -258,6 +366,8 @@ class WorkspaceService:
                             existing = cand
                             break
 
+                from gitbridge.services.analyzer_service import AppAnalyzerService
+
                 if existing:
                     existing.local_path = folder_path
                     if github_url and not existing.github_url:
@@ -268,15 +378,30 @@ class WorkspaceService:
                         existing.system_instructions = local_ctx["system_instructions"]
                     if local_ctx.get("version") and existing.version == "0.1.0":
                         existing.version = local_ctx["version"]
+                    if not getattr(existing, "category", None) or not AppAnalyzerService.normalize_category(existing.category):
+                        existing.category = AppAnalyzerService.infer_app_category(
+                            name=existing.name,
+                            slug=existing.slug,
+                            description=existing.description or "",
+                            tech_stack=existing.tech_stack or tech_stack,
+                            tags=existing.tags or [],
+                        )
                     linked_apps_count += 1
                 else:
                     desc = local_ctx.get("description")
                     if not desc or WorkspaceService.is_boilerplate_description(desc):
                         desc = f"{name} - Discovered application module in local workspace directory."
+                    inferred_cat = AppAnalyzerService.infer_app_category(
+                        name=name,
+                        slug=slug,
+                        description=desc,
+                        tech_stack=tech_stack,
+                    )
                     app_obj = AppProfileModel(
                         slug=slug,
                         name=name,
                         description=desc,
+                        category=inferred_cat,
                         status=AppStatus.IN_DEVELOPMENT,
                         github_url=github_url,
                         local_path=folder_path,
@@ -318,7 +443,6 @@ class WorkspaceService:
     @staticmethod
     def get_workspace_folder_map() -> Dict[str, str]:
         """Cache folder mapping (normalized slug -> path) in workspace directories to speed up app sync status lookups."""
-        import time
         now = time.time()
         if WorkspaceService._FOLDER_CACHE and (now - WorkspaceService._FOLDER_CACHE_TIME < 10.0):
             return WorkspaceService._FOLDER_CACHE
@@ -400,11 +524,11 @@ class WorkspaceService:
 
         if os.path.exists(git_dir):
             try:
-                log_res = subprocess.run(["git", "log", "-1", "--format=%ct"], cwd=local_path, capture_output=True, text=True, timeout=5)
+                log_res = WorkspaceService._run_git_silent(["git", "log", "-1", "--format=%ct"], cwd=local_path, timeout=5)
                 if log_res.returncode == 0 and log_res.stdout.strip():
                     local_commit_date = int(log_res.stdout.strip())
 
-                status_res = subprocess.run(["git", "status", "--porcelain"], cwd=local_path, capture_output=True, text=True, timeout=5)
+                status_res = WorkspaceService._run_git_silent(["git", "status", "--porcelain"], cwd=local_path, timeout=5)
                 if status_res.stdout.strip():
                     uncommitted_local = True
             except Exception:
@@ -508,21 +632,21 @@ class WorkspaceService:
                 git_dir = os.path.join(target_dir, ".git")
                 if os.path.exists(git_dir):
                     # Try setting origin and pulling files into existing folder
-                    subprocess.run(["git", "remote", "set-url", "origin", clone_url], cwd=target_dir, capture_output=True, env=env)
-                    subprocess.run(["git", "fetch", "origin"], cwd=target_dir, capture_output=True, env=env)
-                    subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=target_dir, capture_output=True, env=env)
-                    subprocess.run(["git", "pull", "origin", "main"], cwd=target_dir, capture_output=True, env=env)
+                    WorkspaceService._run_git_silent(["git", "remote", "set-url", "origin", clone_url], cwd=target_dir, env=env)
+                    WorkspaceService._run_git_silent(["git", "fetch", "origin"], cwd=target_dir, env=env)
+                    WorkspaceService._run_git_silent(["git", "reset", "--hard", "origin/main"], cwd=target_dir, env=env)
+                    WorkspaceService._run_git_silent(["git", "pull", "origin", "main"], cwd=target_dir, env=env)
                     
                     if not WorkspaceService.is_valid_local_app_dir(target_dir):
-                        subprocess.run(["git", "reset", "--hard", "origin/master"], cwd=target_dir, capture_output=True, env=env)
-                        subprocess.run(["git", "pull", "origin", "master"], cwd=target_dir, capture_output=True, env=env)
+                        WorkspaceService._run_git_silent(["git", "reset", "--hard", "origin/master"], cwd=target_dir, env=env)
+                        WorkspaceService._run_git_silent(["git", "pull", "origin", "master"], cwd=target_dir, env=env)
 
             # If folder still doesn't have source files, delete incomplete folder and run full git clone
             if not WorkspaceService.is_valid_local_app_dir(target_dir):
                 if os.path.exists(target_dir):
                     shutil.rmtree(target_dir, ignore_errors=True)
 
-                res = subprocess.run(["git", "clone", clone_url, target_dir], capture_output=True, text=True, timeout=180, env=env)
+                res = WorkspaceService._run_git_silent(["git", "clone", clone_url, target_dir], timeout=180, env=env)
                 if res.returncode != 0:
                     clean_err = res.stderr.replace(token, "*****") if token else res.stderr
                     return {
@@ -572,11 +696,11 @@ class WorkspaceService:
         branch = "main"
         if is_git_repo:
             try:
-                b_res = subprocess.run(["git", "branch", "--show-current"], cwd=local_path, capture_output=True, text=True, timeout=5)
+                b_res = WorkspaceService._run_git_silent(["git", "branch", "--show-current"], cwd=local_path, timeout=5)
                 if b_res.returncode == 0 and b_res.stdout.strip():
                     branch = b_res.stdout.strip()
                 else:
-                    head_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=local_path, capture_output=True, text=True, timeout=5)
+                    head_res = WorkspaceService._run_git_silent(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=local_path, timeout=5)
                     if head_res.returncode == 0 and head_res.stdout.strip():
                         branch = head_res.stdout.strip()
             except Exception:
@@ -586,7 +710,7 @@ class WorkspaceService:
         files = []
         if is_git_repo:
             try:
-                st_res = subprocess.run(["git", "status", "--porcelain=v1", "-u"], cwd=local_path, capture_output=True, text=True, timeout=10)
+                st_res = WorkspaceService._run_git_silent(["git", "status", "--porcelain=v1", "-u"], cwd=local_path, timeout=10)
                 for line in st_res.stdout.splitlines():
                     if not line.strip() or len(line) < 3:
                         continue
@@ -635,7 +759,7 @@ class WorkspaceService:
         last_commit = None
         if is_git_repo:
             try:
-                log_res = subprocess.run(["git", "log", "-1", "--format=%h|%s|%cr|%an"], cwd=local_path, capture_output=True, text=True, timeout=5)
+                log_res = WorkspaceService._run_git_silent(["git", "log", "-1", "--format=%h|%s|%cr|%an"], cwd=local_path, timeout=5)
                 if log_res.returncode == 0 and log_res.stdout.strip():
                     parts = log_res.stdout.strip().split("|")
                     last_commit = {
@@ -655,7 +779,7 @@ class WorkspaceService:
             has_remote = True
         elif is_git_repo:
             try:
-                rem_res = subprocess.run(["git", "remote", "get-url", "origin"], cwd=local_path, capture_output=True, text=True, timeout=5)
+                rem_res = WorkspaceService._run_git_silent(["git", "remote", "get-url", "origin"], cwd=local_path, timeout=5)
                 if rem_res.returncode == 0 and rem_res.stdout.strip():
                     has_remote = True
                     remote_url = rem_res.stdout.strip()
@@ -668,7 +792,7 @@ class WorkspaceService:
         unpushed_count = 0
         if is_git_repo and has_remote:
             try:
-                ahead_res = subprocess.run(["git", "rev-list", "--count", f"origin/{branch}..HEAD"], cwd=local_path, capture_output=True, text=True, timeout=5)
+                ahead_res = WorkspaceService._run_git_silent(["git", "rev-list", "--count", f"origin/{branch}..HEAD"], cwd=local_path, timeout=5)
                 if ahead_res.returncode == 0 and ahead_res.stdout.strip().isdigit():
                     unpushed_count = int(ahead_res.stdout.strip())
             except Exception:
@@ -730,9 +854,10 @@ CRITICAL RULES:
         push_remote: bool = True,
         update_changelog_file: bool = True,
         changelog_entries: Optional[List[Dict[str, Any]]] = None,
-        db: Session = None
+        db: Session = None,
+        skip_if_clean: bool = False
     ) -> Dict[str, Any]:
-        """Stage, commit, and push local application files to GitHub repository. Creates remote repo if not exists."""
+        """Stage, commit, and push local application files to GitHub repository silently (zero cmd popups)."""
         from datetime import datetime
 
         local_path = app_obj.local_path
@@ -746,12 +871,17 @@ CRITICAL RULES:
 
         token = os.getenv("GITHUB_TOKEN", "").strip()
 
+        # Ensure safe .gitignore so node_modules / .venv never get staged
+        WorkspaceService._ensure_safe_gitignore(local_path)
+
         # Step 1: Ensure local directory is initialized as git repository
         git_dir = os.path.join(local_path, ".git")
+        was_new_repo = False
         if not os.path.exists(git_dir):
+            was_new_repo = True
             try:
-                subprocess.run(["git", "init"], cwd=local_path, check=True)
-                subprocess.run(["git", "branch", "-M", "main"], cwd=local_path, check=True)
+                WorkspaceService._run_git_silent(["git", "init"], cwd=local_path, check=True)
+                WorkspaceService._run_git_silent(["git", "branch", "-M", "main"], cwd=local_path, check=True)
             except Exception as e:
                 return {
                     "success": False,
@@ -764,16 +894,40 @@ CRITICAL RULES:
         is_gb = bool(app_obj and getattr(app_obj, "slug", "") in ("geppys-gitbridge", "gitbridge"))
         git_user = "Captain Geppy" if is_gb else "Geppy"
         try:
-            name_check = subprocess.run(["git", "config", "user.name"], cwd=local_path, capture_output=True, text=True)
+            name_check = WorkspaceService._run_git_silent(["git", "config", "user.name"], cwd=local_path)
             if not name_check.stdout.strip() or (not is_gb and name_check.stdout.strip() == "Captain Geppy"):
-                subprocess.run(["git", "config", "user.name", git_user], cwd=local_path)
-                subprocess.run(["git", "config", "user.email", "geppy@geppy.ai"], cwd=local_path)
+                WorkspaceService._run_git_silent(["git", "config", "user.name", git_user], cwd=local_path)
+                WorkspaceService._run_git_silent(["git", "config", "user.email", "geppy@geppy.ai"], cwd=local_path)
         except Exception:
             pass
 
         # Inspect pre-commit modified files so we can include them in CHANGELOG.md if needed
-        pre_status_res = subprocess.run(["git", "status", "--porcelain"], cwd=local_path, capture_output=True, text=True)
-        pre_changed_lines = [l for l in pre_status_res.stdout.splitlines() if l.strip()]
+        pre_status_res = WorkspaceService._run_git_silent(["git", "status", "--porcelain"], cwd=local_path, timeout=10)
+        pre_changed_lines = [
+            l for l in pre_status_res.stdout.splitlines()
+            if l.strip() and not any(ig in l for ig in ("node_modules/", ".venv/", "venv/", "__pycache__/"))
+        ]
+
+        # Fast-path skip when running Fleet Updater if repo is already clean & synced
+        if skip_if_clean and not was_new_repo and not pre_changed_lines and app_obj.github_url and "github.com" in app_obj.github_url:
+            try:
+                branch_chk = WorkspaceService._run_git_silent(["git", "branch", "--show-current"], cwd=local_path, timeout=5).stdout.strip() or "main"
+                ahead_res = WorkspaceService._run_git_silent(["git", "rev-list", "--count", f"origin/{branch_chk}..HEAD"], cwd=local_path, timeout=5)
+                if ahead_res.returncode == 0 and ahead_res.stdout.strip() == "0":
+                    commit_hash = WorkspaceService._run_git_silent(["git", "rev-parse", "--short", "HEAD"], cwd=local_path, timeout=5).stdout.strip() or "head"
+                    return {
+                        "success": True,
+                        "skipped": True,
+                        "saved_locally": True,
+                        "pushed_to_github": False,
+                        "commit_hash": commit_hash,
+                        "branch": branch_chk,
+                        "files_committed": 0,
+                        "github_url": app_obj.github_url,
+                        "message": f"Skipped '{app_obj.name}' — already clean and in sync with GitHub ({commit_hash})."
+                    }
+            except Exception:
+                pass
 
         msg = (commit_message or f"Update {app_obj.name}").strip()
         first_line_title = msg.splitlines()[0].strip() if msg else f"Update {app_obj.name}"
@@ -803,7 +957,6 @@ CRITICAL RULES:
                             seen_bullets.add(line_str)
                             bullet_items.append(line_str)
 
-                # Also extract any bullet lines from commit_message body if changelog_entries was empty
                 if not bullet_items and "\n" in msg:
                     for raw_line in msg.splitlines()[1:]:
                         stripped = raw_line.strip()
@@ -812,7 +965,6 @@ CRITICAL RULES:
                                 seen_bullets.add(stripped)
                                 bullet_items.append(stripped)
 
-                # Fallback to listing modified files
                 if not bullet_items and pre_changed_lines:
                     for cl in pre_changed_lines[:15]:
                         fp_part = cl[3:].strip().strip('"').replace("\\", "/")
@@ -842,9 +994,15 @@ CRITICAL RULES:
             except Exception as e:
                 print(f"[WorkspaceService] Could not update CHANGELOG.md: {e}")
 
-        # Step 3: Git add all files
+        # Step 3: Git add all source files (excluding heavy dependency folders)
         try:
-            subprocess.run(["git", "add", "."], cwd=local_path, check=True)
+            add_res = WorkspaceService._run_git_silent(
+                ["git", "add", "--all", "--", ".", ":!node_modules", ":!.venv", ":!venv", ":!__pycache__", ":!.next", ":!.tmp.driveupload"],
+                cwd=local_path,
+                timeout=25
+            )
+            if add_res.returncode != 0:
+                WorkspaceService._run_git_silent(["git", "add", "."], cwd=local_path, timeout=25, check=True)
         except Exception as e:
             return {
                 "success": False,
@@ -854,7 +1012,7 @@ CRITICAL RULES:
             }
 
         # Count changed files before commit
-        status_res = subprocess.run(["git", "status", "--porcelain"], cwd=local_path, capture_output=True, text=True)
+        status_res = WorkspaceService._run_git_silent(["git", "status", "--porcelain"], cwd=local_path, timeout=10)
         changed_lines = [l for l in status_res.stdout.splitlines() if l.strip()]
         files_committed_count = len(changed_lines)
 
@@ -862,7 +1020,7 @@ CRITICAL RULES:
         commit_hash = ""
         if changed_lines:
             try:
-                subprocess.run(["git", "commit", "-m", msg], cwd=local_path, check=True)
+                WorkspaceService._run_git_silent(["git", "commit", "-m", msg], cwd=local_path, timeout=20, check=True)
             except Exception as e:
                 return {
                     "success": False,
@@ -873,8 +1031,8 @@ CRITICAL RULES:
 
         # Retrieve current commit hash & branch
         try:
-            commit_hash = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=local_path, capture_output=True, text=True).stdout.strip()
-            branch_name = subprocess.run(["git", "branch", "--show-current"], cwd=local_path, capture_output=True, text=True).stdout.strip() or "main"
+            commit_hash = WorkspaceService._run_git_silent(["git", "rev-parse", "--short", "HEAD"], cwd=local_path, timeout=5).stdout.strip()
+            branch_name = WorkspaceService._run_git_silent(["git", "branch", "--show-current"], cwd=local_path, timeout=5).stdout.strip() or "main"
         except Exception:
             commit_hash = "head"
             branch_name = "main"
@@ -936,11 +1094,11 @@ CRITICAL RULES:
 
         # Ensure remote origin is set
         try:
-            remotes = subprocess.run(["git", "remote"], cwd=local_path, capture_output=True, text=True).stdout.strip().splitlines()
+            remotes = WorkspaceService._run_git_silent(["git", "remote"], cwd=local_path, timeout=5).stdout.strip().splitlines()
             if "origin" in remotes:
-                subprocess.run(["git", "remote", "set-url", "origin", authenticated_url], cwd=local_path, check=True)
+                WorkspaceService._run_git_silent(["git", "remote", "set-url", "origin", authenticated_url], cwd=local_path, timeout=5, check=True)
             else:
-                subprocess.run(["git", "remote", "add", "origin", authenticated_url], cwd=local_path, check=True)
+                WorkspaceService._run_git_silent(["git", "remote", "add", "origin", authenticated_url], cwd=local_path, timeout=5, check=True)
         except Exception as e:
             return {
                 "success": True,
@@ -956,12 +1114,11 @@ CRITICAL RULES:
                 "message": f"Saved locally (commit {commit_hash}). Git remote setup failed: {e}"
             }
 
-        # Step 6: Push to remote
+        # Step 6: Push to remote silently
         try:
-            push_res = subprocess.run(["git", "push", "-u", "origin", branch_name], cwd=local_path, capture_output=True, text=True, timeout=60)
+            push_res = WorkspaceService._run_git_silent(["git", "push", "-u", "origin", branch_name], cwd=local_path, timeout=45)
             if push_res.returncode != 0:
-                # Fallback push to origin HEAD
-                push_res = subprocess.run(["git", "push", "origin", "HEAD"], cwd=local_path, capture_output=True, text=True, timeout=60)
+                push_res = WorkspaceService._run_git_silent(["git", "push", "origin", "HEAD"], cwd=local_path, timeout=45)
                 if push_res.returncode != 0:
                     clean_err = push_res.stderr.strip()
                     if token:
@@ -979,6 +1136,13 @@ CRITICAL RULES:
                         "warning": f"Changes saved on computer (commit {commit_hash}), but GitHub push failed: {clean_err}",
                         "message": f"Saved locally on PC (commit {commit_hash}). GitHub push error: {clean_err}"
                     }
+
+            if db:
+                try:
+                    app_obj.last_commit_at = datetime.utcnow()
+                    db.commit()
+                except Exception:
+                    pass
 
             return {
                 "success": True,
@@ -1009,6 +1173,175 @@ CRITICAL RULES:
                 "warning": f"Changes saved locally ({commit_hash}), but push encountered: {err_str}",
                 "message": f"Saved locally (commit {commit_hash}). Push exception: {err_str}"
             }
+
+    @classmethod
+    def get_github_updater_status(cls) -> Dict[str, Any]:
+        """Return live telemetry of the contained GitHub Fleet Updater."""
+        with cls._UPDATER_LOCK:
+            st = dict(cls._UPDATER_STATE)
+            if st.get("started_at"):
+                end_t = st.get("finished_at") or time.time()
+                st["elapsed_seconds"] = round(max(0.0, end_t - st["started_at"]), 1)
+            else:
+                st["elapsed_seconds"] = 0.0
+            return st
+
+    @classmethod
+    def cancel_github_updater(cls) -> Dict[str, Any]:
+        """Signal the background GitHub Fleet Updater to stop after the current git operation."""
+        cls._UPDATER_CANCEL_EVENT.set()
+        with cls._UPDATER_LOCK:
+            if cls._UPDATER_STATE.get("running"):
+                cls._UPDATER_STATE["status"] = "cancelling"
+                cls._UPDATER_STATE["logs"].insert(0, "🛑 Cancellation requested — stopping after current operation...")
+        return cls.get_github_updater_status()
+
+    @classmethod
+    def start_github_updater(
+        cls,
+        only_changed: bool = True,
+        slugs: Optional[List[str]] = None,
+        commit_message: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Start the contained background GitHub Fleet Updater (zero cmd windows, live progress & cancelable)."""
+        with cls._UPDATER_LOCK:
+            if cls._UPDATER_STATE.get("running"):
+                return cls.get_github_updater_status()
+
+            cls._UPDATER_CANCEL_EVENT.clear()
+            cls._UPDATER_STATE = {
+                "running": True,
+                "status": "running",
+                "only_changed": bool(only_changed),
+                "total": 0,
+                "processed": 0,
+                "pushed": 0,
+                "skipped": 0,
+                "failed": 0,
+                "current_app": {"slug": "", "name": "Scanning workspace...", "step": "Initializing"},
+                "started_at": time.time(),
+                "finished_at": None,
+                "items": [],
+                "logs": ["🚀 Started silent GitHub Fleet Updater (CREATE_NO_WINDOW active — zero console popups)."]
+            }
+
+        def _worker():
+            from gitbridge.db.database import SessionLocal
+            db = SessionLocal()
+            try:
+                query = db.query(AppProfileModel).order_by(AppProfileModel.name.asc())
+                all_apps = query.all()
+                target_apps = []
+                for a in all_apps:
+                    if slugs and a.slug not in slugs:
+                        continue
+                    if a.local_path and os.path.exists(a.local_path):
+                        target_apps.append(a)
+
+                items_init = [
+                    {
+                        "slug": a.slug,
+                        "name": a.name,
+                        "local_path": a.local_path,
+                        "status": "pending",
+                        "message": "Queued",
+                        "commit_hash": "",
+                        "github_url": a.github_url or "",
+                        "files_committed": 0,
+                        "duration_ms": 0
+                    }
+                    for a in target_apps
+                ]
+                with cls._UPDATER_LOCK:
+                    cls._UPDATER_STATE["total"] = len(target_apps)
+                    cls._UPDATER_STATE["items"] = items_init
+
+                for idx, app_obj in enumerate(target_apps):
+                    if cls._UPDATER_CANCEL_EVENT.is_set():
+                        with cls._UPDATER_LOCK:
+                            for rem in cls._UPDATER_STATE["items"][idx:]:
+                                if rem["status"] == "pending":
+                                    rem["status"] = "cancelled"
+                                    rem["message"] = "Cancelled by user"
+                            cls._UPDATER_STATE["running"] = False
+                            cls._UPDATER_STATE["status"] = "cancelled"
+                            cls._UPDATER_STATE["current_app"] = None
+                            cls._UPDATER_STATE["finished_at"] = time.time()
+                            cls._UPDATER_STATE["logs"].insert(0, "🛑 GitHub Fleet Update cancelled by user.")
+                        return
+
+                    t0 = time.time()
+                    with cls._UPDATER_LOCK:
+                        cls._UPDATER_STATE["current_app"] = {
+                            "slug": app_obj.slug,
+                            "name": app_obj.name,
+                            "step": "Inspecting & syncing with GitHub..."
+                        }
+                        cls._UPDATER_STATE["items"][idx]["status"] = "running"
+                        cls._UPDATER_STATE["items"][idx]["message"] = "Syncing..."
+
+                    res = cls.push_app_to_github(
+                        app_obj,
+                        commit_message=commit_message,
+                        push_remote=True,
+                        db=db,
+                        skip_if_clean=only_changed
+                    )
+                    dur_ms = int((time.time() - t0) * 1000)
+
+                    with cls._UPDATER_LOCK:
+                        cls._UPDATER_STATE["processed"] = idx + 1
+                        item_entry = cls._UPDATER_STATE["items"][idx]
+                        item_entry["duration_ms"] = dur_ms
+                        item_entry["commit_hash"] = res.get("commit_hash") or ""
+                        item_entry["github_url"] = res.get("github_url") or app_obj.github_url or ""
+                        item_entry["files_committed"] = res.get("files_committed") or 0
+                        item_entry["message"] = res.get("warning") or res.get("message") or ""
+
+                        if res.get("skipped"):
+                            cls._UPDATER_STATE["skipped"] += 1
+                            item_entry["status"] = "skipped"
+                            cls._UPDATER_STATE["logs"].insert(
+                                0, f"⏭️ [{idx + 1}/{len(target_apps)}] {app_obj.name}: Already clean & in sync ({dur_ms}ms)"
+                            )
+                        elif res.get("pushed_to_github"):
+                            cls._UPDATER_STATE["pushed"] += 1
+                            item_entry["status"] = "pushed"
+                            cls._UPDATER_STATE["logs"].insert(
+                                0, f"✅ [{idx + 1}/{len(target_apps)}] {app_obj.name}: Pushed commit {item_entry['commit_hash']} ({item_entry['files_committed']} files, {dur_ms}ms)"
+                            )
+                        else:
+                            cls._UPDATER_STATE["failed"] += 1
+                            item_entry["status"] = "failed"
+                            cls._UPDATER_STATE["logs"].insert(
+                                0, f"⚠️ [{idx + 1}/{len(target_apps)}] {app_obj.name}: {item_entry['message']}"
+                            )
+                        cls._UPDATER_STATE["logs"] = cls._UPDATER_STATE["logs"][:120]
+
+                with cls._UPDATER_LOCK:
+                    cls._UPDATER_STATE["running"] = False
+                    cls._UPDATER_STATE["status"] = "completed"
+                    cls._UPDATER_STATE["current_app"] = None
+                    cls._UPDATER_STATE["finished_at"] = time.time()
+                    p = cls._UPDATER_STATE["pushed"]
+                    s = cls._UPDATER_STATE["skipped"]
+                    f = cls._UPDATER_STATE["failed"]
+                    cls._UPDATER_STATE["logs"].insert(
+                        0, f"🏁 Fleet Update Complete! Pushed: {p} • Skipped (Up-to-Date): {s} • Warnings/Failed: {f}"
+                    )
+            except Exception as exc:
+                with cls._UPDATER_LOCK:
+                    cls._UPDATER_STATE["running"] = False
+                    cls._UPDATER_STATE["status"] = "error"
+                    cls._UPDATER_STATE["current_app"] = None
+                    cls._UPDATER_STATE["finished_at"] = time.time()
+                    cls._UPDATER_STATE["logs"].insert(0, f"❌ Updater error: {exc}")
+            finally:
+                db.close()
+
+        t = threading.Thread(target=_worker, daemon=True, name="GitHubFleetUpdater")
+        t.start()
+        return cls.get_github_updater_status()
 
     @staticmethod
     def inspect_deep_file_structure(folder_path: str) -> Dict[str, Any]:

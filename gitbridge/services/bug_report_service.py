@@ -395,15 +395,12 @@ class BugReportService:
 
         # 3. If 'pull' or 'sync_all', pull latest from GitHub if remote exists
         if mode in ("pull", "sync_all") and app_obj.local_path and os.path.exists(app_obj.local_path):
-            import subprocess
             git_dir = os.path.join(app_obj.local_path, ".git")
             if os.path.exists(git_dir):
                 try:
-                    pull_res = subprocess.run(
+                    pull_res = WorkspaceService._run_git_silent(
                         ["git", "pull", "--no-rebase"],
                         cwd=app_obj.local_path,
-                        capture_output=True,
-                        text=True,
                         timeout=25
                     )
                     details["git_pull"] = {
